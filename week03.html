@@ -430,18 +430,11 @@
     simply buys from its cheapest <em>open</em> plant — <b>toggle which locations to build</b> and
     watch the total cost.
   </p>
-  <div class="pick-cards" id="pw-cards"></div>
-  <div class="tbl-wrap"><table class="costs" id="pw-table"></table></div>
-  <div class="controls">
-    <span class="readout">construction: <b id="pw-fix">$0</b></span>
-    <span class="readout">transport: <b id="pw-tr">—</b></span>
-    <span class="readout">total: <b id="pw-total">—</b></span>
-  </div>
-  <p class="status info" id="pw-status">Build at least one plant.</p>
   <div class="mstage" id="pw-form">
-    <p class="mhead"><b>Formulation check — the ✓ waits for it.</b> Toggling above stays free — but a
-      cheap total is only worth claiming once the slide-27 model behind it is pinned down. Two questions.
-      (Questions written for this demo; slide 27 asks for the formulation.)</p>
+    <p class="mhead"><b>Modeling gate — build the model, then hunt.</b> Slide 27 asks for a formulation,
+      not for a lucky toggle. Pin down the two rows that turn this cost table into a location model and
+      the build cards unlock. The table and the demands stay readable while you work — both answers are
+      in there. (Questions written for this demo; slide 27 asks for the formulation.)</p>
     <div class="mq">
       <p class="qtext"><b>Q1.</b> City 1 needs 45 million kWh. Which row says so?
         (x<sub>ij</sub> = power shipped from location i to city j.)</p>
@@ -464,8 +457,16 @@
       </div>
       <p class="status info" id="pw-f1"></p>
     </div>
-    <p class="status info" id="pw-form-status"></p>
+    <p class="status info" id="pw-form-status">0 / 2 rows modeled — the plant hunt below is locked.</p>
   </div>
+  <div class="pick-cards" id="pw-cards"></div>
+  <div class="tbl-wrap"><table class="costs" id="pw-table"></table></div>
+  <div class="controls">
+    <span class="readout">construction: <b id="pw-fix">$0</b></span>
+    <span class="readout">transport: <b id="pw-tr">—</b></span>
+    <span class="readout">total: <b id="pw-total">—</b></span>
+  </div>
+  <p class="status info" id="pw-status">Build at least one plant.</p>
   <div class="note">
     On slide 27 this becomes the fixed-charge trick again: supply constraints x<sub>i1</sub>+…+x<sub>i4</sub> ≤ M·y<sub>i</sub>
     switch a site's capacity on only when its construction cost is paid. Highlighted cells show
@@ -1332,7 +1333,10 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
   const FIX = [20000000, 35000000, 15000000];
   const DEM = [45, 20, 30, 30];
   const open = [false, false, false];
-  const pwSolved = [false, false]; // the required formulation check below
+  const pwSolved = [false, false]; // the modeling gate below
+  // WHY: this widget has no CLASSROOM.register leaderboard, so the hunt is not a
+  // live competition — the gate may hold it shut until the model is built.
+  let gateOpen = false;
 
   const host = el('pw-cards');
   FIX.forEach((fc, i) => {
@@ -1341,7 +1345,13 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     b.innerHTML = '<span class="t">Location ' + (i + 1) + '</span>' +
       '<span class="d">construction ' + money(fc) + '</span>' +
       '<span class="st">NOT BUILT</span>';
-    b.addEventListener('click', () => { open[i] = !open[i]; update(); });
+    b.addEventListener('click', () => {
+      // WHY: .gate-locked already blocks pointer events, so this guard cannot
+      // normally fire — it stays as defence in case the lock becomes visual-only.
+      if (!gateOpen) return;
+      open[i] = !open[i];
+      update();
+    });
     host.appendChild(b);
   });
 
@@ -1369,6 +1379,15 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     const fix = FIX.reduce((s, v, i) => s + (open[i] ? v : 0), 0);
     el('pw-fix').textContent = money(fix);
     const st = el('pw-status');
+    if (!gateOpen) {
+      // Locked: the table above stays readable (both gate answers live in it),
+      // but no plan can be claimed before the model that scores it exists.
+      el('pw-tr').textContent = '—';
+      el('pw-total').textContent = '—';
+      st.className = 'status info';
+      st.textContent = 'Locked — model the two rows above and the build cards open.';
+      return;
+    }
     if (!any) {
       el('pw-tr').textContent = '—';
       el('pw-total').textContent = '—';
@@ -1379,16 +1398,15 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     const tr = DEM.reduce((s, d, j) => s + d * TC[pick[j]][j], 0);
     el('pw-tr').textContent = money(tr);
     el('pw-total').textContent = money(fix + tr);
-    // the success state stays "info" until the required formulation check passes
-    const formDone = pwSolved[0] && pwSolved[1];
-    st.className = formDone ? 'status ok' : 'status info';
+    st.className = 'status ok';
     st.textContent = '✓ Demand met — total cost ' + money(fix + tr) +
-      ' (construction ' + money(fix) + ' + transport ' + money(tr) + '). Fewer plants? Different site?' +
-      (formDone ? '' : ' (Confirm the formulation below before you call this an answer.)');
+      ' (construction ' + money(fix) + ' + transport ' + money(tr) + '). Fewer plants? Different site?';
   }
 
-  // --- required formulation stage (written for this demo; slide 27 asks for
-  // the model). Every number below is computed from DEM / FIX above. --------
+  // --- modeling gate (written for this demo; slide 27 asks for the model).
+  // Every number below is computed from DEM / FIX above. No feedback here may
+  // name which build wins: the gate now runs BEFORE the hunt. -------------
+  host.classList.add('gate-locked');
   const totDem = DEM.reduce((s, d) => s + d, 0); // 125
   const demStr = DEM.join(' + ');                // '45 + 20 + 30 + 30'
   const PWQ = [
@@ -1401,13 +1419,14 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
         3: '✗ City 1 needs its ' + DEM[0] + ' whether or not Location 1 is built — demand carries no y. The y’s belong on the supply rows, switching a plant’s output on and off.',
       },
     },
-    { // Q2: tightest valid M in the supply switch
+    { // Q2: tightest valid M in the supply switch. NOTE: no text here may reveal
+      // which build is optimal — the hunt happens after this gate.
       correct: 2,
-      ok: '✓ M = ' + totDem + ' = ' + demStr + ', the total demand — the most any single plant could ever ship, and the one-plant builds above really do ship all ' + totDem + '. No smaller M is valid, and no larger M is tighter.',
+      ok: '✓ M = ' + totDem + ' = ' + demStr + ', the total demand — the most any single plant could ever be asked to ship, because one open plant may have to serve all four cities by itself. No smaller M is valid, and no larger M is tighter.',
       hints: {
         0: '✗ M = 30 cannot even carry City 1 alone (demand ' + DEM[0] + '), let alone a plant serving everyone. An open plant may end up shipping the full ' + totDem + '.',
-        1: '✗ M = ' + DEM[0] + ' (the biggest single demand) wrongly cuts the page’s own best answer: build only Location 3 and it must ship ' + demStr + ' = ' + totDem + ' — but the row would cap it at ' + DEM[0] + '·1.',
-        3: '✗ Valid — nothing is cut — but hopelessly loose: in the LP relaxation y₃ only needs to reach ' + (totDem / 1e6) + ', paying about ' + money(FIX[2] * totDem / 1e6) + ' of the ' + money(FIX[2]) + ' construction bill. Tight M = total demand keeps the bound meaningful.',
+        1: '✗ M = ' + DEM[0] + ' is the biggest single demand, not the biggest possible load: one open plant may have to serve all four cities, ' + demStr + ' = ' + totDem + '. M = ' + DEM[0] + ' would forbid that outright — and a valid M may never cut off a plan the cities could legitimately need.',
+        3: '✗ Valid — nothing is cut — but hopelessly loose: in the LP relaxation yᵢ only has to creep to ' + (totDem / 1e6) + ' to let a plant ship everything, so the model buys a plant’s full supply for ' + (100 * totDem / 1e6) + '% of its construction cost. Tight M = total demand keeps the bound meaningful.',
       },
     },
   ];
@@ -1421,13 +1440,19 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
         pwSolved[q] = true;
         fb.className = 'status ok';
         fb.textContent = PWQ[q].ok;
+        const fs = el('pw-form-status');
         if (pwSolved[0] && pwSolved[1]) {
-          const fs = el('pw-form-status');
-          fs.className = 'status ok';
-          fs.textContent = '✓ Formulation pinned down — ' + DEM.length + ' demand rows, ' + FIX.length + ' supply switches, binary y’s. That is the whole slide-27 model.';
+          gateOpen = true;
+          host.classList.remove('gate-locked');
           el('pw-form').classList.add('done');
+          fs.className = 'status ok';
+          fs.textContent = '✓ Formulation pinned down — ' + DEM.length + ' demand rows, ' + FIX.length + ' supply switches, binary y’s. That is the whole slide-27 model. The build cards are open — now go find the cheapest plan it would pick.';
+        } else {
+          fs.className = 'status info';
+          fs.textContent = pwSolved.filter(Boolean).length + ' / ' + pwSolved.length +
+            ' rows modeled — the plant hunt below is locked.';
         }
-        update(); // refresh the gated success status above
+        update(); // repaint the hunt in its new locked/unlocked state
       } else {
         fb.className = 'status bad';
         fb.textContent = PWQ[q].hints[o];

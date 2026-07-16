@@ -169,8 +169,9 @@
     year i; arc (i,j) = buy at year i, keep until year j; its cost is maintenance + $12k purchase −
     trade-in. <b>Click nodes left to right</b> to build a 5-year replacement plan from node 1 to
     node 6 — the cheapest plan is the shortest path. All costs in $1,000s.
-    <b>Step 1:</b> the arc cost depends only on the span j − i, so there are just five distinct
-    costs — derive them below and check them; node-clicking unlocks once they are right (or revealed).
+    <b>Optional side quest — nothing is locked, the game stays open:</b> the arc cost depends only on
+    the span j − i, so there are just five distinct costs. Derive them below and check them — those
+    five numbers <em>are</em> the model behind every arc in the picture.
   </p>
   <div class="costgrid">
     <label>c(1 yr) = <input type="number" id="car-i1" step="any"></label>
@@ -771,7 +772,6 @@ function drawCarNet(canvas, t, opts = {}) {
   VIZ.hint(canvas, '🖱 click the next node of your plan · click the last node to undo');
   const OPT_ARCS = [[1, 3], [3, 5], [5, 6], [3, 4], [4, 6], [1, 2], [2, 4]]; // union of the three optimal plans
   let path = [1], best = null, revealed = false, attempts = 0, nodes = [];
-  let costsKnown = false; // step-1 gate: node-clicking unlocks once the five span costs check out
 
   const complete = () => path[path.length - 1] === 6;
   const inPath = (i, j) => path.some((n, k) => k > 0 && path[k - 1] === i && n === j);
@@ -783,7 +783,9 @@ function drawCarNet(canvas, t, opts = {}) {
       CAR_TRADE[span] + ' (trade-in) = ' + CAR_SPAN[span];
   }
 
-  /* ---- step-1 gate: derive the five span costs (slide 13), shelves-style ---- */
+  /* ---- optional companion: derive the five span costs (slide 13).
+     WHY no lock: this widget feeds the CLASSROOM leaderboard, and a competition
+     game is never blocked by a modelling step — the step only teaches. ---- */
   const GATE_IDS = ['car-i1', 'car-i2', 'car-i3', 'car-i4', 'car-i5'];
   const maintSum = span => CAR_MAINT.slice(0, span).reduce((s, v) => s + v, 0);
 
@@ -811,13 +813,12 @@ function drawCarNet(canvas, t, opts = {}) {
     }
     if (!anyFilled) {
       st.className = 'status info';
-      st.textContent = 'Fill in the five costs first — c = (maintenance for every year kept) + 12 (new car) − (trade-in at the selling age), all in $1,000s.';
+      st.textContent = 'Nothing to check yet — c = (maintenance for every year kept) + 12 (new car) − (trade-in at the selling age), all in $1,000s.';
       return;
     }
     if (allOk) {
-      costsKnown = true;
       st.className = 'status ok';
-      st.textContent = '✓ All five costs correct — the network is unlocked. Click node 2, 3, 4, 5 or 6: the first arc decides how long you keep the first car.';
+      st.textContent = '✓ All five costs correct — that is exactly the rule slide 13 uses to label every arc. Now go hunt for the cheapest plan.';
     } else {
       st.className = 'status bad';
       st.textContent = '✗ Not yet. ' + (hints.length ? hints.slice(0, 2).join(' ') : 'Fill in every box.');
@@ -826,9 +827,8 @@ function drawCarNet(canvas, t, opts = {}) {
 
   function gateShow() {
     for (let span = 1; span <= 5; span++) el(GATE_IDS[span - 1]).value = CAR_SPAN[span];
-    costsKnown = true;
     el('car-status').className = 'status info';
-    el('car-status').textContent = 'Costs revealed (slide 13). Now click node 2, 3, 4, 5 or 6 — the first arc decides how long you keep the first car.';
+    el('car-status').textContent = 'Costs revealed (slide 13) — these are the numbers already labelling the arcs. Click node 2, 3, 4, 5 or 6: the first arc decides how long you keep the first car.';
   }
 
   // check MCQ (check question written for this demo): why c(2,4) = c(1,3)?
@@ -882,11 +882,6 @@ function drawCarNet(canvas, t, opts = {}) {
     const n = hitNode(nodes, px, py, 16);
     if (!n) return;
     const st = el('car-status');
-    if (!costsKnown) {
-      st.className = 'status info';
-      st.textContent = 'Compute (or reveal) the five costs first — then build the plan.';
-      return;
-    }
     const last = path[path.length - 1];
     if (n.id === last && path.length > 1) {
       path.pop();
@@ -943,7 +938,7 @@ function drawCarNet(canvas, t, opts = {}) {
   el('car-check').addEventListener('click', gateCheck);
   el('car-show').addEventListener('click', gateShow);
 
-  el('car-status').textContent = 'Step 1: derive the five arc costs above, then check them — node-clicking unlocks after that.';
+  el('car-status').textContent = 'Click the year you would first replace the car — or take the side quest above and derive the five arc costs the picture is built from.';
   window.__carScore = () => complete() ? carCost(path) : null;
   VIZ.register(canvas, draw);
 })();

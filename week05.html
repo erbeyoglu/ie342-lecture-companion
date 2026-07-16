@@ -100,6 +100,9 @@
     margin: 14px 0 4px;
   }
   .modelbox .mb-title { margin: 0 0 2px; }
+  /* Answer lock (WIDGET 2): a spoiler whose summary refuses to open until the
+     model check is cleared. Mirrors button.locked in assets/style.css. */
+  details.spoiler.locked summary { color: var(--muted); cursor: not-allowed; }
   .pq button { text-align: left; }
   .pq { border-top: 1px dashed var(--grid); padding-top: 10px; margin-top: 12px; }
   .pq:first-of-type { border-top: none; margin-top: 0; }
@@ -209,8 +212,9 @@
     <button id="bp-reset">Reset</button>
   </div>
   <p class="status info" id="bp-status">231 seconds of commercials in total — how few blocks can hold them?</p>
-  <p class="mb-title"><b>Model check — required:</b> a finished packing earns its ✓ only after both
-    questions below are answered. Packing stays free — play on while you think.
+  <p class="mb-title"><b>Model check — required:</b> the answer spoiler at the foot of this widget
+    stays locked until both questions below are answered correctly. Hunting for the minimum stays
+    free — pack away while you think.
     (Question 2 written for this demo; question 1 is slide 6's own.)</p>
   <div class="controls" style="margin-top:14px">
     <span style="align-self:center">Slide 6 asks: what is <em>missing</em> from the first formulation (min Σy<sub>j</sub>, capacity rows only)?</span>
@@ -236,7 +240,7 @@
   <div class="note">
     The capacity row 15x<sub>1j</sub>+16x<sub>2j</sub>+…+50x<sub>8j</sub> ≤ 60y<sub>j</sub> already links
     assignments to block usage — a block that receives anything must be opened.
-    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+    <details class="spoiler locked" id="bp-spoiler"><summary id="bp-spoiler-sum" aria-disabled="true">locked — answer the two model questions first (0 / 2 correct)</summary>
       Minimum = <b>5 blocks</b>, e.g. {50}, {40, 16}, {35, 25}, {30, 20}, {15}. Why not 4?
       Total airtime is 231 s and 4 blocks give 240 s — only 9 s of slack. But the 50-s spot fits
       with nothing else (smallest partner is 15 s → 65 s &gt; 60), so its block alone wastes 10 s.
@@ -654,12 +658,11 @@ const fmt = (v, d = 2) => Number(v).toFixed(d);
       st.className = 'status info';
       st.textContent = un + ' commercial' + (un > 1 ? 's' : '') + ' still unassigned' +
         (selected >= 0 ? ' — now click a block for #' + (selected + 1) + '.' : ' — click one, then click a block.');
-    } else if (bpGate1 && bpGate2) {
+    } else {
+      // The hunt is never gated: a legal full packing earns its ✓ immediately.
+      // Only the answer spoiler waits on the model check (see bpLockRender).
       st.className = 'status ok';
       st.textContent = '✓ All 8 commercials scheduled in ' + usedBlocks + ' blocks. Can the class do it with fewer?';
-    } else {
-      st.className = 'status info';
-      st.textContent = 'All 8 commercials placed in ' + usedBlocks + ' blocks — model check pending: answer the two questions below to confirm the count.';
     }
   }
 
@@ -678,9 +681,48 @@ const fmt = (v, d = 2) => Number(v).toFixed(d);
   });
   el('bp-reset').addEventListener('click', () => { assign = Array(ADS.length).fill(-1); selected = -1; render(); });
 
-  // Model-check gate: the ✓ on a finished packing waits until BOTH the
-  // slide-6 question below and the broken-model prediction are answered.
+  // Model-check gate: the packing hunt stays free (the slide arc is "find the
+  // minimum BY HAND before slide 6's IP appears"), but the answer spoiler —
+  // the only place this widget states "Minimum = 5 blocks" — stays shut until
+  // BOTH the slide-6 question and the broken-model prediction are answered.
+  // Same shape as week02's relax reveals and week13's oilgame answer key:
+  // hunt free, reveal locked.
   let bpGate1 = false, bpGate2 = false;
+
+  const bpSpoiler = el('bp-spoiler');
+  const bpSpoilerSum = el('bp-spoiler-sum');
+  // WHY: on unlock the summary returns to the file-wide spoiler convention,
+  // so the wording matches every other spoiler on the page.
+  const BP_SUMMARY_UNLOCKED = 'spoiler — open after the class has answered';
+  const bpUnlocked = () => bpGate1 && bpGate2;
+
+  function bpLockRender() {
+    if (bpUnlocked()) {
+      bpSpoiler.classList.remove('locked');
+      bpSpoilerSum.removeAttribute('aria-disabled');
+      bpSpoilerSum.textContent = BP_SUMMARY_UNLOCKED;
+      return;
+    }
+    bpSpoiler.open = false;
+    bpSpoiler.classList.add('locked');
+    bpSpoilerSum.setAttribute('aria-disabled', 'true');
+    bpSpoilerSum.textContent = 'locked — answer the two model questions first (' +
+      ((bpGate1 ? 1 : 0) + (bpGate2 ? 1 : 0)) + ' / 2 correct)';
+  }
+
+  // Three layers, because a <details> has three ways in. Mouse and keyboard are
+  // cancelled BEFORE the browser toggles (no flash of the answer), and the
+  // 'toggle' listener is the backstop that shuts anything else — find-in-page
+  // auto-expand, or an `open` attribute set from outside this widget.
+  bpSpoilerSum.addEventListener('click', ev => { if (!bpUnlocked()) ev.preventDefault(); });
+  bpSpoilerSum.addEventListener('keydown', ev => {
+    if (bpUnlocked()) return;
+    if (ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') ev.preventDefault();
+  });
+  bpSpoiler.addEventListener('toggle', () => {
+    if (bpSpoiler.open && !bpUnlocked()) bpLockRender();
+  });
+  bpLockRender();
 
   const quiz = {
     'bp-qa': { ok: false, msg: '✗ Symmetry breaking (y₁ ≥ y₂ ≥ …) only speeds the solver up — the model is already correct or broken without it.' },
@@ -693,7 +735,7 @@ const fmt = (v, d = 2) => Number(v).toFixed(d);
     if (q.ok) bpGate1 = true;
     el('bp-qstatus').className = 'status ' + (q.ok ? 'ok' : 'bad');
     el('bp-qstatus').textContent = q.msg;
-    render();
+    bpLockRender();
   }));
 
   // Gate question 2 (written for this demo): predict the broken model.
@@ -710,7 +752,7 @@ const fmt = (v, d = 2) => Number(v).toFixed(d);
     const st = el('bp-q2status');
     st.className = 'status ' + (o === 1 ? 'ok' : 'bad');
     st.textContent = Q2_FB[o];
-    render();
+    bpLockRender();
   }));
   render();
 })();
