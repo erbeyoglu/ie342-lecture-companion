@@ -140,6 +140,14 @@ window.CLASSROOM = (() => {
     if (elb) elb.textContent = best.toFixed(w.digits);
   }
 
+  // The instructor "Start class session" UI (session code + QR) must appear
+  // ONLY for the instructor, never on the student-facing public page. The
+  // instructor always reaches a widget through the local deck (?embed=<id>)
+  // or can open a public page with ?host=1 to project it directly; students
+  // either scan the QR (?class=CODE → submit UI) or just browse the plain
+  // page (no classroom UI at all).
+  const isHost = params.get('embed') !== null || params.get('host') !== null;
+
   function register(sectionId, w) {
     // w: {id, label, dir: 'min'|'max', digits, get}
     w.id = w.id || sectionId;
@@ -148,6 +156,9 @@ window.CLASSROOM = (() => {
     const section = document.getElementById(sectionId);
     if (!section) return;
     const enabled = DB !== '';
+    // Show a classroom panel only to a joined student or the instructor host.
+    // A plain public visitor (no join code, not the host) sees nothing.
+    if (!joinCode && !isHost) return;
     if (!enabled && !joinCode) return; // classroom mode fully off: no UI at all
 
     const box = document.createElement('div');
