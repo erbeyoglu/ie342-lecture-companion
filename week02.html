@@ -50,6 +50,12 @@
   .qopts button.wrong { border-color: var(--critical); color: var(--critical); }
   .qstat { margin: 6px 0 0; font-size: 0.92rem; min-height: 1.4em; }
 
+  /* modeling add-ons: reveal gate + optional side quizzes (widgets 1, 2, 5) */
+  .qhead { font-weight: 600; margin: 18px 0 0; }
+  .fine { font-weight: 400; font-size: 0.85rem; color: var(--muted); }
+  .qopts.wide { flex-direction: column; align-items: stretch; }
+  .qopts.wide button { text-align: left; line-height: 1.4; }
+
   /* preference matrix (assignment game) */
   table.pref { border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 10px; }
   table.pref th, table.pref td { border: 1px solid var(--grid); text-align: center; padding: 10px 8px; min-width: 74px; }
@@ -93,17 +99,31 @@
     (carpentry) — but this week soldiers and trains must be built in <b>whole numbers</b>.
     The IP's feasible "region" is just the lattice dots. <b>Click the integer point</b> you
     believe is optimal, then compare it with the LP relaxation and its rounded-down cousin.
+    The reveal buttons stay locked until the class calls the two predictions under the plot.
   </p>
   <div class="controls">
     <span class="readout">your point: <b id="relax-pt">—</b></span>
     <span class="readout">z = <b id="relax-z">—</b></span>
     <span class="readout">best feasible z: <b id="relax-best">—</b></span>
-    <button id="relax-lp">Reveal LP relaxation ✦</button>
-    <button id="relax-round">Show round-down</button>
-    <button id="relax-ip" class="primary">Reveal IP optimum ★</button>
+    <button id="relax-lp" class="locked">Reveal LP relaxation ✦</button>
+    <button id="relax-round" class="locked">Show round-down</button>
+    <button id="relax-ip" class="primary locked">Reveal IP optimum ★</button>
   </div>
   <canvas class="viz" id="c-relax"></canvas>
   <p class="status info" id="relax-status">Click a lattice point to make your bid.</p>
+
+  <p class="qp qhead">Predict before you peek <span class="fine">(prediction questions written for this demo)</span></p>
+  <div class="quizq">
+    <p class="qp">Prediction 1 — the LP relaxation tops out at z<sub>LP</sub>* = 112.86. What must the IP optimum z* satisfy?</p>
+    <div class="qopts" id="relaxg1"></div>
+    <p class="qstat status info" id="relaxg1-stat"></p>
+  </div>
+  <div class="quizq">
+    <p class="qp">Prediction 2 — rounding the LP point <em>down</em> stays feasible here. Why — and what kind of change would break that luck?</p>
+    <div class="qopts wide" id="relaxg2"></div>
+    <p class="qstat status info" id="relaxg2-stat"></p>
+  </div>
+  <p class="status info" id="relaxg-score">0 / 2 predictions made — the three reveal buttons unlock after both.</p>
   <div class="note">
     The LP relaxation drops the integrality restriction, so its region <em>contains</em> every
     integer-feasible point — that is why, in a max problem, z<sub>LP</sub>* can never be below z*
@@ -152,6 +172,18 @@
     <thead><tr><th>#</th><th>apples</th><th>oranges</th><th>milk (L)</th><th>cost ($)</th><th>verdict</th></tr></thead>
     <tbody></tbody>
   </table></div>
+
+  <p class="qp qhead">Optional pit-stop — the model behind the race <span class="fine">(side quiz written for this demo; the leaderboard ignores it)</span></p>
+  <div class="quizq">
+    <p class="qp">Q1 — which variables must be declared integer?</p>
+    <div class="qopts wide" id="dietq1"></div>
+    <p class="qstat status info" id="dietq1-stat"></p>
+  </div>
+  <div class="quizq">
+    <p class="qp">Q2 — "apples strictly more than half the oranges" — which constraint should go into the model?</p>
+    <div class="qopts" id="dietq2"></div>
+    <p class="qstat status info" id="dietq2-stat"></p>
+  </div>
   <div class="note">
     Milk may be 1.35 L, but 2.5 apples stay forbidden — that asymmetry is exactly what "mixed"
     means (slide 4). The slides stop at the formulation and leave the solving for later weeks.
@@ -284,6 +316,20 @@
   </div>
   <div class="pref-wrap"><table class="pref" id="fs-table"></table></div>
   <p class="status info" id="fs-status">Empty board — everyone is unassigned.</p>
+
+  <div id="fs-debrief" style="display:none">
+    <p class="qp qhead">Debrief — you played it, now formulate it <span class="fine">(post-game quiz written for this demo board)</span></p>
+    <div class="quizq">
+      <p class="qp">Q1 — which <em>linear</em> formulation maximizes the worst-off faculty?</p>
+      <div class="qopts wide" id="fsq1"></div>
+      <p class="qstat status info" id="fsq1-stat"></p>
+    </div>
+    <div class="quizq">
+      <p class="qp">Q2 — new department rule: Faculty 4 cannot teach Course 3. How do you encode it?</p>
+      <div class="qopts" id="fsq2"></div>
+      <p class="qstat status info" id="fsq2-stat"></p>
+    </div>
+  </div>
   <div class="note">
     Markers after reveal: <b>Σ</b> = the max-total assignment, <b>min</b> = the max-min assignment.
     Slide 29's trick for a forbidden pairing (faculty 4 can't teach course 7) is x₄₇ = 0 — or set
@@ -449,17 +495,30 @@ window.HOOKS = {};
     draw();
   });
 
+  // gate (modeling first): the reveals stay locked until both prediction
+  // MCQs under the plot are solved — the unlock code lives further down
+  // ("WIDGET 1 (gate)"), after the shared quiz helper is defined.
+  const gateLocked = () => el('relax-lp').classList.contains('locked');
+  function gateNudge() {
+    const st = el('relax-status');
+    st.className = 'status info';
+    st.textContent = 'Locked — call the two predictions under the plot first, then compare away.';
+  }
+
   el('relax-lp').addEventListener('click', () => {
+    if (gateLocked()) { gateNudge(); return; }
     showLP = !showLP;
     el('relax-lp').textContent = showLP ? 'Hide LP relaxation' : 'Reveal LP relaxation ✦';
     draw();
   });
   el('relax-round').addEventListener('click', () => {
+    if (gateLocked()) { gateNudge(); return; }
     showRound = !showRound;
     el('relax-round').textContent = showRound ? 'Hide round-down' : 'Show round-down';
     draw();
   });
   el('relax-ip').addEventListener('click', () => {
+    if (gateLocked()) { gateNudge(); return; }
     showIP = !showIP;
     el('relax-ip').textContent = showIP ? 'Hide IP optimum' : 'Reveal IP optimum ★';
     draw();
@@ -648,6 +707,64 @@ window.HOOKS = {};
 })();
 
 /* ============================================================
+   WIDGET 1 (gate) — predict before you peek (slides 7-9)
+   Sits after widget 3 because it reuses the shared quiz helper.
+   Both checked answers derive from numbers already on this page:
+   z_LP* = 112.86 (spoiler / plot label) and the feasible
+   round-down (1, 4) under x₁+2x₂ ≤ 10, 5x₁+3x₂ ≤ 20.
+   ============================================================ */
+(() => {
+  const quiz = window.__invQuiz;
+  let solved = 0;
+  const unlock = () => {
+    solved += 1;
+    const sc = el('relaxg-score');
+    if (solved >= 2) {
+      ['relax-lp', 'relax-round', 'relax-ip'].forEach(id => el(id).classList.remove('locked'));
+      sc.className = 'status ok';
+      sc.textContent = '✓ 2 / 2 — reveals unlocked. Compare your best lattice point with the LP relaxation, its round-down, and the IP optimum.';
+    } else {
+      sc.textContent = '1 / 2 predictions made — one more and the reveals unlock.';
+    }
+  };
+
+  quiz('relaxg1', 'relaxg1-stat', [
+    { t: 'z* ≤ 112.86', ok: true, msg: 'The LP region contains every integer-feasible point, so no lattice point can beat 112.86 — in a max problem, z_LP* is an upper bound on z* (slide 8).' },
+    { t: 'z* ≥ 112.86', ok: false, msg: 'Backwards — the IP picks from FEWER points (just the lattice dots), and maximizing over a subset can never do better than the whole region.' },
+    { t: 'z* = 113 (round it)', ok: false, msg: 'Rounding an objective VALUE means nothing — and 113 > 112.86 would put the IP above its own relaxation, impossible in a max problem.' },
+    { t: 'no relation between z* and 112.86', ok: false, msg: 'There is one, and it is the whole point of relaxations: every IP-feasible point is LP-feasible, so the LP optimum bounds the IP optimum from above (slide 8).' },
+  ], unlock);
+  quiz('relaxg2', 'relaxg2-stat', [
+    { t: 'Rounding down always keeps feasibility, in any IP.', ok: false, msg: 'Only when every constraint tolerates smaller x. With a covering (≥) requirement, shrinking the variables can dip below it — the spoiler warns rounding "can even be infeasible" elsewhere.' },
+    { t: 'Both constraints are ≤ with nonnegative coefficients, so shrinking x₁, x₂ only adds slack — a ≥ (covering) constraint would break that.', ok: true, msg: 'Exactly: x₁+2x₂ ≤ 10 and 5x₁+3x₂ ≤ 20 can only get looser when x shrinks. Add an "at least…" row and rounding down could violate it.' },
+    { t: 'The LP point was feasible, and feasibility survives rounding in either direction.', ok: false, msg: 'It does not — round UP to (2, 5) and finishing gives 2 + 2·5 = 12 > 10. Direction matters; down only works because both rows are ≤ with nonnegative coefficients.' },
+    { t: 'Nonnegativity x₁, x₂ ≥ 0 is what guarantees rounded points stay inside.', ok: false, msg: 'Nonnegativity does survive rounding down, but the real guards are the ≤ resource rows with nonnegative coefficients — a ≥ (covering) row would not be so forgiving.' },
+  ], unlock);
+})();
+
+/* ============================================================
+   WIDGET 2 (side quiz) — the model behind the diet race (slides 10-11)
+   Optional, never blocks the leaderboard race. Grounded in the
+   page's own setup: integer steppers for apples/oranges, a
+   continuous slider for milk, and slide 11's x₁ − 0.5x₂ ≥ 0.1.
+   ============================================================ */
+(() => {
+  const quiz = window.__invQuiz;
+  quiz('dietq1', 'dietq1-stat', [
+    { t: 'x₁, x₂ (apples, oranges) — x₃ (milk) stays continuous', ok: true, msg: 'The steppers count whole fruits; the slider pours milk by the 0.05 L. Integer and continuous variables side by side — that is exactly the M in MIP (slide 4).' },
+    { t: 'all three variables', ok: false, msg: 'Milk at 1.35 L is perfectly legal — force x₃ integer and you cut off menus the problem allows (and likely pay more for it).' },
+    { t: 'only x₃ (milk)', ok: false, msg: 'Backwards — milk is the continuous one. It is 2.5 APPLES that must stay forbidden.' },
+    { t: 'none — solve the LP, round at the end', ok: false, msg: 'Widget 1 exists to bury this idea: rounding an LP answer can be suboptimal or even infeasible. Integrality goes INTO the model, not after it.' },
+  ]);
+  quiz('dietq2', 'dietq2-stat', [
+    { t: 'x₁ − 0.5x₂ > 0', ok: false, msg: 'Says the right thing, but solvers only accept ≥, ≤, = — strict inequalities are off-limits, which is precisely why slide 11 does not write this.' },
+    { t: 'x₁ − 0.5x₂ ≥ 0', ok: false, msg: 'Allows equality: 1 apple, 2 oranges gives x₁ − 0.5x₂ = 0 — that is "at least half", not "strictly more".' },
+    { t: 'x₁ − 0.5x₂ ≥ 0.1', ok: true, msg: 'Works — it is what slide 11 (and this page\'s checker) uses. But the 0.1 is arbitrary: why not 0.01? Since x₁, x₂ are integer, one of the other options does it with no epsilon at all.' },
+    { t: '2x₁ − x₂ ≥ 1', ok: true, msg: 'The sharp one: with x₁, x₂ integer the left side is an integer, so "> 0" is exactly "≥ 1" — no arbitrary epsilon. It works precisely BECAUSE the variables are integer.' },
+  ]);
+})();
+
+/* ============================================================
    WIDGET 4 — oil sites: constraint logic + plan tester (slides 18-24)
    sum(x) <= 5; x2-x3 <= 0; x1+x7+x8 <= 2; x3+x4+x7+x9 >= 2;
    x5+x6-x10 <= 1 (the linearized governmental restriction, slide 24).
@@ -797,6 +914,38 @@ window.HOOKS = {};
     return Math.min(...assign.map((j, i) => P[i][j]));
   };
   render();
+})();
+
+/* ============================================================
+   WIDGET 5 (debrief quiz) — from playing to formulating (slides 29, 33)
+   Appears once the first COMPLETE assignment is made; never blocks
+   the game or the leaderboard. Both checked answers are quoted in
+   the note text: slide 33's max-min build and slide 29's two
+   forbidden-pairing tricks (x = 0, p = −M).
+   ============================================================ */
+(() => {
+  const quiz = window.__invQuiz;
+  let shown = false;
+  // cell clicks bubble up from the re-rendered <td>s to the table itself,
+  // so one persistent listener sees every move without touching the game
+  el('fs-table').addEventListener('click', () => {
+    if (shown || HOOKS.fairshare() === null) return;
+    shown = true;
+    el('fs-debrief').style.display = '';
+  });
+
+  quiz('fsq1', 'fsq1-stat', [
+    { t: 'max minᵢ Σⱼ pᵢⱼxᵢⱼ — write the min into the objective as is', ok: false, msg: 'That IS the goal, but min(·) is not a linear function — no LP/IP solver accepts it as an objective. Slide 33 linearizes it first.' },
+    { t: 'max d  s.t.  d ≤ Σⱼ pᵢⱼxᵢⱼ for every faculty i', ok: true, msg: 'One extra variable pinned below every faculty\'s satisfaction — pushing d up lifts the worst-off. Slide 33, word for word (it is hiding in the note below, too).' },
+    { t: 'max d  s.t.  d ≥ Σⱼ pᵢⱼxᵢⱼ for every faculty i', ok: false, msg: 'Wrong side — these rows only push d UP, nothing holds it down, so "max d" runs off to +∞. Flip to ≤ and d gets pinned under the worst-off row.' },
+    { t: 'max d  s.t.  d ≤ pᵢⱼxᵢⱼ for every cell (i, j)', ok: false, msg: 'Decoupled per cell it backfires: every UNchosen cell has pᵢⱼxᵢⱼ = 0, so d ≤ 0 no matter how good the assignment is. The sum over j does real work in slide 33.' },
+  ]);
+  quiz('fsq2', 'fsq2-stat', [
+    { t: 'x₄₃ = 0', ok: true, msg: 'Fix the variable and the cell simply leaves the problem — slide 29\'s first trick (the note quotes it as faculty 4 / course 7 in the full 8×8).' },
+    { t: 'p₄₃ = −M for a huge M', ok: true, msg: 'Also works — slide 29\'s second trick: with a big enough penalty the optimizer never touches the cell. Heavier than x₄₃ = 0, though, and a careless M invites numerical trouble.' },
+    { t: 'x₄₃ ≤ 1', ok: false, msg: 'x₄₃ is binary — it is never above 1 anyway. This constraint bans exactly nothing.' },
+    { t: 'Σⱼ x₄ⱼ = 0', ok: false, msg: 'That bans Faculty 4 from EVERY course — but each faculty needs exactly one, so the whole model turns infeasible.' },
+  ]);
 })();
 </script>
 <script src="assets/classroom-config.js"></script>

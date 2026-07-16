@@ -90,6 +90,22 @@
   }
   button.job[disabled] { opacity: 0.4; cursor: not-allowed; }
   button.job .meta { color: var(--ink-2); font-size: 0.86rem; display: block; }
+
+  /* model-check gates & optional model corners */
+  .mb-title { color: var(--ink-2); font-size: 0.95rem; margin: 14px 0 0; }
+  .modelbox {
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    padding: 12px 14px 14px;
+    margin: 14px 0 4px;
+  }
+  .modelbox .mb-title { margin: 0 0 2px; }
+  .pq button { text-align: left; }
+  .pq { border-top: 1px dashed var(--grid); padding-top: 10px; margin-top: 12px; }
+  .pq:first-of-type { border-top: none; margin-top: 0; }
+  .mrows { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 12px 0 2px; }
+  .mrows label { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  input.mnum { width: 72px; font: inherit; text-align: center; }
 </style>
 </head>
 <body>
@@ -139,6 +155,29 @@
     <thead><tr><th>#</th><th>N→1</th><th>N→2</th><th>N→3</th><th>S→1</th><th>S→2</th><th>S→3</th><th>trucks</th><th>cost ($)</th></tr></thead>
     <tbody></tbody>
   </table></div>
+  <div class="modelbox" id="gv-model">
+    <p class="mb-title"><b>Model corner — optional, for slide 4's formulation.</b>
+      The widget hires trucks for you: x<sub>ij</sub> = ⌈y<sub>ij</sub>/5⌉. An IP cannot write a
+      ceiling — it needs a linear row plus integrality. (Quiz written for this demo; the slide
+      gives the model.)</p>
+    <div class="pq">
+      <p><b>1.</b> Which constraint (with x<sub>ij</sub> ≥ 0 integer) reproduces the ceiling at minimum cost?</p>
+      <div class="controls">
+        <button data-q="0" data-o="0">x<sub>ij</sub> ≤ 5y<sub>ij</sub></button>
+        <button data-q="0" data-o="1">y<sub>ij</sub> ≤ 5x<sub>ij</sub></button>
+        <button data-q="0" data-o="2">y<sub>ij</sub> ≥ 5x<sub>ij</sub></button>
+      </div>
+      <p class="status info" id="gv-mq0"></p>
+    </div>
+    <div class="pq">
+      <p><b>2.</b> Prediction: make x<sub>ij</sub> continuous (the LP relaxation). The optimal cost…</p>
+      <div class="controls">
+        <button data-q="1" data-o="0">goes up — fractional trucks restrict the plans</button>
+        <button data-q="1" data-o="1">goes down (or stays) — the part-filled-truck penalty vanishes</button>
+      </div>
+      <p class="status info" id="gv-mq1"></p>
+    </div>
+  </div>
   <div class="note">
     Slide 4 prices the lanes at 13, 16, 15 $/t from the North pit (3+10, 6+10, 5+10) and
     18, 15, 16 $/t from the South (6+12, 3+12, 4+12), plus 5·ΣΣx<sub>ij</sub> for the trucks.
@@ -170,6 +209,9 @@
     <button id="bp-reset">Reset</button>
   </div>
   <p class="status info" id="bp-status">231 seconds of commercials in total — how few blocks can hold them?</p>
+  <p class="mb-title"><b>Model check — required:</b> a finished packing earns its ✓ only after both
+    questions below are answered. Packing stays free — play on while you think.
+    (Question 2 written for this demo; question 1 is slide 6's own.)</p>
   <div class="controls" style="margin-top:14px">
     <span style="align-self:center">Slide 6 asks: what is <em>missing</em> from the first formulation (min Σy<sub>j</sub>, capacity rows only)?</span>
   </div>
@@ -181,6 +223,16 @@
     </span>
   </div>
   <p class="status info" id="bp-qstatus"></p>
+  <div class="pq" id="bp-q2">
+    <p><b>Question 2 — predict the broken model.</b> Drop Σ<sub>j</sub> x<sub>ij</sub> = 1 entirely
+      and let the solver minimize Σy<sub>j</sub>. What does the IP report?</p>
+    <div class="controls">
+      <button data-o="0">the same minimum — the capacity rows still force every commercial into a block</button>
+      <button data-o="1">0 blocks — nothing gets assigned at all</button>
+      <button data-o="2">infeasible — 231 s of commercials cannot fit in zero blocks</button>
+    </div>
+    <p class="status info" id="bp-q2status"></p>
+  </div>
   <div class="note">
     The capacity row 15x<sub>1j</sub>+16x<sub>2j</sub>+…+50x<sub>8j</sub> ≤ 60y<sub>j</sub> already links
     assignments to block usage — a block that receives anything must be opened.
@@ -204,6 +256,40 @@
     together; if Salley starts, Kukoc <em>and</em> Rodman must start. <b>Tap players</b> to build
     the highest-rating legal line-up before the constraints on slide 10 are written out.
   </p>
+  <div class="modelbox" id="lu-gate">
+    <p class="mb-title"><b>Model check — required:</b> match each scouting rule to its row to unlock
+      the roster (x<sub>i</sub> = 1 if player i starts, players numbered 1–8 in roster order).
+      (Matching items written for this demo; the rows are slide 10's.)</p>
+    <div class="pq">
+      <p><b>1.</b> “Pippen (x₃) and Kukoc (x₅) never start together.”</p>
+      <div class="controls">
+        <button data-q="0" data-o="0">x₃ + x₅ = 1</button>
+        <button data-q="0" data-o="1">x₃ + x₅ ≤ 1</button>
+        <button data-q="0" data-o="2">x₃ ≤ x₅</button>
+      </div>
+      <p class="status info" id="lu-g0"></p>
+    </div>
+    <div class="pq">
+      <p><b>2.</b> “If Salley (x₇) starts, Kukoc (x₅) <em>and</em> Rodman (x₆) must start.”</p>
+      <div class="controls">
+        <button data-q="1" data-o="0">x₅ + x₆ ≥ x₇</button>
+        <button data-q="1" data-o="1">x₇ ≤ x₅·x₆</button>
+        <button data-q="1" data-o="2">x₅ + x₆ ≥ 2x₇</button>
+      </div>
+      <p class="status info" id="lu-g1"></p>
+    </div>
+    <div class="pq">
+      <p><b>3.</b> The height row 3x₁+6x₂+8x₃+6x₄+10x₅+7x₆+11x₇+14x₈ counts inches over 6-0.
+        “Average height at least 6-8” makes its right-hand side…</p>
+      <div class="controls">
+        <button data-q="2" data-o="0">≥ 8</button>
+        <button data-q="2" data-o="1">≥ 40</button>
+        <button data-q="2" data-o="2">≥ 68</button>
+      </div>
+      <p class="status info" id="lu-g2"></p>
+    </div>
+    <p class="status info" id="lu-gstatus">0 / 3 matched — the roster below opens when all three are right.</p>
+  </div>
   <div class="roster" id="lu-roster"></div>
   <div class="controls">
     <span class="readout">picked: <b id="lu-n">0</b> / 5</span>
@@ -235,6 +321,29 @@
     along. There is nothing to optimize — Min z = 0 — <b>just find any assignment</b> that passes
     every check.
   </p>
+  <div class="modelbox" id="cs-gate">
+    <p class="mb-title"><b>Model check — required:</b> the two conditional rules are the tricky rows
+      of the formulation — build them to unlock the side buttons (x<sub>is</sub> = 1 if song i goes
+      on side s, as in the checklist below). (Quiz written for this demo; the slides give the rows.)</p>
+    <div class="pq">
+      <p><b>1.</b> “Songs 2 &amp; 4 both on side 1 push song 5 to side 2.”</p>
+      <div class="controls">
+        <button data-q="0" data-o="0">x₅₂ ≥ x₂₁·x₄₁</button>
+        <button data-q="0" data-o="1">x₂₁ + x₄₁ − x₅₂ ≤ 1</button>
+        <button data-q="0" data-o="2">x₂₁ + x₄₁ + x₅₁ ≤ 2</button>
+      </div>
+      <p class="status info" id="cs-g0"></p>
+    </div>
+    <div class="pq">
+      <p><b>2.</b> “Song 1 on side 1 drags song 8 along.”</p>
+      <div class="controls">
+        <button data-q="1" data-o="0">x₁₁ ≥ x₈₁</button>
+        <button data-q="1" data-o="1">x₈₁ ≥ x₁₁</button>
+      </div>
+      <p class="status info" id="cs-g1"></p>
+    </div>
+    <p class="status info" id="cs-gstatus">0 / 2 rules built — the side buttons unlock when both are right.</p>
+  </div>
   <div class="tbl-wrap">
     <table class="songs" id="cs-table">
       <thead><tr><th>Song</th><th>Type</th><th>Length</th><th>Side</th></tr></thead>
@@ -318,6 +427,30 @@
     <thead><tr><th>#</th><th>order</th><th>total penalty ($)</th></tr></thead>
     <tbody></tbody>
   </table></div>
+  <div class="modelbox" id="sq-model">
+    <p class="mb-title"><b>Model corner — optional: build the big-M pair from the note below.</b>
+      Jobs 3 and 4 share no precedence arrow — neither waits for the other — so the MIP needs the
+      either-or rows for them. Fill the two duration blanks from the job cards, then enter the
+      smallest safe M. (Builder written for this demo; the slides keep M symbolic.)</p>
+    <div class="mrows">
+      <label>X₃ − X₄ ≥ <input class="mnum" type="number" id="sq-mp1" step="1"> − M·Z₃₄</label>
+      <label>X₄ − X₃ ≥ <input class="mnum" type="number" id="sq-mp2" step="1"> − M·(1 − Z₃₄)</label>
+      <label>smallest safe M = <input class="mnum" type="number" id="sq-mm" step="1"></label>
+    </div>
+    <div class="controls">
+      <button class="primary" id="sq-mcheck">Check the rows</button>
+      <button id="sq-mshow">Show the answers</button>
+    </div>
+    <p class="status info" id="sq-mstatus">The pair must let every legal sequence through: Z₃₄ = 0 activates the first row (job 4 finishes first), Z₃₄ = 1 the second (job 3 first).</p>
+    <div class="controls" id="sq-mdemo" style="display:none">
+      <span class="group">
+        <label for="sq-msmall">now sabotage it — try a too-small M =</label>
+        <input class="mnum" type="number" id="sq-msmall" step="1" min="0" value="20">
+      </span>
+      <button class="primary" id="sq-mtest">Test it on my logged sequences</button>
+    </div>
+    <p class="status info" id="sq-mdemoout" style="display:none"></p>
+  </div>
   <div class="note">
     In the MIP (slides 31–32) the completion times X<sub>j</sub> are continuous; immediate
     predecessors give X<sub>j</sub> − X<sub>k</sub> ≥ p<sub>j</sub>, and every <em>unrelated</em> pair needs an
@@ -449,6 +582,31 @@ const fmt = (v, d = 2) => Number(v).toFixed(d);
   evaluate();
 })();
 
+/* --- WIDGET 1 companion — optional model corner (quiz written for this demo).
+   Answers grounded in the widget itself: trucks are computed as ceil(y/5)
+   with a $5 charge each (TRUCK_CAP/TRUCK_FIX above); the revealed optimum
+   in the spoiler is $385, its 8 t example lane pays 2 trucks. --- */
+(() => {
+  const CORRECT = [1, 1];
+  const FB = [
+    [
+      '✗ Wrong direction: xᵢⱼ ≤ 5yᵢⱼ caps the TRUCKS by the tons, so xᵢⱼ = 0 stays legal for any load — the gravel would travel truck-free and the $5 charges would never be paid.',
+      '✓ yᵢⱼ ≤ 5xᵢⱼ: each truck adds 5 t of capacity. Because every truck costs $5, the minimization pushes xᵢⱼ down to the smallest integer with 5xᵢⱼ ≥ yᵢⱼ — exactly the ⌈yᵢⱼ/5⌉ the table computes for you.',
+      '✗ Reversed: yᵢⱼ ≥ 5xᵢⱼ says the tons must cover the trucks — every hired truck brim-full — and xᵢⱼ = 0 still passes for any load. On the spoiler’s 8 t lane it allows at most 1 truck (and gladly hires 0) where the game charges 2.',
+    ],
+    [
+      '✗ Relaxing a minimization can never raise its optimum — every integer plan (including the revealed $385 one) is still available, and part-filled trucks now bill pro-rata: an 8 t lane pays for 1.6 trucks instead of 2. More freedom, never more cost.',
+      '✓ Down (weakly). Continuous xᵢⱼ = yᵢⱼ/5 turns the fixed charge into a smooth $1-per-ton surcharge — the part-filled-truck penalty vanishes, so the LP bound lands at or below the revealed $385. That gap is exactly why the trucks make this an integer program.',
+    ],
+  ];
+  document.querySelectorAll('#gv-model [data-q]').forEach(btn => btn.addEventListener('click', () => {
+    const q = +btn.dataset.q, o = +btn.dataset.o;
+    const st = el(q === 0 ? 'gv-mq0' : 'gv-mq1');
+    st.className = 'status ' + (o === CORRECT[q] ? 'ok' : 'bad');
+    st.textContent = FB[q][o];
+  }));
+})();
+
 /* ============================================================
    WIDGET 2 — 60-second block packing (slides 5-6, Example 18)
    Commercials 15,16,20,25,30,35,40,50 s; total 231 s; min blocks = 5.
@@ -496,9 +654,12 @@ const fmt = (v, d = 2) => Number(v).toFixed(d);
       st.className = 'status info';
       st.textContent = un + ' commercial' + (un > 1 ? 's' : '') + ' still unassigned' +
         (selected >= 0 ? ' — now click a block for #' + (selected + 1) + '.' : ' — click one, then click a block.');
-    } else {
+    } else if (bpGate1 && bpGate2) {
       st.className = 'status ok';
       st.textContent = '✓ All 8 commercials scheduled in ' + usedBlocks + ' blocks. Can the class do it with fewer?';
+    } else {
+      st.className = 'status info';
+      st.textContent = 'All 8 commercials placed in ' + usedBlocks + ' blocks — model check pending: answer the two questions below to confirm the count.';
     }
   }
 
@@ -517,6 +678,10 @@ const fmt = (v, d = 2) => Number(v).toFixed(d);
   });
   el('bp-reset').addEventListener('click', () => { assign = Array(ADS.length).fill(-1); selected = -1; render(); });
 
+  // Model-check gate: the ✓ on a finished packing waits until BOTH the
+  // slide-6 question below and the broken-model prediction are answered.
+  let bpGate1 = false, bpGate2 = false;
+
   const quiz = {
     'bp-qa': { ok: false, msg: '✗ Symmetry breaking (y₁ ≥ y₂ ≥ …) only speeds the solver up — the model is already correct or broken without it.' },
     'bp-qb': { ok: true, msg: '✓ Yes: Σⱼ xᵢⱼ = 1 for every commercial i. Without it, leaving all xᵢⱼ = 0 satisfies every capacity row and "uses" zero blocks.' },
@@ -525,8 +690,27 @@ const fmt = (v, d = 2) => Number(v).toFixed(d);
   Object.keys(quiz).forEach(id => el(id).addEventListener('click', () => {
     Object.keys(quiz).forEach(k => el(k).classList.toggle('active', k === id));
     const q = quiz[id];
+    if (q.ok) bpGate1 = true;
     el('bp-qstatus').className = 'status ' + (q.ok ? 'ok' : 'bad');
     el('bp-qstatus').textContent = q.msg;
+    render();
+  }));
+
+  // Gate question 2 (written for this demo): predict the broken model.
+  // Grounded in the spoiler: without coverage the IP leaves everything
+  // unassigned and "uses" zero blocks.
+  const Q2_FB = [
+    '✗ The capacity rows only cap what a block may HOLD (15x₁ⱼ+…+50x₈ⱼ ≤ 60yⱼ) — they never demand that anything be held. Setting all xᵢⱼ = 0 turns every row into 0 ≤ 0: perfectly feasible.',
+    '✓ 0 blocks. With the coverage rows gone, leaving every commercial unassigned satisfies every capacity row, so the minimization sets all yⱼ = 0 and proudly reports an empty schedule. Σⱼ xᵢⱼ = 1 is what forces each commercial somewhere.',
+    '✗ The opposite: dropping a constraint can never create infeasibility. Nothing says the 231 s must be placed any more — the all-zero solution sails through with zero blocks.',
+  ];
+  document.querySelectorAll('#bp-q2 [data-o]').forEach(btn => btn.addEventListener('click', () => {
+    const o = +btn.dataset.o;
+    if (o === 1) bpGate2 = true;
+    const st = el('bp-q2status');
+    st.className = 'status ' + (o === 1 ? 'ok' : 'bad');
+    st.textContent = Q2_FB[o];
+    render();
   }));
   render();
 })();
@@ -590,11 +774,64 @@ const fmt = (v, d = 2) => Number(v).toFixed(d);
     }
   }
 
+  /* --- gate: rule-to-inequality matching (items written for this demo;
+     the rows are the checklist's own). The roster unlocks when all
+     three are matched. --- */
+  let luGateOpen = false;
+  const luSolved = [false, false, false];
+  const LU_OK = [1, 2, 1];
+  const LU_FB = [
+    [
+      '✗ x₃ + x₅ = 1 forces one of Pippen and Kukoc into EVERY line-up. The rule only bans the pair — a five with neither of them must stay legal. “At most one” is ≤ 1, not = 1.',
+      '✓ x₃ + x₅ ≤ 1 — both benched gives 0, either alone gives 1, both together gives 2 and is cut. Exactly the checklist row.',
+      '✗ x₃ ≤ x₅ reads “if Pippen starts, Kukoc starts” — an implication that would DEMAND they appear together, the opposite of a conflict. And x₃ = x₅ = 1 satisfies it happily.',
+    ],
+    [
+      '✗ Too weak: with Salley in (x₇ = 1), x₅ + x₆ ≥ 1 is satisfied by ONE of Kukoc and Rodman — the other could still sit. The promise is two-part, so the right-hand side must double to 2x₇.',
+      '✗ The logic is right (x₅·x₆ = 1 exactly when both start), but a product of variables is not linear — no IP row can carry it. Widget 5 below shows what linearizing a product costs; here the single linear row x₅ + x₆ ≥ 2x₇ does it for free.',
+      '✓ x₅ + x₆ ≥ 2x₇ — Salley in makes the right side 2, forcing Kukoc AND Rodman in; Salley out makes it 0 ≥ 0, no promise at all. One binary inequality for a two-part promise.',
+    ],
+    [
+      '✗ 8 is the per-player average target (6-8 is 8 inches over 6-0). The left side adds up FIVE starters, so the target multiplies too: the sum must reach 5 × 8 = 40.',
+      '✓ Average ≥ 6-8 means (spare inches)/5 ≥ 8; clear the denominator and the row reads Σ ≥ 40. The 40 is 5 starters × 8 spare inches each.',
+      '✗ Units! The coefficients count inches OVER 6-0 — Longley’s 7-2 enters as 14, not 86. In those units 6-8 is 8 per player, and five starters need 5 × 8 = 40.',
+    ],
+  ];
+  document.querySelectorAll('#lu-gate [data-q]').forEach(btn => btn.addEventListener('click', () => {
+    const q = +btn.dataset.q, o = +btn.dataset.o;
+    const right = o === LU_OK[q];
+    if (right) luSolved[q] = true;
+    const st = el('lu-g' + q);
+    st.className = 'status ' + (right ? 'ok' : 'bad');
+    st.textContent = LU_FB[q][o];
+    if (luGateOpen) return;
+    const n = luSolved.filter(Boolean).length;
+    const gs = el('lu-gstatus');
+    if (n === 3) {
+      luGateOpen = true;
+      P.forEach((_, i) => el('lu-p' + i).classList.remove('locked'));
+      gs.className = 'status ok';
+      gs.textContent = '✓ All three matched — the roster is unlocked. Build the highest-rating legal five!';
+      update();
+    } else {
+      gs.className = 'status info';
+      gs.textContent = n + ' / 3 matched — the roster below opens when all three are right.';
+    }
+  }));
+
   P.forEach((_, i) => el('lu-p' + i).addEventListener('click', () => {
+    if (!luGateOpen) {
+      const st = el('lu-status');
+      st.className = 'status info';
+      st.textContent = 'Model check first — match the three rules above to unlock the roster.';
+      return;
+    }
     if (sel.has(i)) sel.delete(i); else sel.add(i);
     update();
   }));
   update();
+  P.forEach((_, i) => el('lu-p' + i).classList.add('locked'));
+  el('lu-status').textContent = 'Model check first — match the three rules above to unlock the roster.';
 })();
 
 /* ============================================================
@@ -652,11 +889,59 @@ const fmt = (v, d = 2) => Number(v).toFixed(d);
     else { st.className = 'status bad'; st.textContent = '✗ ' + fails + ' condition(s) violated. Keep swapping.'; }
   }
 
+  /* --- gate: build the two conditional rows (quiz written for this demo;
+     xᵢₛ naming and rule directions follow the checklist above). The side
+     buttons unlock when both rules are built. --- */
+  let csGateOpen = false;
+  const csSolved = [false, false];
+  const CS_OK = [[1, 2], [1]]; // rule 1 has two accepted formulations
+  const CS_FB = [
+    [
+      '✗ The logic is right — x₂₁·x₄₁ = 1 exactly when songs 2 and 4 share side 1 — but a product of variables is not linear. Widget 5 below (the y₁₂ = x₁x₂ lab) shows the three rows a product really costs; here one linear row is enough.',
+      '✓ x₂₁ + x₄₁ − x₅₂ ≤ 1: with songs 2 and 4 both on side 1 it becomes 2 − x₅₂ ≤ 1, forcing x₅₂ = 1 — song 5 lands on side 2. With either of them elsewhere the row goes slack and promises nothing.',
+      '✓ Also correct — bonus! “Not all three of songs 2, 4, 5 on side 1” is the same promise: substitute x₅₁ = 1 − x₅₂ (the checklist’s xᵢ₁ + xᵢ₂ = 1 row) and it rearranges into x₂₁ + x₄₁ − x₅₂ ≤ 1. Two different formulations can encode one rule.',
+    ],
+    [
+      '✗ Direction flipped: x₁₁ ≥ x₈₁ says song 8 on side 1 would drag song 1 along. The story is one-way the OTHER way — song 1 does the dragging. The checklist writes it x₈₁ ≥ x₁₁.',
+      '✓ x₈₁ ≥ x₁₁: song 1 on side 1 (x₁₁ = 1) forces x₈₁ = 1 — song 8 follows; song 1 on side 2 leaves song 8 free. Exactly the checklist row.',
+    ],
+  ];
+  function csGateGuard() {
+    if (csGateOpen) return true;
+    const st = el('cs-status');
+    st.className = 'status info';
+    st.textContent = 'Model check first — build the two conditional rules above to unlock the sides.';
+    return false;
+  }
+  document.querySelectorAll('#cs-gate [data-q]').forEach(btn => btn.addEventListener('click', () => {
+    const q = +btn.dataset.q, o = +btn.dataset.o;
+    const right = CS_OK[q].includes(o);
+    if (right) csSolved[q] = true;
+    const st = el('cs-g' + q);
+    st.className = 'status ' + (right ? 'ok' : 'bad');
+    st.textContent = CS_FB[q][o];
+    if (csGateOpen) return;
+    const gs = el('cs-gstatus');
+    if (csSolved[0] && csSolved[1]) {
+      csGateOpen = true;
+      S.forEach((_, i) => { el('cs-' + i + '-1').classList.remove('locked'); el('cs-' + i + '-2').classList.remove('locked'); });
+      gs.className = 'status ok';
+      gs.textContent = '✓ Both rules built — the side buttons are unlocked. Now find a legal cassette!';
+      el('cs-status').className = 'status info';
+      el('cs-status').textContent = 'Assign all 8 songs to a side.';
+    } else {
+      gs.className = 'status info';
+      gs.textContent = csSolved.filter(Boolean).length + ' / 2 rules built — the side buttons unlock when both are right.';
+    }
+  }));
+
   S.forEach((_, i) => {
-    el('cs-' + i + '-1').addEventListener('click', () => { side[i] = side[i] === 1 ? 0 : 1; update(); });
-    el('cs-' + i + '-2').addEventListener('click', () => { side[i] = side[i] === 2 ? 0 : 2; update(); });
+    el('cs-' + i + '-1').addEventListener('click', () => { if (!csGateGuard()) return; side[i] = side[i] === 1 ? 0 : 1; update(); });
+    el('cs-' + i + '-2').addEventListener('click', () => { if (!csGateGuard()) return; side[i] = side[i] === 2 ? 0 : 2; update(); });
   });
   update();
+  S.forEach((_, i) => { el('cs-' + i + '-1').classList.add('locked'); el('cs-' + i + '-2').classList.add('locked'); });
+  el('cs-status').textContent = 'Model check first — build the two conditional rules above to unlock the sides.';
 })();
 
 /* ============================================================
@@ -833,6 +1118,110 @@ const fmt = (v, d = 2) => Number(v).toFixed(d);
     el('sq-reveal').textContent = revealed ? 'Hide optimal order' : 'Reveal optimal order ★';
     draw();
   });
+  /* --- optional model corner (written for this demo): big-M builder for
+     the unrelated pair (3, 4). Smallest safe M = Σpⱼ = 5+6+7+10+8+14 = 50:
+     job 4 may run first (X₄ = 10) and job 3 last (X₃ = 50) — the relaxed
+     row X₄ − X₃ ≥ 10 − M then needs M ≥ 50. --- */
+  const SUMP = JOBS.reduce((s, j) => s + j.p, 0); // 50
+  const P3 = JOBS[2].p, P4 = JOBS[3].p;           // 7 h and 10 h, as on the cards
+
+  const completionsOf = order => {
+    const X = {};
+    let tt = 0;
+    order.forEach(id => { tt += JOBS[id - 1].p; X[id] = tt; });
+    return X;
+  };
+  // Does any Z₃₄ satisfy both rows for this schedule under M?
+  function pairVerdict(X, M) {
+    const d = X[3] - X[4];
+    const zok = z => (d >= (z ? P3 - M : P3)) && (-d >= (z ? P4 : P4 - M));
+    return { d, pass: zok(0) ? { z: 0 } : zok(1) ? { z: 1 } : null };
+  }
+  function mUnlockDemo() {
+    el('sq-mdemo').style.display = '';
+  }
+
+  el('sq-mcheck').addEventListener('click', () => {
+    const st = el('sq-mstatus');
+    const v1 = el('sq-mp1').value, v2 = el('sq-mp2').value, vm = el('sq-mm').value;
+    if (v1 === '' || v2 === '') {
+      st.className = 'status info';
+      st.textContent = 'Fill both duration blanks first — p₃ and p₄ are on the job cards above.';
+      return;
+    }
+    if (+v1 !== P3 || +v2 !== P4) {
+      st.className = 'status bad';
+      st.textContent = (+v1 === P4 && +v2 === P3)
+        ? '✗ Swapped. The first row forces job 3 to complete at least its OWN duration after job 4, so it needs p₃ = 7; the mirror row needs p₄ = 10.'
+        : '✗ Read pⱼ off the cards: Xⱼ − Xₖ ≥ pⱼ uses the duration of the job on the LEFT — job 3 runs 7 h, job 4 runs 10 h.';
+      return;
+    }
+    if (vm === '') {
+      st.className = 'status info';
+      st.textContent = 'Durations ✓ (7 and 10). Now the smallest M that never cuts a legal sequence — how late can a job possibly finish?';
+      return;
+    }
+    const m = +vm;
+    if (m === SUMP) {
+      st.className = 'status ok';
+      st.textContent = '✓ M = Σpⱼ = 5+6+7+10+8+14 = 50. The machine finishes everything by hour 50 (the total row of your table), so no completion gap can exceed 50 and the relaxed row never bites. Now try to sabotage it below.';
+      mUnlockDemo();
+    } else if (m > SUMP) {
+      st.className = 'status bad';
+      st.textContent = '✗ Safe, but not the smallest: every completion time is at most Σpⱼ = 50, so M = 50 already covers the worst case. Oversized big-Ms stay valid but weaken the LP relaxation — take the tightest bound the job data guarantees.';
+    } else {
+      st.className = 'status bad';
+      st.textContent = '✗ Too small. Job 4 may run first (X₄ = 10) and job 3 last (X₃ = 50) — both perfectly legal — and the relaxed row X₄ − X₃ ≥ 10 − M then needs M ≥ 50. Anything below Σpⱼ = 50 deletes real schedules.';
+    }
+  });
+
+  el('sq-mshow').addEventListener('click', () => {
+    el('sq-mp1').value = P3;
+    el('sq-mp2').value = P4;
+    el('sq-mm').value = SUMP;
+    const st = el('sq-mstatus');
+    st.className = 'status info';
+    st.textContent = 'Revealed: X₃ − X₄ ≥ 7 − M·Z₃₄ and X₄ − X₃ ≥ 10 − M·(1 − Z₃₄), with M = Σpⱼ = 50 — the machine finishes everything by hour 50. Now try to sabotage it below.';
+    mUnlockDemo();
+  });
+
+  el('sq-mtest').addEventListener('click', () => {
+    const out = el('sq-mdemoout');
+    out.style.display = '';
+    const m = Math.max(0, +el('sq-msmall').value || 0);
+    if (!attempts.length) {
+      out.className = 'status info';
+      out.textContent = 'Log at least one full sequence in the game above first — the point is to test M against schedules the class actually found.';
+      return;
+    }
+    if (m >= SUMP) {
+      out.className = 'status info';
+      out.textContent = 'M = ' + m + ' is at or above Σpⱼ = 50 — it cannot cut anything. Try something smaller (the classic blunder is 20).';
+      return;
+    }
+    const parsed = attempts.map(a => ({ order: a.order, ids: a.order.split(' → ').map(Number) }));
+    const victim = parsed.find(q => !pairVerdict(completionsOf(q.ids), m).pass);
+    if (!victim) {
+      const lastq = parsed[parsed.length - 1];
+      const v = pairVerdict(completionsOf(lastq.ids), m);
+      out.className = 'status info';
+      out.textContent = 'All ' + parsed.length + ' logged sequence(s) survive M = ' + m + ' — e.g. ' + lastq.order +
+        ' has X₃ − X₄ = ' + v.d + ' and Z₃₄ = ' + v.pass.z + ' satisfies both rows. Log a plan with job 4 first and job 3 last (both legal: job 4 has no predecessors, no job waits on 3), then test again.';
+      return;
+    }
+    const X = completionsOf(victim.ids);
+    const d = X[3] - X[4];
+    const z0fail = d >= P3
+      ? 'relaxed row X₄ − X₃ ≥ 10 − ' + m + ' reads ' + (-d) + ' ≥ ' + (P4 - m) + ' ✗'
+      : 'active row X₃ − X₄ ≥ 7 reads ' + d + ' ≥ 7 ✗';
+    const z1fail = -d >= P4
+      ? 'relaxed row X₃ − X₄ ≥ 7 − ' + m + ' reads ' + d + ' ≥ ' + (P3 - m) + ' ✗'
+      : 'active row X₄ − X₃ ≥ 10 reads ' + (-d) + ' ≥ 10 ✗';
+    out.className = 'status bad';
+    out.textContent = '✗ M = ' + m + ' deletes your logged sequence ' + victim.order + ' (X₃ = ' + X[3] + ', X₄ = ' + X[4] + '). Z₃₄ = 0: ' +
+      z0fail + '. Z₃₄ = 1: ' + z1fail + '. No Z rescues it — a wrong big-M silently deletes schedules the class already found.';
+  });
+
   window.seqScore = currentCost;
   VIZ.register(canvas, draw);
   update();

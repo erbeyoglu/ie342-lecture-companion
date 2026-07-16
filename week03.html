@@ -70,6 +70,29 @@
   table.costs td:first-child, table.costs th:first-child { text-align: left; }
   table.costs td.pick { background: var(--region-fill); font-weight: 700; }
   table.costs tr.closed td { color: var(--muted); }
+  /* modeling gates & companion drills */
+  .mstage {
+    border: 1px dashed var(--axis);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 14px 0 4px;
+  }
+  .mstage.done { border-style: solid; border-color: var(--good); }
+  .mstage p.mhead { margin: 0; }
+  .mstage .mq { border-top: 1px dashed var(--grid); padding-top: 10px; margin-top: 12px; }
+  .mstage .mq p.qtext { margin: 0 0 8px; }
+  .mstage .mq .controls { margin: 8px 0 0; gap: 8px 10px; }
+  .mstage .mq .controls > button { text-align: left; }
+  .mstage button.chosen { background: var(--s1); border-color: var(--s1); color: #ffffff; }
+  .gate-locked { opacity: 0.45; pointer-events: none; }
+  .built-rows { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; max-width: 560px; }
+  .built-rows:empty { margin-top: 0; }
+  .built-row {
+    border: 1px solid var(--good); border-radius: 8px;
+    background: var(--page); padding: 6px 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .built-row .who { color: var(--muted); font-size: 0.8rem; }
 </style>
 </head>
 <body>
@@ -99,6 +122,42 @@
     investment is all-or-nothing, that is what makes the x&#8321;…x&#8324; binary. Hunt the largest
     total present value that still fits the budget.
   </p>
+  <div class="mstage" id="iv-gate">
+    <p class="mhead"><b>Modeling gate — say it in binary.</b> Before the hunt: the investor also has
+      three house rules, and each is a single linear constraint on x&#8321;…x&#8324;. Model all three
+      and the cards unlock. (Quiz items written for this demo; slide 4 states only the budget model.)</p>
+    <div class="mq">
+      <p class="qtext"><b>Rule 1.</b> Investment 3 can be made only if investment 2 is made.</p>
+      <div class="controls">
+        <button data-gq="0" data-go="0">x₂ ≤ x₃</button>
+        <button data-gq="0" data-go="1">x₃ ≤ x₂</button>
+        <button data-gq="0" data-go="2">x₂ + x₃ ≤ 1</button>
+        <button data-gq="0" data-go="3">x₃ = x₂</button>
+      </div>
+      <p class="status info" id="iv-g0"></p>
+    </div>
+    <div class="mq">
+      <p class="qtext"><b>Rule 2.</b> Choose at most two of investments 1–3.</p>
+      <div class="controls">
+        <button data-gq="1" data-go="0">x₁ + x₂ + x₃ ≥ 2</button>
+        <button data-gq="1" data-go="1">x₁ + x₂ + x₃ ≤ 1</button>
+        <button data-gq="1" data-go="2">x₁ + x₂ + x₃ ≤ 2</button>
+        <button data-gq="1" data-go="3">x₁·x₂·x₃ = 0</button>
+      </div>
+      <p class="status info" id="iv-g1"></p>
+    </div>
+    <div class="mq">
+      <p class="qtext"><b>Rule 3.</b> Investments 1 and 4 are mutually exclusive.</p>
+      <div class="controls">
+        <button data-gq="2" data-go="0">x₁ + x₄ = 1</button>
+        <button data-gq="2" data-go="1">x₁ ≤ x₄</button>
+        <button data-gq="2" data-go="2">x₁ + x₄ ≥ 1</button>
+        <button data-gq="2" data-go="3">x₁ + x₄ ≤ 1</button>
+      </div>
+      <p class="status info" id="iv-g2"></p>
+    </div>
+    <p class="status info" id="iv-gate-status">0 / 3 rules modeled — the portfolio hunt is waiting below.</p>
+  </div>
   <div class="pick-cards" id="iv-cards"></div>
   <div class="controls">
     <span class="readout">budget used: <b id="iv-cost">$0</b> / $24,000</span>
@@ -173,6 +232,43 @@
     <thead><tr><th>#</th><th>plan (x&#8321;, x&#8322;, x&#8323;)</th><th>rented</th><th>labor</th><th>cloth</th><th>profit</th></tr></thead>
     <tbody></tbody>
   </table></div>
+  <div class="mstage" id="fc-drill">
+    <p class="mhead"><b>Optional modeling drill — pick the tightest valid M.</b> The note below uses one
+      M = 53 for all three rows, but each product's x<sub>i</sub> ≤ M·y<sub>i</sub> can carry its own,
+      tighter M. Derive it from the two resources — the leaderboard game above is untouched.
+      (Drill written for this demo; slide 8 introduces x ≤ M·y.)</p>
+    <div class="mq">
+      <p class="qtext"><b>Shirts</b> — x₁ ≤ M·y₁. The tightest safe M is:</p>
+      <div class="controls">
+        <button data-mq="0" data-mo="0">M = 25</button>
+        <button data-mq="0" data-mo="1">M = 40</button>
+        <button data-mq="0" data-mo="2">M = 50</button>
+        <button data-mq="0" data-mo="3">M = 1000</button>
+      </div>
+      <p class="status info" id="fc-m0"></p>
+    </div>
+    <div class="mq">
+      <p class="qtext"><b>Shorts</b> — x₂ ≤ M·y₂. The tightest safe M is:</p>
+      <div class="controls">
+        <button data-mq="1" data-mo="0">M = 40</button>
+        <button data-mq="1" data-mo="1">M = 53</button>
+        <button data-mq="1" data-mo="2">M = 75</button>
+        <button data-mq="1" data-mo="3">M = 1000</button>
+      </div>
+      <p class="status info" id="fc-m1"></p>
+    </div>
+    <div class="mq">
+      <p class="qtext"><b>Pants</b> — x₃ ≤ M·y₃. The tightest safe M is:</p>
+      <div class="controls">
+        <button data-mq="2" data-mo="0">M = 20</button>
+        <button data-mq="2" data-mo="1">M = 25</button>
+        <button data-mq="2" data-mo="2">M = 40</button>
+        <button data-mq="2" data-mo="3">M = 1000</button>
+      </div>
+      <p class="status info" id="fc-m2"></p>
+    </div>
+    <p class="status info" id="fc-drill-status"></p>
+  </div>
   <div class="note">
     The y-variables exist exactly for this rule: x<sub>i</sub> can be positive only when y<sub>i</sub> = 1, written
     x<sub>i</sub> ≤ M·y<sub>i</sub> on slide 8. Here M = 53 already works — no product can exceed 53 units on
@@ -195,6 +291,18 @@
     plus every neighborhood sharing a border with it. <b>Click neighborhoods to open (or close)
     stations</b> — covered areas fill in. Protect all 11 with as few stations as you can.
   </p>
+  <div class="mstage" id="fm-gate">
+    <p class="mhead"><b>Modeling gate — build the coverage row.</b> Slide 14 writes one row per
+      neighborhood: x<sub>j</sub> enters neighborhood i's row exactly when a station at j would protect i.
+      <b>Click, on the map, every location that would protect neighborhood
+      <span id="fm-gate-target">11</span></b>, then check. Build two rows and the hunt unlocks.</p>
+    <div class="controls">
+      <button class="primary" id="fm-gate-check">Check my coverage set</button>
+      <span class="readout">rows built: <b id="fm-gate-done">0</b> / 2</span>
+      <span class="readout">selected: <b id="fm-gate-sel">—</b></span>
+    </div>
+    <div class="built-rows" id="fm-rows"></div>
+  </div>
   <div class="controls">
     <span class="readout">stations: <b id="fm-count">0</b></span>
     <span class="readout">covered: <b id="fm-cov">0</b> / 11</span>
@@ -261,6 +369,43 @@
     <span class="readout" id="dy-loads">loads: —</span>
   </div>
   <p class="status info" id="dy-status">Every course needs exactly one instructor.</p>
+  <div class="mstage" id="dy-lab">
+    <p class="mhead"><b>Optional modeling lab — poke the “= 1”.</b> The leaderboard game above stays as
+      it is; this is for after you have a full assignment. (Items written for this demo; slides 22–24
+      pose the base model.)</p>
+    <p class="status info" id="dy-lab-status">Assign all eight courses above to open the lab.</p>
+    <div id="dy-lab-body" class="gate-locked">
+      <div class="mq">
+        <p class="qtext"><b>1 — predict, then see.</b> Relax every course row from “= 1” to “≥ 1”, so
+          several instructors may share a course, and maximize total preference again. What comes back?</p>
+        <div class="controls">
+          <button data-dq="0" data-do="0">Nothing changes — one instructor per course is still optimal</button>
+          <button data-dq="0" data-do="1">The objective inflates — every course collects every volunteer</button>
+          <button data-dq="0" data-do="2">The model becomes infeasible</button>
+          <button data-dq="0" data-do="3">The objective drops — sharing dilutes the preference</button>
+        </div>
+        <p class="status info" id="dy-q0"></p>
+      </div>
+      <div class="mq">
+        <p class="qtext"><b>2 — build the missing row.</b> Nothing in the base model limits anyone's
+          load. Assemble the constraint “<b id="dy-star-name">Örsan</b> teaches at most 2 courses”:
+          click every x<sub>ij</sub> that belongs in the row (x<sub>ij</sub> = 1 if instructor i takes
+          course j, instructors numbered in slide order), then pick the comparison.</p>
+        <div class="controls" id="dy-terms"></div>
+        <div class="controls">
+          <span class="segwrap" id="dy-rel">
+            <button class="seg" data-rel="le1">≤ 1</button>
+            <button class="seg" data-rel="le2">≤ 2</button>
+            <button class="seg" data-rel="eq2">= 2</button>
+            <button class="seg" data-rel="ge2">≥ 2</button>
+          </span>
+          <span class="readout">row: <b id="dy-row">—</b></span>
+          <button class="primary" id="dy-row-check">Check the row</button>
+        </div>
+        <p class="status info" id="dy-q1"></p>
+      </div>
+    </div>
+  </div>
   <div class="note">
     This is a set partitioning model (slide 17): equality constraints, one per course. Courses 3
     and 4 have a single volunteer, so x&#8321;&#8323; = 1 and x&#8323;&#8324; = 1 are forced before any optimization.
@@ -293,6 +438,34 @@
     <span class="readout">total: <b id="pw-total">—</b></span>
   </div>
   <p class="status info" id="pw-status">Build at least one plant.</p>
+  <div class="mstage" id="pw-form">
+    <p class="mhead"><b>Formulation check — the ✓ waits for it.</b> Toggling above stays free — but a
+      cheap total is only worth claiming once the slide-27 model behind it is pinned down. Two questions.
+      (Questions written for this demo; slide 27 asks for the formulation.)</p>
+    <div class="mq">
+      <p class="qtext"><b>Q1.</b> City 1 needs 45 million kWh. Which row says so?
+        (x<sub>ij</sub> = power shipped from location i to city j.)</p>
+      <div class="controls">
+        <button data-pq="0" data-po="0">x₁₁ + x₂₁ + x₃₁ ≤ 45</button>
+        <button data-pq="0" data-po="1">x₁₁ + x₁₂ + x₁₃ + x₁₄ = 45</button>
+        <button data-pq="0" data-po="2">x₁₁ + x₂₁ + x₃₁ = 45</button>
+        <button data-pq="0" data-po="3">x₁₁ + x₂₁ + x₃₁ = 45·y₁</button>
+      </div>
+      <p class="status info" id="pw-f0"></p>
+    </div>
+    <div class="mq">
+      <p class="qtext"><b>Q2.</b> The supply switch is x<sub>i1</sub> + x<sub>i2</sub> + x<sub>i3</sub> +
+        x<sub>i4</sub> ≤ M·y<sub>i</sub>. Pick the tightest valid M.</p>
+      <div class="controls">
+        <button data-pq="1" data-po="0">M = 30</button>
+        <button data-pq="1" data-po="1">M = 45</button>
+        <button data-pq="1" data-po="2">M = 125</button>
+        <button data-pq="1" data-po="3">M = 10⁶</button>
+      </div>
+      <p class="status info" id="pw-f1"></p>
+    </div>
+    <p class="status info" id="pw-form-status"></p>
+  </div>
   <div class="note">
     On slide 27 this becomes the fixed-charge trick again: supply constraints x<sub>i1</sub>+…+x<sub>i4</sub> ≤ M·y<sub>i</sub>
     switch a site's capacity on only when its construction cost is paid. Highlighted cells show
@@ -333,6 +506,7 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
   const BUDGET = 24;
   const on = [false, false, false, false];
   let best = null;
+  let gateOpen = false; // the modeling gate below flips this
 
   const host = el('iv-cards');
   COST.forEach((c, i) => {
@@ -341,7 +515,13 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     b.innerHTML = '<span class="t">Investment ' + (i + 1) + '</span>' +
       '<span class="d">costs $' + c + ',000 &middot; present value $' + VAL[i] + ',000</span>' +
       '<span class="st">SKIPPED</span>';
-    b.addEventListener('click', () => { on[i] = !on[i]; update(); });
+    b.addEventListener('click', () => {
+      // WHY: .gate-locked already blocks pointer events, so this guard cannot
+      // normally fire — it stays as defence in case the lock becomes visual-only.
+      if (!gateOpen) return;
+      on[i] = !on[i];
+      update();
+    });
     host.appendChild(b);
   });
 
@@ -368,6 +548,103 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     }
   }
   update();
+
+  // --- modeling gate (quiz items written for this demo) -------------------
+  // All 16 binary portfolios are enumerated once; every piece of feedback
+  // below is COMPUTED from that enumeration, never hand-typed.
+  host.classList.add('gate-locked');
+  el('iv-status').textContent = 'Model the three investor rules above — the portfolio cards unlock after the gate.';
+
+  const PORTS = [];
+  for (let m = 0; m < 16; m++) PORTS.push([m & 1, (m >> 1) & 1, (m >> 2) & 1, (m >> 3) & 1]);
+  const pName = p => {
+    const ids = p.map((v, q) => (v ? q + 1 : 0)).filter(Boolean);
+    return ids.length ? '{' + ids.join(', ') + '}' : '∅ (invest in nothing)';
+  };
+  const listSome = ps => {
+    const shown = ps.slice(0, 2).map(pName).join(' and ');
+    return ps.length > 2 ? shown + ' (+' + (ps.length - 2) + ' more)' : shown;
+  };
+  const RULES = [
+    { // Rule 1: investment 3 only if investment 2
+      truth: p => p[2] <= p[1], correct: 1,
+      ok: '“3 only if 2”: setting x₃ = 1 drags x₂ up to 1, while investment 2 alone stays untouched.',
+      tags: [
+        'x₂ ≤ x₃ reads “2 only if 3” — the implication points the wrong way.',
+        '',
+        'x₂ + x₃ ≤ 1 makes 2 and 3 mutually exclusive — the rule links them, it does not separate them.',
+        'x₃ = x₂ chains them BOTH ways — the rule says “only if”, not “if and only if”.',
+      ],
+      opts: [p => p[1] <= p[2], p => p[2] <= p[1], p => p[1] + p[2] <= 1, p => p[1] === p[2]],
+    },
+    { // Rule 2: at most two of investments 1-3
+      truth: p => p[0] + p[1] + p[2] <= 2, correct: 2,
+      ok: 'a hard cap of two on the count chosen among 1–3.',
+      tags: [
+        'x₁ + x₂ + x₃ ≥ 2 is a MINIMUM of two — “at most” caps from above.',
+        'x₁ + x₂ + x₃ ≤ 1 allows only ONE — tighter than the investor asked for.',
+        '',
+        'x₁·x₂·x₃ = 0 forbids exactly the right portfolios — but a product of variables is not linear (Week 1’s lesson), so no LP/IP solver will take the row. Pick the linear version.',
+      ],
+      opts: [p => p[0] + p[1] + p[2] >= 2, p => p[0] + p[1] + p[2] <= 1,
+             p => p[0] + p[1] + p[2] <= 2, p => p[0] * p[1] * p[2] === 0],
+    },
+    { // Rule 3: investments 1 and 4 mutually exclusive
+      truth: p => p[0] + p[3] <= 1, correct: 3,
+      ok: 'either can be taken alone and both can be skipped — only the pair together is banned.',
+      tags: [
+        'x₁ + x₄ = 1 forces EXACTLY one of them — mutual exclusion still allows taking neither.',
+        'x₁ ≤ x₄ is an “only if” link (1 only if 4), not an exclusion.',
+        'x₁ + x₄ ≥ 1 demands at least one of them — the opposite of keeping them apart.',
+        '',
+      ],
+      opts: [p => p[0] + p[3] === 1, p => p[0] <= p[3], p => p[0] + p[3] >= 1, p => p[0] + p[3] <= 1],
+    },
+  ];
+  const gSolved = [false, false, false];
+  document.querySelectorAll('#iv-gate [data-gq]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = +btn.dataset.gq, o = +btn.dataset.go;
+      if (gSolved[q]) return;
+      const rule = RULES[q];
+      const fb = el('iv-g' + q);
+      btn.parentNode.querySelectorAll('button').forEach(b2 => b2.classList.toggle('chosen', b2 === btn));
+      if (o === rule.correct) {
+        gSolved[q] = true;
+        const cut = PORTS.filter(p => !rule.truth(p));
+        fb.className = 'status ok';
+        fb.textContent = '✓ ' + btn.textContent + ' — ' + rule.ok + ' Of the 16 portfolios it cuts exactly ' +
+          cut.length + ': ' + listSome(cut) + '.';
+      } else {
+        const test = rule.opts[o];
+        const forbids = PORTS.filter(p => rule.truth(p) && !test(p));
+        const admits = PORTS.filter(p => !rule.truth(p) && test(p));
+        const parts = [];
+        if (forbids.length) parts.push('wrongly forbids ' + listSome(forbids) + ' — ' +
+          (forbids.length > 1 ? 'those portfolios are' : 'that portfolio is') + ' fine under the rule');
+        if (admits.length) parts.push('wrongly admits ' + listSome(admits) + ' — the rule should forbid ' +
+          (admits.length > 1 ? 'them' : 'it'));
+        fb.className = 'status bad';
+        fb.textContent = '✗ ' + rule.tags[o] +
+          (parts.length ? ' Checked against all 16 portfolios, it ' + parts.join(', and ') + '.' : '');
+      }
+      const n = gSolved.filter(Boolean).length;
+      const gs = el('iv-gate-status');
+      if (n === 3) {
+        gateOpen = true;
+        host.classList.remove('gate-locked');
+        el('iv-gate').classList.add('done');
+        gs.className = 'status ok';
+        gs.textContent = '✓ All three rules modeled — the hunt is open. (The hunt keeps only the slide-4 budget; none of these extra rules apply below.)';
+        const st = el('iv-status');
+        st.className = 'status info';
+        st.textContent = 'Pick some investments.';
+      } else {
+        gs.className = 'status info';
+        gs.textContent = n + ' / 3 rules modeled — the portfolio hunt is waiting below.';
+      }
+    });
+  });
 })();
 
 /* ============================================================
@@ -457,6 +734,63 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     el('fc-table').querySelector('tbody').innerHTML = '';
   });
   update();
+
+  // --- optional companion drill (written for this demo): tightest valid M --
+  // M_i is DERIVED from the resource data above, never trusted from prose:
+  // the most of product i the week allows = min(150/LAB[i], 160/CLO[i]),
+  // floored because units are whole. That gives 40 / 53 / 25 — the slider maxes.
+  const CAPS = [[150, 'labor', 'h'], [160, 'cloth', 'm²']];
+  const USE = i => [LAB[i], CLO[i]];
+  const boundOf = (i, r) => CAPS[r][0] / USE(i)[r];
+  const MT = [0, 1, 2].map(i => Math.floor(Math.min(boundOf(i, 0), boundOf(i, 1))));
+  const bindRes = i => (boundOf(i, 0) <= boundOf(i, 1) ? 0 : 1);
+  const fmtB = v => (Number.isInteger(v) ? String(v) : v.toFixed(1));
+  const M_OPTS = [[25, 40, 50, 1000], [40, 53, 75, 1000], [20, 25, 40, 1000]];
+  const mSolved = [false, false, false];
+  document.querySelectorAll('#fixedcharge [data-mq]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const i = +btn.dataset.mq, v = M_OPTS[i][+btn.dataset.mo];
+      if (mSolved[i]) return;
+      btn.parentNode.querySelectorAll('button').forEach(b2 => b2.classList.toggle('chosen', b2 === btn));
+      const fb = el('fc-m' + i);
+      const br = bindRes(i), or = 1 - br;
+      if (v === MT[i]) {
+        mSolved[i] = true;
+        fb.className = 'status ok';
+        fb.textContent = '✓ M = ' + v + ': ' + CAPS[br][1] + ' is the binding resource — ' +
+          CAPS[br][0] + '/' + USE(i)[br] + ' = ' + fmtB(boundOf(i, br)) +
+          (Number.isInteger(boundOf(i, br)) ? '' : ' → ' + v + ' whole units') +
+          ' — while ' + CAPS[or][1] + ' alone would allow ' + fmtB(boundOf(i, or)) +
+          '. No feasible plan is cut, and no smaller M is safe.';
+      } else if (v < MT[i]) {
+        fb.className = 'status bad';
+        fb.textContent = '✗ M = ' + v + ' wrongly cuts a feasible plan: ' + MT[i] + ' ' + NAME[i] +
+          ' alone uses ' + (LAB[i] * MT[i]) + '/150 h of labor and ' + (CLO[i] * MT[i]) +
+          '/160 m² of cloth — perfectly feasible, but x ≤ ' + v +
+          '·y forbids it. A too-small M changes the model itself, not just its speed.';
+      } else {
+        const isOther = v === Math.floor(boundOf(i, or));
+        fb.className = 'status bad';
+        fb.textContent = '✗ Valid but not tightest — ' +
+          (isOther
+            ? 'M = ' + v + ' is the ' + CAPS[or][1] + ' bound (' + CAPS[or][0] + '/' + USE(i)[or] +
+              ' = ' + fmtB(boundOf(i, or)) + '), but ' + CAPS[br][1] + ' runs out first and caps ' +
+              NAME[i] + ' at ' + MT[i] + '.'
+            : 'the resources already cap ' + NAME[i] + ' at ' + MT[i] + ', so M = ' + v +
+              ' is far looser than needed.') +
+          ' Oversized M weakens the LP relaxation: y can sit at x/M — producing ' + MT[i] +
+          ' with M = ' + v + ' lets y = ' + fmt(MT[i] / v, v >= 1000 ? 3 : 2) +
+          ', paying only ' + money(RENT[i] * MT[i] / v) + ' of the $' + RENT[i] + ' rent.';
+      }
+      if (mSolved.every(Boolean)) {
+        const ds = el('fc-drill-status');
+        ds.className = 'status ok';
+        ds.textContent = '✓ Tightest M per product: ' + MT.join(' / ') +
+          ' — and the single M = ' + Math.max(...MT) + ' in the note below is just the largest of the three.';
+        el('fc-drill').classList.add('done');
+      }
+    });
+  });
 })();
 
 /* ============================================================
@@ -505,6 +839,12 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
   };
   const OPT = [1, 6, 9]; // one of the 30 optimal triples (enumerated)
   let stations = new Set(), revealed = false, lastPlot = null, bestFull = null;
+  // modeling gate state: build 2 coverage rows (from COVER) before the hunt opens
+  const GATE_TARGETS = [11, 5]; // interesting rows: 11 has the smallest cover set, 5 one of the largest
+  let gateStep = 0, gateSel = new Set(), gateOpen = false;
+  const hintSpan = canvas.parentNode.querySelector('.viz-hint span');
+  const SUBD = '₀₁₂₃₄₅₆₇₈₉';
+  const subd = q => String(q).split('').map(ch => SUBD[+ch]).join('');
 
   const coveredSet = () => {
     const c = new Set();
@@ -526,7 +866,8 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     const t = VIZ.theme();
     lastPlot = p;
     const { ctx, X, Y } = p;
-    const cov = coveredSet();
+    // during the gate, coverage is hidden so clicking cannot leak the answer
+    const cov = gateOpen ? coveredSet() : new Set();
     for (let i = 1; i <= 11; i++) {
       ctx.beginPath();
       POLY[i].forEach((vt, q) => {
@@ -539,11 +880,28 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
       ctx.lineWidth = 1.5;
       ctx.stroke();
     }
+    if (!gateOpen) { // re-stroke the gate's target neighborhood on top
+      const tgt = GATE_TARGETS[gateStep];
+      ctx.beginPath();
+      POLY[tgt].forEach((vt, q) => {
+        const [x, yy] = P[vt];
+        q === 0 ? ctx.moveTo(X(x), Y(yy)) : ctx.lineTo(X(x), Y(yy));
+      });
+      ctx.closePath();
+      ctx.strokeStyle = t.s2;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      VIZ.label(p, 'gate: who can protect neighborhood ' + tgt + '?', p.view.x0 + 2, p.view.y0 + 2, t.s2, { size: 13, bold: true });
+    }
     for (let i = 1; i <= 11; i++) {
       const [lx, ly] = LABEL[i];
-      VIZ.label(p, String(i), lx, ly, cov.has(i) ? t.ink : t.ink2,
-        { align: 'center', baseline: 'middle', bold: true, size: 15 });
+      const isTarget = !gateOpen && GATE_TARGETS[gateStep] === i;
+      VIZ.label(p, String(i), lx, ly, isTarget ? t.s2 : (cov.has(i) ? t.ink : t.ink2),
+        { align: 'center', baseline: 'middle', bold: true, size: isTarget ? 17 : 15 });
       if (stations.has(i)) {
+        VIZ.star(p, lx, ly + 4.2, t.s5, 9);
+      }
+      if (!gateOpen && gateSel.has(i)) {
         VIZ.star(p, lx, ly + 4.2, t.s5, 9);
       }
       if (revealed && OPT.includes(i)) {
@@ -555,6 +913,10 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     }
     el('fm-count').textContent = stations.size;
     el('fm-cov').textContent = cov.size;
+    if (!gateOpen) {
+      el('fm-gate-sel').textContent = gateSel.size ? [...gateSel].sort((a, b) => a - b).join(', ') : '—';
+      return; // gate feedback owns fm-status until the hunt opens
+    }
     const st = el('fm-status');
     if (cov.size === 11) {
       if (bestFull === null || stations.size < bestFull) bestFull = stations.size;
@@ -588,6 +950,15 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     const x = lastPlot.invX(px), y = lastPlot.invY(py);
     for (let i = 1; i <= 11; i++) {
       if (pip(x, y, POLY[i])) {
+        if (!gateOpen) { // gate mode: clicks pick coverage candidates, not stations
+          gateSel.has(i) ? gateSel.delete(i) : gateSel.add(i);
+          const st = el('fm-status');
+          st.className = 'status info';
+          st.textContent = 'Locations selected: ' + ([...gateSel].sort((a, b) => a - b).join(', ') || 'none') +
+            '. When the set is complete, press “Check my coverage set”.';
+          draw();
+          return;
+        }
         stations.has(i) ? stations.delete(i) : stations.add(i);
         draw();
         return;
@@ -595,11 +966,75 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     }
   });
   el('fm-reveal').addEventListener('click', () => {
+    if (!gateOpen) {
+      const st = el('fm-status');
+      st.className = 'status info';
+      st.textContent = 'The reveal unlocks with the hunt — build the two coverage rows first.';
+      return;
+    }
     revealed = !revealed;
     el('fm-reveal').textContent = revealed ? 'Hide the optimal placement' : 'Reveal an optimal placement ★';
     draw();
   });
-  el('fm-clear').addEventListener('click', () => { stations.clear(); draw(); });
+  el('fm-clear').addEventListener('click', () => {
+    if (!gateOpen) { gateSel.clear(); draw(); return; }
+    stations.clear();
+    draw();
+  });
+
+  // --- modeling gate: check the clicked set against the slide-14 row -------
+  el('fm-gate-check').addEventListener('click', () => {
+    if (gateOpen) return;
+    const st = el('fm-status');
+    const target = GATE_TARGETS[gateStep];
+    const want = COVER[target];
+    if (gateSel.size === 0) {
+      st.className = 'status info';
+      st.textContent = 'Click locations on the map first — every one whose station would protect neighborhood ' + target + '.';
+      return;
+    }
+    const wrong = [...gateSel].filter(j => !want.includes(j)).sort((a, b) => a - b);
+    const missing = want.filter(j => !gateSel.has(j));
+    if (wrong.length || missing.length) {
+      st.className = 'status bad';
+      const bits = [];
+      if (wrong.length) bits.push('a station at ' + wrong.join(', ') +
+        ' cannot reach neighborhood ' + target + ' — no shared border on the map');
+      if (missing.length) bits.push(missing.length + ' covering location' +
+        (missing.length > 1 ? 's are' : ' is') + ' still missing' +
+        (missing.includes(target)
+          ? ' — remember: a station in ' + target + ' itself protects ' + target
+          : ' — hint: location ' + missing[0] + ' shares a border with ' + target));
+      st.textContent = '✗ Not the slide-14 row yet: ' + bits.join('; ') + '.';
+      return;
+    }
+    // exact match — display the constraint row this coverage set implies
+    const row = want.map(q => 'x' + subd(q)).join(' + ') + ' ≥ 1';
+    el('fm-rows').insertAdjacentHTML('beforeend',
+      '<div class="built-row">' + row + ' <span class="who">(neighborhood ' + target + ' is protected)</span></div>');
+    gateStep++;
+    gateSel.clear();
+    el('fm-gate-done').textContent = gateStep;
+    if (gateStep >= GATE_TARGETS.length) {
+      gateOpen = true;
+      el('fm-gate').classList.add('done');
+      el('fm-gate-sel').textContent = '—';
+      hintSpan.textContent = '🖱 click a neighborhood to open / close a station';
+      draw();
+      st.className = 'status ok';
+      st.textContent = '✓ Both rows built — that is the whole set-covering pattern. The hunt is open: open your first station.';
+    } else {
+      el('fm-gate-target').textContent = GATE_TARGETS[gateStep];
+      draw();
+      st.className = 'status ok';
+      st.textContent = '✓ Row built: ' + row + '. Next: neighborhood ' + GATE_TARGETS[gateStep] + ' — same drill.';
+    }
+  });
+
+  el('fm-gate-target').textContent = GATE_TARGETS[0];
+  hintSpan.textContent = '🖱 gate: click every location that could protect the highlighted neighborhood';
+  el('fm-status').textContent = 'Modeling gate: click every location that would protect neighborhood ' +
+    GATE_TARGETS[0] + ', then press “Check my coverage set”.';
   VIZ.register(canvas, draw);
 })();
 
@@ -747,6 +1182,7 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     } else {
       st.className = 'status ok';
       st.textContent = '✓ Feasible partition — total preference ' + total + '. Submit it, then look for improving swaps.';
+      unlockLab(); // full assignment reached: the optional modeling lab opens
     }
   }
 
@@ -754,6 +1190,134 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     const { done, total } = currentTotal();
     return done === 8 ? total : null;
   };
+
+  // --- optional modeling lab (items written for this demo) -----------------
+  // Every checked answer below is COMPUTED from OFFERS, the slide-23 data.
+  let labOpen = false;
+  function unlockLab() {
+    if (labOpen) return;
+    labOpen = true;
+    el('dy-lab-body').classList.remove('gate-locked');
+    const ls = el('dy-lab-status');
+    ls.className = 'status ok';
+    ls.textContent = 'Lab open — two questions.';
+  }
+  function maybeFinishLab() {
+    if (dq0Solved && dq1Solved) {
+      const ls = el('dy-lab-status');
+      ls.className = 'status ok';
+      ls.textContent = '✓ Lab complete — equality rows and coupling rows are where set partitioning gets its power.';
+      el('dy-lab').classList.add('done');
+    }
+  }
+
+  const SUBS = '₀₁₂₃₄₅₆₇₈₉';
+  const perFac = FAC.map(() => []);
+  for (let c = 1; c <= 8; c++) OFFERS[c].forEach(([f]) => perFac[f].push(c));
+  let star = 0; // the instructor with the most volunteered courses
+  FAC.forEach((_, f) => { if (perFac[f].length > perFac[star].length) star = f; });
+  el('dy-star-name').textContent = FAC[star];
+
+  // Q1: relaxing "= 1" to ">= 1" — the inflated objective, from the data
+  const inflated = Object.values(OFFERS).reduce((s, arr) => s + arr.reduce((a, [, p2]) => a + p2, 0), 0);
+  let starC = 1; // the course with the most volunteers, as the illustration
+  for (let c = 2; c <= 8; c++) if (OFFERS[c].length > OFFERS[starC].length) starC = c;
+  const starNames = OFFERS[starC].map(([f]) => FAC[f]).join(' + ');
+  const starPrefs = OFFERS[starC].map(([, p2]) => p2).join(' + ');
+  const starSum = OFFERS[starC].reduce((a, [, p2]) => a + p2, 0);
+  const DQ0_HINTS = {
+    0: '✗ Check any course with two volunteers: under “≥ 1” the solver keeps the best one AND adds the rest — every extra volunteer contributes a positive preference for free. Only “exactly one” stops the pile-up.',
+    2: '✗ Loosening “=” to “≥” can never destroy feasibility — every solution of the original model still satisfies the relaxed rows. The feasible set only grows.',
+    3: '✗ In a maximization, a larger feasible set can only help — the optimum never drops when a constraint is loosened.',
+  };
+  let dq0Solved = false, dq1Solved = false;
+  document.querySelectorAll('#duty [data-dq]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (!labOpen || dq0Solved) return;
+      const o = +btn.dataset.do;
+      btn.parentNode.querySelectorAll('button').forEach(b2 => b2.classList.toggle('chosen', b2 === btn));
+      const fb = el('dy-q0');
+      if (o === 1) {
+        dq0Solved = true;
+        fb.className = 'status ok';
+        fb.textContent = '✓ Every slide-23 preference is positive, so under “≥ 1” each extra volunteer only adds — the solver assigns ALL of them, and the objective inflates to ' + inflated +
+          '. Course ' + starC + ' alone (the most volunteered course) collects ' + starNames + ' = ' + starPrefs + ' = ' + starSum + '. The “exactly one” is doing real work.';
+        maybeFinishLab();
+      } else {
+        fb.className = 'status bad';
+        fb.textContent = DQ0_HINTS[o];
+      }
+    });
+  });
+
+  // Q2: assemble the coupling row "star instructor teaches at most 2 courses"
+  const terms = [];
+  perFac[star].forEach(c => terms.push({ f: star, c }));
+  FAC.forEach((_, f) => { if (f !== star && perFac[f].length) terms.push({ f, c: perFac[f][0] }); });
+  terms.sort((a, b) => a.c - b.c || a.f - b.f);
+  const tKey = t2 => t2.f + ',' + t2.c;
+  const tName = t2 => 'x' + SUBS[t2.f + 1] + SUBS[t2.c];
+  const selTerms = new Set();
+  let rel = null;
+  const REL_TXT = { le1: ' ≤ 1', le2: ' ≤ 2', eq2: ' = 2', ge2: ' ≥ 2' };
+  function rowReadout() {
+    const lhs = terms.filter(t2 => selTerms.has(tKey(t2))).map(tName).join(' + ');
+    el('dy-row').textContent = (lhs || '—') + (rel ? REL_TXT[rel] : '');
+  }
+  terms.forEach(t2 => {
+    const b = document.createElement('button');
+    b.textContent = tName(t2);
+    b.addEventListener('click', () => {
+      if (!labOpen || dq1Solved) return;
+      selTerms.has(tKey(t2)) ? selTerms.delete(tKey(t2)) : selTerms.add(tKey(t2));
+      b.classList.toggle('chosen', selTerms.has(tKey(t2)));
+      rowReadout();
+    });
+    el('dy-terms').appendChild(b);
+  });
+  el('dy-rel').querySelectorAll('button.seg').forEach(b => {
+    b.addEventListener('click', () => {
+      if (!labOpen || dq1Solved) return;
+      rel = b.dataset.rel;
+      el('dy-rel').querySelectorAll('button.seg').forEach(b2 => b2.classList.toggle('active', b2 === b));
+      rowReadout();
+    });
+  });
+  el('dy-row-check').addEventListener('click', () => {
+    if (!labOpen || dq1Solved) return;
+    const fb = el('dy-q1');
+    if (!selTerms.size) {
+      fb.className = 'status info';
+      fb.textContent = 'Click the x’s that belong in ' + FAC[star] + '’s load row first.';
+      return;
+    }
+    const wrongT = terms.filter(t2 => t2.f !== star && selTerms.has(tKey(t2)));
+    const missingC = perFac[star].filter(c => !selTerms.has(star + ',' + c));
+    if (wrongT.length) {
+      const t2 = wrongT[0];
+      fb.className = 'status bad';
+      fb.textContent = '✗ ' + tName(t2) + ' is ' + FAC[t2.f] + '’s variable (course ' + t2.c + ') — this row counts ' + FAC[star] + '’s courses only. One rule, one person, one row.';
+      return;
+    }
+    if (missingC.length) {
+      fb.className = 'status bad';
+      fb.textContent = '✗ ' + FAC[star] + ' also volunteers for course ' + missingC[0] + ' — leave x' + SUBS[star + 1] + SUBS[missingC[0]] + ' out and the row cannot count that assignment: the load could still reach 3.';
+      return;
+    }
+    if (rel !== 'le2') {
+      fb.className = rel ? 'status bad' : 'status info';
+      fb.textContent = !rel ? 'The terms are right — now pick the comparison.' :
+        rel === 'le1' ? '✗ “≤ 1” caps the load at a single course — the rule says at most two.' :
+        rel === 'eq2' ? '✗ “= 2” forces EXACTLY two — a schedule where ' + FAC[star] + ' takes one course (or none) would turn infeasible. “At most” caps only from above.' :
+        '✗ “≥ 2” is a minimum load — it points the opposite way from “at most”.';
+      return;
+    }
+    dq1Solved = true;
+    fb.className = 'status ok';
+    fb.textContent = '✓ ' + perFac[star].map(c => 'x' + SUBS[star + 1] + SUBS[c]).join(' + ') + ' ≤ 2 — the coupling row the base model never had. It even bites: the spoiler’s optimum hands ' + FAC[star] + ' three courses, so this one row would change the answer.';
+    maybeFinishLab();
+  });
+
   update();
 })();
 
@@ -768,6 +1332,7 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
   const FIX = [20000000, 35000000, 15000000];
   const DEM = [45, 20, 30, 30];
   const open = [false, false, false];
+  const pwSolved = [false, false]; // the required formulation check below
 
   const host = el('pw-cards');
   FIX.forEach((fc, i) => {
@@ -814,10 +1379,62 @@ const money = v => '$' + Math.round(v).toLocaleString('en-US');
     const tr = DEM.reduce((s, d, j) => s + d * TC[pick[j]][j], 0);
     el('pw-tr').textContent = money(tr);
     el('pw-total').textContent = money(fix + tr);
-    st.className = 'status ok';
+    // the success state stays "info" until the required formulation check passes
+    const formDone = pwSolved[0] && pwSolved[1];
+    st.className = formDone ? 'status ok' : 'status info';
     st.textContent = '✓ Demand met — total cost ' + money(fix + tr) +
-      ' (construction ' + money(fix) + ' + transport ' + money(tr) + '). Fewer plants? Different site?';
+      ' (construction ' + money(fix) + ' + transport ' + money(tr) + '). Fewer plants? Different site?' +
+      (formDone ? '' : ' (Confirm the formulation below before you call this an answer.)');
   }
+
+  // --- required formulation stage (written for this demo; slide 27 asks for
+  // the model). Every number below is computed from DEM / FIX above. --------
+  const totDem = DEM.reduce((s, d) => s + d, 0); // 125
+  const demStr = DEM.join(' + ');                // '45 + 20 + 30 + 30'
+  const PWQ = [
+    { // Q1: demand row for City 1
+      correct: 2,
+      ok: '✓ One term per candidate plant, summed over the i index. And “=” is safe here: every unit shipped costs money, so the optimizer never sends City 1 more than ' + DEM[0] + ' anyway — “=” and “≥” pick the same optimum, and “=” says it plainly.',
+      hints: {
+        0: '✗ “≤ ' + DEM[0] + '” only caps the deliveries — shipping City 1 NOTHING satisfies it, and a cost minimizer will do exactly that. A demand row must force the power to arrive.',
+        1: '✗ Wrong index: x₁₁ + x₁₂ + x₁₃ + x₁₄ adds up what LOCATION 1 sends to all four cities — that is the supply side. City 1’s demand sums over the plants: one x per location, same j.',
+        3: '✗ City 1 needs its ' + DEM[0] + ' whether or not Location 1 is built — demand carries no y. The y’s belong on the supply rows, switching a plant’s output on and off.',
+      },
+    },
+    { // Q2: tightest valid M in the supply switch
+      correct: 2,
+      ok: '✓ M = ' + totDem + ' = ' + demStr + ', the total demand — the most any single plant could ever ship, and the one-plant builds above really do ship all ' + totDem + '. No smaller M is valid, and no larger M is tighter.',
+      hints: {
+        0: '✗ M = 30 cannot even carry City 1 alone (demand ' + DEM[0] + '), let alone a plant serving everyone. An open plant may end up shipping the full ' + totDem + '.',
+        1: '✗ M = ' + DEM[0] + ' (the biggest single demand) wrongly cuts the page’s own best answer: build only Location 3 and it must ship ' + demStr + ' = ' + totDem + ' — but the row would cap it at ' + DEM[0] + '·1.',
+        3: '✗ Valid — nothing is cut — but hopelessly loose: in the LP relaxation y₃ only needs to reach ' + (totDem / 1e6) + ', paying about ' + money(FIX[2] * totDem / 1e6) + ' of the ' + money(FIX[2]) + ' construction bill. Tight M = total demand keeps the bound meaningful.',
+      },
+    },
+  ];
+  document.querySelectorAll('#powerco [data-pq]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = +btn.dataset.pq, o = +btn.dataset.po;
+      if (pwSolved[q]) return;
+      btn.parentNode.querySelectorAll('button').forEach(b2 => b2.classList.toggle('chosen', b2 === btn));
+      const fb = el('pw-f' + q);
+      if (o === PWQ[q].correct) {
+        pwSolved[q] = true;
+        fb.className = 'status ok';
+        fb.textContent = PWQ[q].ok;
+        if (pwSolved[0] && pwSolved[1]) {
+          const fs = el('pw-form-status');
+          fs.className = 'status ok';
+          fs.textContent = '✓ Formulation pinned down — ' + DEM.length + ' demand rows, ' + FIX.length + ' supply switches, binary y’s. That is the whole slide-27 model.';
+          el('pw-form').classList.add('done');
+        }
+        update(); // refresh the gated success status above
+      } else {
+        fb.className = 'status bad';
+        fb.textContent = PWQ[q].hints[o];
+      }
+    });
+  });
+
   update();
 })();
 </script>

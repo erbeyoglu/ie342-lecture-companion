@@ -41,6 +41,27 @@
   .costgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 16px; margin: 10px 0 4px; }
   .costgrid label { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 0.95rem; white-space: nowrap; }
   .costgrid input { width: 90px; font: inherit; text-align: center; }
+  /* quiz rows (same idiom as the week 1 lpquiz) */
+  .qitem {
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin: 10px 0;
+  }
+  .qitem p.qtext { margin: 0 0 8px; }
+  .qitem .status { margin-top: 6px; }
+  .qitem .opts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .qitem .opts button { text-align: left; white-space: normal; }
+  /* road checkboxes for the Servada Park LP mode */
+  .roadgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 6px 14px; margin: 8px 0 10px; }
+  .roadgrid label { display: flex; align-items: center; gap: 7px; color: var(--ink-2); font-size: 0.93rem; white-space: nowrap; cursor: pointer; }
+  /* RHS pickers for the flow-balance question */
+  .rhsrow { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 8px 0 4px; }
+  .rhsrow label { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 0.95rem; }
+  .rhsrow select {
+    font: inherit; padding: 4px 8px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--page); color: var(--ink);
+  }
 </style>
 </head>
 <body>
@@ -79,6 +100,19 @@
   </div>
   <div class="hopchain" id="bc-chain"></div>
   <p class="status info" id="bc-status">Slide a guess, lock it, then reveal the chain hop by hop.</p>
+  <div id="bc-quiz" style="display:none">
+    <div class="qitem">
+      <p class="qtext"><b>Final check —</b> the Oracle finds chains like this by solving a shortest
+        path problem. On <em>which graph</em> does “degrees of separation” become a shortest path?
+        <em>(quiz item written for this demo)</em></p>
+      <div class="opts">
+        <button id="bc-q-films">nodes = films, edges weighted by how many actors two films share</button>
+        <button id="bc-q-actors">nodes = actors, an edge joins two actors iff they share a film, every edge has length 1</button>
+        <button id="bc-q-time">nodes = actors, directed arcs pointing only from earlier films to later ones</button>
+      </div>
+      <p class="status info" id="bc-qfb">Pick the graph where “3 steps” literally means “a shortest path with 3 edges”.</p>
+    </div>
+  </div>
   <div class="note">
     The Oracle of Bacon (University of Virginia) searches shared-movie data on roughly 350,000
     people — it is literally solving a shortest path problem where nodes are actors and edges are
@@ -135,7 +169,31 @@
     year i; arc (i,j) = buy at year i, keep until year j; its cost is maintenance + $12k purchase −
     trade-in. <b>Click nodes left to right</b> to build a 5-year replacement plan from node 1 to
     node 6 — the cheapest plan is the shortest path. All costs in $1,000s.
+    <b>Step 1:</b> the arc cost depends only on the span j − i, so there are just five distinct
+    costs — derive them below and check them; node-clicking unlocks once they are right (or revealed).
   </p>
+  <div class="costgrid">
+    <label>c(1 yr) = <input type="number" id="car-i1" step="any"></label>
+    <label>c(2 yr) = <input type="number" id="car-i2" step="any"></label>
+    <label>c(3 yr) = <input type="number" id="car-i3" step="any"></label>
+    <label>c(4 yr) = <input type="number" id="car-i4" step="any"></label>
+    <label>c(5 yr) = <input type="number" id="car-i5" step="any"></label>
+  </div>
+  <div class="controls">
+    <button id="car-check" class="primary">Check the five costs</button>
+    <button id="car-show">Show the costs</button>
+  </div>
+  <div class="qitem">
+    <p class="qtext"><b>Check —</b> why does arc (2,4) cost exactly the same as arc (1,3)?
+      <em>(check question written for this demo)</em></p>
+    <div class="opts">
+      <button id="car-q-node">arcs ending at the same node always cost the same</button>
+      <button id="car-q-span">the cost depends only on the span j − i, not on when you buy</button>
+      <button id="car-q-coin">a numeric coincidence in this example</button>
+      <button id="car-q-flat">maintenance is flat over time, so timing never matters</button>
+    </div>
+    <p class="status info" id="car-qfb"></p>
+  </div>
   <div class="controls">
     <span class="readout">plan so far: <b id="car-plan">1</b></span>
     <span class="readout">cost: <b id="car-total">0</b></span>
@@ -205,6 +263,7 @@
     <span class="segwrap">
       <button class="seg active" id="pk-mroute">① find the route</button>
       <button class="seg" id="pk-mdijk">② run Dijkstra</button>
+      <button class="seg" id="pk-mlp">③ write it as an LP</button>
     </span>
   </div>
   <div id="pk-route-ui">
@@ -221,6 +280,43 @@
     <div class="controls">
       <button id="pk-run" class="locked">Run remaining steps</button>
       <button id="pk-dreset">Reset algorithm</button>
+    </div>
+  </div>
+  <div id="pk-lp-ui" style="display:none">
+    <p class="howto" style="margin-bottom:6px">
+      Optional side quest — no leaderboard, no lock, the two game modes stay open. The picture is
+      secretly an LP: send one tram-unit of flow from O to T at minimum total miles. Three checks,
+      map below for reference. <em>(quiz items written for this demo, on the slides’ Servada Park
+      network)</em>
+    </p>
+    <div class="qitem">
+      <p class="qtext"><b>(a)</b> One decision variable per road. What does xᵢⱼ mean?</p>
+      <div class="opts">
+        <button id="pk-qa-miles">the number of miles the tram drives on road (i,j)</button>
+        <button id="pk-qa-use">1 if the tram’s route uses road (i,j), 0 otherwise</button>
+        <button id="pk-qa-visit">1 if station i is visited, 0 otherwise</button>
+      </div>
+      <p class="status info" id="pk-qa-fb"></p>
+    </div>
+    <div class="qitem">
+      <p class="qtext"><b>(b)</b> Every node gets a flow-balance constraint, written as
+        (flow out) − (flow in) = RHS. Set the three right-hand sides:</p>
+      <div class="rhsrow">
+        <label>entrance O: <select id="pk-rhs-o"><option value="">?</option><option value="+1">+1</option><option value="0">0</option><option value="-1">−1</option></select></label>
+        <label>stations A–E: <select id="pk-rhs-mid"><option value="">?</option><option value="+1">+1</option><option value="0">0</option><option value="-1">−1</option></select></label>
+        <label>hike start T: <select id="pk-rhs-t"><option value="">?</option><option value="+1">+1</option><option value="0">0</option><option value="-1">−1</option></select></label>
+        <button id="pk-rhs-check" class="primary">Check the RHS</button>
+      </div>
+      <p class="status info" id="pk-rhs-fb"></p>
+    </div>
+    <div class="qitem">
+      <p class="qtext"><b>(c)</b> Station B’s balance row — tick every road whose variable appears
+        in it (and none that don’t belong):</p>
+      <div class="roadgrid" id="pk-lp-roads"></div>
+      <div class="controls" style="margin-top:0">
+        <button id="pk-row-check" class="primary">Check B’s row</button>
+      </div>
+      <p class="status info" id="pk-row-fb"></p>
     </div>
   </div>
   <canvas class="viz" id="c-pk"></canvas>
@@ -496,6 +592,7 @@ function drawCarNet(canvas, t, opts = {}) {
       st.className = g === 3 ? 'status ok' : 'status info';
       st.textContent = (g === 3 ? '✓ Spot on — ' : 'You guessed ' + g + '; ') +
         'the Oracle needs only 3 steps. Two Hollywood-scale hops after one Yeşilçam hop!';
+      el('bc-quiz').style.display = '';
     } else {
       st.className = 'status info';
       st.textContent = 'Hop ' + shown + ' of 3 revealed — who bridges the gap next?';
@@ -508,8 +605,23 @@ function drawCarNet(canvas, t, opts = {}) {
     el('bc-next').classList.add('locked');
     el('bc-status').className = 'status info';
     el('bc-status').textContent = 'Slide a guess, lock it, then reveal the chain hop by hop.';
+    el('bc-quiz').style.display = 'none';
+    el('bc-qfb').className = 'status info';
+    el('bc-qfb').textContent = 'Pick the graph where “3 steps” literally means “a shortest path with 3 edges”.';
     render();
   });
+
+  /* ---- final check (quiz item written for this demo): which graph does the Oracle search? ---- */
+  const BQ = {
+    'bc-q-actors': { ok: true, fb: 'Each shared film is one edge of length 1 between two actor-nodes, so “degrees of separation” is exactly the number of edges on the shortest Naşit–Pitt path: 3.' },
+    'bc-q-films': { ok: false, fb: 'With films as nodes you would measure film-to-film distance, and the actor-count weights would make some hops “cost” more than others — but one shared movie is exactly one degree, always. Actors are the nodes; the shared films are the (length-1) edges.' },
+    'bc-q-time': { ok: false, fb: 'Co-starring is symmetric — the Naşit–Akman edge counts in both directions, and the 1976 → 2017 ordering never mattered in the chain. No arrows, no weights: plain edges of length 1.' },
+  };
+  Object.keys(BQ).forEach(id => el(id).addEventListener('click', () => {
+    const fb = el('bc-qfb');
+    fb.className = 'status ' + (BQ[id].ok ? 'ok' : 'bad');
+    fb.textContent = (BQ[id].ok ? '✓ ' : '✗ ') + BQ[id].fb;
+  }));
 
   render();
 })();
@@ -659,6 +771,7 @@ function drawCarNet(canvas, t, opts = {}) {
   VIZ.hint(canvas, '🖱 click the next node of your plan · click the last node to undo');
   const OPT_ARCS = [[1, 3], [3, 5], [5, 6], [3, 4], [4, 6], [1, 2], [2, 4]]; // union of the three optimal plans
   let path = [1], best = null, revealed = false, attempts = 0, nodes = [];
+  let costsKnown = false; // step-1 gate: node-clicking unlocks once the five span costs check out
 
   const complete = () => path[path.length - 1] === 6;
   const inPath = (i, j) => path.some((n, k) => k > 0 && path[k - 1] === i && n === j);
@@ -669,6 +782,67 @@ function drawCarNet(canvas, t, opts = {}) {
     return 'c' + i + ',' + j + ' = ' + maint.join('+') + ' (maintenance) + 12 (new car) − ' +
       CAR_TRADE[span] + ' (trade-in) = ' + CAR_SPAN[span];
   }
+
+  /* ---- step-1 gate: derive the five span costs (slide 13), shelves-style ---- */
+  const GATE_IDS = ['car-i1', 'car-i2', 'car-i3', 'car-i4', 'car-i5'];
+  const maintSum = span => CAR_MAINT.slice(0, span).reduce((s, v) => s + v, 0);
+
+  function gateCheck() {
+    const st = el('car-status');
+    const hints = [];
+    let allOk = true, anyFilled = false;
+    for (let span = 1; span <= 5; span++) {
+      const v = el(GATE_IDS[span - 1]).value;
+      if (v === '') { allOk = false; continue; }
+      anyFilled = true;
+      const got = +v, want = CAR_SPAN[span];
+      if (Math.abs(got - want) < 0.5) continue;
+      allOk = false;
+      if (Math.abs(got - (want - 12)) < 0.5)
+        hints.push('c(' + span + ' yr): add the $12k purchase price — every arc starts with buying a new car.');
+      else if (span < 5 && Math.abs(got - (want + CAR_TRADE[span])) < 0.5)
+        hints.push('c(' + span + ' yr): subtract the trade-in — a car sold at age ' + span + ' still returns $' + CAR_TRADE[span] + 'k.');
+      else if (span >= 2 && Math.abs(got - (maintSum(span) + 12 - CAR_TRADE[span - 1])) < 0.5)
+        hints.push('c(' + span + ' yr): trade-in at the wrong age — you sell at age ' + span + ' ($' + CAR_TRADE[span] + 'k), not at age ' + (span - 1) + ' ($' + CAR_TRADE[span - 1] + 'k).');
+      else if (span >= 2 && Math.abs(got - (CAR_MAINT[span - 1] + 12 - CAR_TRADE[span])) < 0.5)
+        hints.push('c(' + span + ' yr): maintenance accrues EVERY year you keep the car — ages 0 through ' + (span - 1) + ', i.e. ' + CAR_MAINT.slice(0, span).join('+') + '.');
+      else
+        hints.push('c(' + span + ' yr) is off: ' + CAR_MAINT.slice(0, span).join('+') + ' (maintenance) + 12 (new car) − ' + CAR_TRADE[span] + ' (trade-in).');
+    }
+    if (!anyFilled) {
+      st.className = 'status info';
+      st.textContent = 'Fill in the five costs first — c = (maintenance for every year kept) + 12 (new car) − (trade-in at the selling age), all in $1,000s.';
+      return;
+    }
+    if (allOk) {
+      costsKnown = true;
+      st.className = 'status ok';
+      st.textContent = '✓ All five costs correct — the network is unlocked. Click node 2, 3, 4, 5 or 6: the first arc decides how long you keep the first car.';
+    } else {
+      st.className = 'status bad';
+      st.textContent = '✗ Not yet. ' + (hints.length ? hints.slice(0, 2).join(' ') : 'Fill in every box.');
+    }
+  }
+
+  function gateShow() {
+    for (let span = 1; span <= 5; span++) el(GATE_IDS[span - 1]).value = CAR_SPAN[span];
+    costsKnown = true;
+    el('car-status').className = 'status info';
+    el('car-status').textContent = 'Costs revealed (slide 13). Now click node 2, 3, 4, 5 or 6 — the first arc decides how long you keep the first car.';
+  }
+
+  // check MCQ (check question written for this demo): why c(2,4) = c(1,3)?
+  const CARQ = {
+    'car-q-span': { ok: true, fb: 'Both arcs cover 2 car-years: maintenance at ages 0–1 ($2k + $4k), one $12k purchase, one age-2 trade-in ($6k) — 12 either way. Only j − i enters the formula.' },
+    'car-q-node': { ok: false, fb: 'Arc (1,4) also ends at node 4 but costs 21, not 12 — the endpoint is irrelevant. What (2,4) and (1,3) share is the span j − i = 2.' },
+    'car-q-coin': { ok: false, fb: 'Nothing coincidental: a car bought at year 2 is exactly as old at year 4 as one bought at year 1 is at year 3, so maintenance, purchase and trade-in match term by term.' },
+    'car-q-flat': { ok: false, fb: 'Maintenance climbs steeply with age (2, 4, 5, 9, 12) — the two arcs match because both cars live through ages 0–1, not because maintenance is flat.' },
+  };
+  Object.keys(CARQ).forEach(id => el(id).addEventListener('click', () => {
+    const fb = el('car-qfb');
+    fb.className = 'status ' + (CARQ[id].ok ? 'ok' : 'bad');
+    fb.textContent = (CARQ[id].ok ? '✓ ' : '✗ ') + CARQ[id].fb;
+  }));
 
   function draw() {
     const t = VIZ.theme();
@@ -708,6 +882,11 @@ function drawCarNet(canvas, t, opts = {}) {
     const n = hitNode(nodes, px, py, 16);
     if (!n) return;
     const st = el('car-status');
+    if (!costsKnown) {
+      st.className = 'status info';
+      st.textContent = 'Compute (or reveal) the five costs first — then build the plan.';
+      return;
+    }
     const last = path[path.length - 1];
     if (n.id === last && path.length > 1) {
       path.pop();
@@ -761,8 +940,10 @@ function drawCarNet(canvas, t, opts = {}) {
       : 'Optimal plans hidden again.';
     draw();
   });
+  el('car-check').addEventListener('click', gateCheck);
+  el('car-show').addEventListener('click', gateShow);
 
-  el('car-status').textContent = 'Click node 2, 3, 4, 5 or 6: the first arc decides how long you keep the first car.';
+  el('car-status').textContent = 'Step 1: derive the five arc costs above, then check them — node-clicking unlocks after that.';
   window.__carScore = () => complete() ? carCost(path) : null;
   VIZ.register(canvas, draw);
 })();
@@ -955,7 +1136,7 @@ function drawCarNet(canvas, t, opts = {}) {
       if (mode === 'route') {
         if (route.includes(n.id)) { fill = t.s5; stroke = t.s5; }
         if (n.id === 'T' && !atT()) ring = true;
-      } else if (perm.includes(n.id)) { fill = t.s2; stroke = t.s2; }
+      } else if (mode === 'dijk' && perm.includes(n.id)) { fill = t.s2; stroke = t.s2; }
       drawNodeCircle(ctx, t, n, n.id, { r: 16, fill, stroke, ring });
     });
     if (mode === 'dijk') {
@@ -1097,7 +1278,7 @@ function drawCarNet(canvas, t, opts = {}) {
     const n = hitNode(nodes, px, py, 16);
     if (!n) return;
     if (mode === 'route') clickRoute(n.id);
-    else if (!ddone) dAdvance(n.id);
+    else if (mode === 'dijk' && !ddone) dAdvance(n.id);
   });
 
   /* ---- mode switching & controls ---- */
@@ -1105,18 +1286,99 @@ function drawCarNet(canvas, t, opts = {}) {
     mode = m;
     el('pk-mroute').classList.toggle('active', m === 'route');
     el('pk-mdijk').classList.toggle('active', m === 'dijk');
+    el('pk-mlp').classList.toggle('active', m === 'lp');
     el('pk-route-ui').style.display = m === 'route' ? '' : 'none';
     el('pk-route-log').style.display = m === 'route' ? '' : 'none';
     el('pk-dijk-ui').style.display = m === 'dijk' ? '' : 'none';
     el('pk-table-wrap').style.display = m === 'dijk' ? '' : 'none';
+    el('pk-lp-ui').style.display = m === 'lp' ? '' : 'none';
     el('pk-status').className = 'status info';
     el('pk-status').textContent = m === 'route'
       ? 'Click stations connected by a road, starting from O, until you reach T.'
-      : (ddone ? 'Algorithm finished — reset to run it again.' : 'All labels start at ∞ except O = 0. Click the node that becomes permanent first.');
+      : m === 'lp'
+        ? 'Optional modeling mode — answer (a), (b) and (c) in any order; the map below is your reference.'
+        : (ddone ? 'Algorithm finished — reset to run it again.' : 'All labels start at ∞ except O = 0. Click the node that becomes permanent first.');
     draw();
   }
   el('pk-mroute').addEventListener('click', () => setMode('route'));
   el('pk-mdijk').addEventListener('click', () => setMode('dijk'));
+  el('pk-mlp').addEventListener('click', () => setMode('lp'));
+
+  /* ---- mode ③: write it as an LP (optional modeling companion, no lock;
+          quiz items written for this demo on the slides' network) ---- */
+  const LP_NODE = 'B'; // degree-5 station — the richest balance row on the map
+
+  const QA_FB = {
+    'pk-qa-use': { ok: true, fb: 'xᵢⱼ = 1 if the tram’s route uses road (i,j), 0 otherwise — one binary decision per road. The objective is then minimise Σ (road length) · xᵢⱼ: exactly the miles the route game adds up.' },
+    'pk-qa-miles': { ok: false, fb: 'The miles are data, not decisions — they are already printed on the map (O–A is 2 miles whether or not the tram goes there). The only choice is whether a road is used: xᵢⱼ ∈ {0, 1}.' },
+    'pk-qa-visit': { ok: false, fb: 'A route is a set of roads, not a set of stations — “B is visited” does not say which way the tram arrived or left, so station variables cannot price the miles. One variable per road (i,j).' },
+  };
+  Object.keys(QA_FB).forEach(id => el(id).addEventListener('click', () => {
+    const fb = el('pk-qa-fb');
+    fb.className = 'status ' + (QA_FB[id].ok ? 'ok' : 'bad');
+    fb.textContent = (QA_FB[id].ok ? '✓ ' : '✗ ') + QA_FB[id].fb;
+  }));
+
+  el('pk-rhs-check').addEventListener('click', () => {
+    const o = el('pk-rhs-o').value, mid = el('pk-rhs-mid').value, tt = el('pk-rhs-t').value;
+    const fb = el('pk-rhs-fb');
+    if (o === '' || mid === '' || tt === '') {
+      fb.className = 'status info';
+      fb.textContent = 'Pick a right-hand side for all three node types first.';
+      return;
+    }
+    if (o === '+1' && mid === '0' && tt === '-1') {
+      fb.className = 'status ok';
+      fb.textContent = '✓ O supplies the one tram-unit (out − in = +1), T absorbs it (−1), and every ranger station just passes it along (0). The RHS values sum to 0 — flow is conserved.';
+      return;
+    }
+    const hints = [];
+    if (o === '-1' && tt === '+1') {
+      hints.push('You have balanced (flow in) − (flow out). With the out − in convention above, the entrance O ships the unit OUT, so its RHS is +1, and T absorbs it: −1.');
+    } else {
+      if (o !== '+1') hints.push('O is where the single unit of flow is born — out − in must be +1 there' + (o === '0' ? ' (with 0, the LP could happily route nothing at all)' : '') + '.');
+      if (tt !== '-1') hints.push('T is the destination: one unit flows in and never leaves, so out − in = −1 at the hike start.');
+    }
+    if (mid !== '0') hints.push('A ranger station neither creates nor swallows the tram — whatever flows in must flow out, so out − in = 0 at A–E.');
+    fb.className = 'status bad';
+    fb.textContent = '✗ ' + hints.join(' ');
+  });
+
+  // one checkbox per road, generated straight from the EDGES array above
+  const roadsHost = el('pk-lp-roads');
+  EDGES.forEach(([a, b, w]) => {
+    const lab = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.dataset.a = a;
+    cb.dataset.b = b;
+    lab.appendChild(cb);
+    lab.appendChild(document.createTextNode(' ' + a + '–' + b + ' (' + w + ' mi)'));
+    roadsHost.appendChild(lab);
+  });
+
+  el('pk-row-check').addEventListener('click', () => {
+    const fb = el('pk-row-fb');
+    const extra = [], missing = [];
+    roadsHost.querySelectorAll('input').forEach(cb => {
+      const touches = cb.dataset.a === LP_NODE || cb.dataset.b === LP_NODE;
+      const name = cb.dataset.a + '–' + cb.dataset.b;
+      if (cb.checked && !touches) extra.push(name);
+      else if (!cb.checked && touches) missing.push(name);
+    });
+    if (!extra.length && !missing.length) {
+      const incident = EDGES.filter(e => e[0] === LP_NODE || e[1] === LP_NODE)
+        .map(e => e[0] + '–' + e[1]).join(', ');
+      fb.className = 'status ok';
+      fb.textContent = '✓ Exactly the five roads touching B (' + incident + ') — B’s balance row is (flow out of B) − (flow into B) = 0 over those five variables and no others.';
+    } else {
+      const hints = [];
+      if (extra.length) hints.push(extra.slice(0, 2).join(' and ') + (extra.length === 1 ? ' never touches' : ' never touch') + ' station B — a road that misses B cannot carry the tram into or out of it, so it does not belong in B’s row.');
+      if (missing.length) hints.push(missing.slice(0, 2).join(' and ') + (missing.length === 1 ? ' touches' : ' touch') + ' B — the tram could enter or leave B there, so ' + (missing.length === 1 ? 'its variable' : 'their variables') + ' must appear in the row.');
+      fb.className = 'status bad';
+      fb.textContent = '✗ ' + hints.join(' ');
+    }
+  });
 
   el('pk-undo').addEventListener('click', () => {
     if (route.length > 1) route.pop();

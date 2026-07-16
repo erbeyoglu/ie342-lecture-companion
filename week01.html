@@ -17,6 +17,20 @@
   .qitem p.qtext { margin: 0 0 8px; }
   .qitem .status { margin-top: 6px; }
 
+  /* modeling gates & clinics (fence / clinic / checkpoint stages) */
+  .gq {
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin: 10px 0;
+  }
+  .gq p.qtext { margin: 0 0 8px; }
+  .gq .status { margin-top: 6px; margin-bottom: 0; }
+  .gq .controls { margin: 6px 0; }
+  .gq button { text-align: left; }
+  .gq button.chosen-ok { border-color: var(--good); color: var(--good); font-weight: 700; }
+  .gq .fineprint { color: var(--muted); font-size: 0.85rem; }
+
   /* nutrient bars (diet widget) */
   .nrow { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
   .nrow .nname { width: 130px; color: var(--ink-2); font-size: 0.92rem; text-align: right; }
@@ -115,6 +129,40 @@
     carpentry x₁ + x₂ ≤ 80, at most 40 soldiers. <b>Drag the point</b> to a weekly production plan and
     hunt the maximum profit — then argue where the optimum <em>must</em> sit before revealing it.
   </p>
+  <div id="gp-gate1">
+    <div class="gq">
+      <p class="qtext"><b>Build the fence — 1/3, finishing.</b> Soldiers need 2 finishing hours each,
+        trains 1, and the week has 100. Pick the right fence and its line is drawn.
+        <span class="fineprint">(gate written for this demo; the constraints are Example 1&rsquo;s)</span></p>
+      <div class="controls">
+        <button data-g="0" data-o="1">x₁ + 2x₂ ≤ 100</button>
+        <button data-g="0" data-o="0">2x₁ + x₂ ≤ 100</button>
+        <button data-g="0" data-o="2">2x₁ + x₂ ≥ 100</button>
+        <button data-g="0" data-o="3">2x₁ + x₂ ≤ 80</button>
+      </div>
+      <p class="status info" id="gp-gs0"></p>
+    </div>
+    <div class="gq">
+      <p class="qtext"><b>2/3, carpentry.</b> Every toy — soldier or train — takes 1 carpentry hour, and 80 hours exist.</p>
+      <div class="controls">
+        <button data-g="1" data-o="2">x₁ + x₂ ≤ 100</button>
+        <button data-g="1" data-o="1">x₁ + x₂ ≤ 80</button>
+        <button data-g="1" data-o="0">2x₁ + x₂ ≤ 80</button>
+        <button data-g="1" data-o="3">x₁ + x₂ ≥ 80</button>
+      </div>
+      <p class="status info" id="gp-gs1"></p>
+    </div>
+    <div class="gq">
+      <p class="qtext"><b>3/3, demand.</b> At most 40 soldiers sell in a week; trains face no such cap.</p>
+      <div class="controls">
+        <button data-g="2" data-o="0">x₂ ≤ 40</button>
+        <button data-g="2" data-o="3">x₁ + x₂ ≤ 40</button>
+        <button data-g="2" data-o="2">x₁ ≤ 40</button>
+        <button data-g="2" data-o="1">x₁ ≥ 40</button>
+      </div>
+      <p class="status info" id="gp-gs2"></p>
+    </div>
+  </div>
   <div class="controls">
     <span class="readout">plan (x₁, x₂) = <b id="gp-xy">—</b></span>
     <span class="readout">profit z = $<b id="gp-z">—</b></span>
@@ -124,6 +172,18 @@
   </div>
   <canvas class="viz" id="c-gp"></canvas>
   <p class="status info" id="gp-status">Drag the violet point into the shaded region.</p>
+  <div class="gq" id="gp-gate2" style="display:none">
+    <p class="qtext"><b>Unlock the star.</b> At the best corner you found, which constraints are
+      <em>binding</em> (used with zero slack)? Tick them and check — the &ldquo;Reveal optimum ★&rdquo;
+      button opens when you get it right.</p>
+    <div class="controls">
+      <label><input type="checkbox" id="gp-b0"> finishing 2x₁ + x₂ ≤ 100</label>
+      <label><input type="checkbox" id="gp-b1"> carpentry x₁ + x₂ ≤ 80</label>
+      <label><input type="checkbox" id="gp-b2"> demand x₁ ≤ 40</label>
+      <button class="primary" id="gp-bcheck">Check</button>
+    </div>
+    <p class="status info" id="gp-bstatus"></p>
+  </div>
   <div class="note">
     Every constraint cuts the plane in half; what survives is the feasible region of slide 14.
     <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
@@ -160,6 +220,50 @@
     <thead><tr><th>#</th><th>brownies</th><th>ice cream</th><th>cola</th><th>cheesecake</th><th>cost (¢)</th><th>diet met?</th></tr></thead>
     <tbody></tbody>
   </table></div>
+  <div id="dt-clinic" style="display:none">
+    <p class="qtext" style="margin:14px 0 4px"><b>Model clinic — optional side quest.</b> Feasible diet
+      logged! While the hunt goes on, play doctor with the model itself: slide 16 asks what may be wrong
+      with it. Match each symptom to the one repair that cures it, then commit a prediction.
+      <span class="fineprint" style="color:var(--muted);font-size:0.85rem">(clinic written for this demo; the model is Example 2&rsquo;s)</span></p>
+    <div class="gq">
+      <p class="qtext"><b>Symptom 1.</b> The cheapest menus prescribe things like 2.14 brownies — nobody eats 0.14 of a brownie.</p>
+      <div class="controls">
+        <button data-cq="0" data-co="0">require whole servings: every xⱼ integer</button>
+        <button data-cq="0" data-co="1">add an upper bound on brownies, e.g. x₁ ≤ 2</button>
+        <button data-cq="0" data-co="2">bound each nutrient from above as well as below</button>
+      </div>
+      <p class="status info" id="dt-cs0"></p>
+    </div>
+    <div class="gq">
+      <p class="qtext"><b>Symptom 2.</b> Left alone, the model happily serves brownies for breakfast, lunch and dinner.</p>
+      <div class="controls">
+        <button data-cq="1" data-co="2">bound each nutrient from above as well as below</button>
+        <button data-cq="1" data-co="0">require whole servings: every xⱼ integer</button>
+        <button data-cq="1" data-co="1">add an upper bound on brownies, e.g. x₁ ≤ 2</button>
+      </div>
+      <p class="status info" id="dt-cs1"></p>
+    </div>
+    <div class="gq">
+      <p class="qtext"><b>Symptom 3.</b> A &ldquo;nutritious&rdquo; diet here may carry any amount of sugar and fat — nutrition is only pushed from below.</p>
+      <div class="controls">
+        <button data-cq="2" data-co="1">add an upper bound on brownies, e.g. x₁ ≤ 2</button>
+        <button data-cq="2" data-co="2">bound each nutrient from above as well as below</button>
+        <button data-cq="2" data-co="0">require whole servings: every xⱼ integer</button>
+      </div>
+      <p class="status info" id="dt-cs2"></p>
+    </div>
+    <div class="gq" id="dt-pred">
+      <p class="qtext"><b>Prediction.</b> The fractional LP optimum is 147.24¢. If servings must be <em>whole</em>, the best possible cost lands…</p>
+      <div class="controls">
+        <span class="segwrap">
+          <button class="seg" data-pp="above">above 147.24¢</button>
+          <button class="seg" data-pp="below">below 147.24¢</button>
+        </span>
+        <button class="primary" id="dt-conf" style="display:none">Check my sliders against the whole-serving champion</button>
+      </div>
+      <p class="status info" id="dt-ps"></p>
+    </div>
+  </div>
   <div class="note">
     Slide 16 asks: <em>what may be wrong with this model?</em> Watch what your cheapest diets look like
     while you optimize…
@@ -228,6 +332,46 @@
     <b>Drag the price point</b> (p₁ = iPhone, p₂ = iPad) so that group 1 buys iPhone AND group 2 buys
     iPad — then maximize revenue 1000p₁ + 1500p₂.
   </p>
+  <div id="ap-gate">
+    <div class="gq">
+      <p class="qtext"><b>Derive the boundaries — 1/4.</b> Keep group 2 on the iPad: their iPad surplus
+        15 − p₂ must at least match their iPhone surplus 12 − p₁. As a constraint on prices, that is…
+        <span class="fineprint">(gate written for this demo; the model is Example 4&rsquo;s)</span></p>
+      <div class="controls">
+        <button data-b="0" data-o="0">p₂ − p₁ ≥ 3</button>
+        <button data-b="0" data-o="1">p₂ − p₁ ≤ 3</button>
+        <button data-b="0" data-o="2">p₁ + p₂ ≤ 27</button>
+      </div>
+      <p class="status info" id="ap-gs0"></p>
+    </div>
+    <div class="gq">
+      <p class="qtext"><b>2/4.</b> Keep group 1 on the iPhone: 10 − p₁ must at least match 8 − p₂.</p>
+      <div class="controls">
+        <button data-b="1" data-o="1">p₂ − p₁ ≤ 2</button>
+        <button data-b="1" data-o="2">p₁ − p₂ ≥ 2</button>
+        <button data-b="1" data-o="0">p₁ − p₂ ≤ 2</button>
+      </div>
+      <p class="status info" id="ap-gs1"></p>
+    </div>
+    <div class="gq">
+      <p class="qtext"><b>3/4.</b> Group 1 must want the iPhone at all — their surplus can&rsquo;t go negative. The price cap is…</p>
+      <div class="controls">
+        <button data-b="2" data-o="0">p₁ ≤ 8</button>
+        <button data-b="2" data-o="2">p₁ ≤ 10</button>
+        <button data-b="2" data-o="1">p₁ ≤ 12</button>
+      </div>
+      <p class="status info" id="ap-gs2"></p>
+    </div>
+    <div class="gq">
+      <p class="qtext"><b>4/4.</b> And group 2 must want the iPad…</p>
+      <div class="controls">
+        <button data-b="3" data-o="1">p₂ ≤ 8</button>
+        <button data-b="3" data-o="0">p₂ ≤ 15</button>
+        <button data-b="3" data-o="2">p₂ ≥ 15</button>
+      </div>
+      <p class="status info" id="ap-gs3"></p>
+    </div>
+  </div>
   <div class="controls">
     <span class="readout">(p₁, p₂) = <b id="ap-xy">—</b></span>
     <span class="readout">revenue = <b id="ap-rev">—</b></span>
@@ -272,6 +416,23 @@
   <div class="alloc" id="sc-bar"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
   <p class="alloc-cap">your allocation of the $10M budget
     <span class="legend"><span class="sw" style="background:var(--s1)"></span>S₁<span class="sw" style="background:var(--s5)"></span>S₂<span class="sw" style="background:var(--muted)"></span>S₃</span></p>
+  <div class="gq" id="sc-gate">
+    <p class="qtext"><b>Checkpoint — commit before the LP shows its hand.</b> Two answers unlock the ★ button.
+      <span class="fineprint">(checkpoint written for this demo; the model is Example 5&rsquo;s)</span></p>
+    <p class="qtext">1. Do the written constraints — S₁ + S₂ + S₃ ≤ 10, S₁ ≤ 3, S₂ ≤ 5 — by themselves force the broker&rsquo;s fill-in-order rule?</p>
+    <div class="controls">
+      <button id="sc-q1y">yes — the caps encode the priority</button>
+      <button id="sc-q1n">no — nothing links S₂ to S₁</button>
+    </div>
+    <p class="status info" id="sc-q1s"></p>
+    <p class="qtext">2. Under scenario B&rsquo;s yields (4 / 7 / 9 %), which allocation (S₁, S₂, S₃) does the plain LP pick?</p>
+    <div class="controls">
+      <button data-alloc="3,5,2">(3, 5, 2) — fill in order, park the rest in S₃</button>
+      <button data-alloc="0,5,5">(0, 5, 5) — split across the two best yields</button>
+      <button data-alloc="0,0,10">(0, 0, 10) — everything into the 9% security</button>
+    </div>
+    <p class="status info" id="sc-q2s"></p>
+  </div>
   <div class="controls">
     <span class="readout">invested = $<b id="sc-sum">0.0</b>M / 10</span>
     <span class="readout">annual yield = $<b id="sc-z">0.000</b>M</span>
@@ -279,6 +440,18 @@
   </div>
   <div class="alloc" id="sc-lpbar" style="display:none"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
   <p class="alloc-cap" id="sc-lpcap" style="display:none">the LP&rsquo;s allocation</p>
+  <div class="gq" id="sc-teaser" style="display:none">
+    <p class="qtext"><b>IP teaser.</b> Give the model a binary switch b₁ ∈ {0, 1} meaning
+      &ldquo;security 1 is filled to its cap&rdquo;. Which pair of linear constraints encodes
+      &ldquo;don&rsquo;t touch S₂ before S₁ is full&rdquo;?
+      <span class="fineprint">(preview of the integer tools this course builds; written for this demo)</span></p>
+    <div class="controls">
+      <button data-tz="0">S₂ ≤ S₁</button>
+      <button data-tz="1">S₂ ≤ 5·b₁ &nbsp;together with&nbsp; 3·b₁ ≤ S₁</button>
+      <button data-tz="2">S₁ ≥ 3</button>
+    </div>
+    <p class="status info" id="sc-ts"></p>
+  </div>
   <p class="status info" id="sc-status"></p>
   <div class="note">
     Slide 22 asks two questions: are the constraints S₁+S₂+S₃ ≤ 10, S₁ ≤ 3, S₂ ≤ 5 enough — and what
@@ -425,6 +598,10 @@ function fillPoly(p, t, pts) {
   VIZ.hint(canvas, '🖱 drag the production plan');
   const view = { x0: -4, x1: 88, y0: -6, y1: 110 };
   let pt = { x: 10, y: 20 }, best = null, revealed = false, dragging = false, lastPlot = null;
+  // fence gate: constraint lines & region stay hidden until each MCQ below the howto is answered;
+  // the reveal button additionally waits for the binding-constraint tick (stage 2).
+  const built = [false, false, false];
+  let fenceDone = false, bindOk = false;
 
   const z = (x, y) => 3 * x + 2 * y;
   const feas = (x, y) => x >= 0 && y >= 0 && 2 * x + y <= 100 && x + y <= 80 && x <= 40;
@@ -435,14 +612,20 @@ function fillPoly(p, t, pts) {
     lastPlot = p;
     VIZ.axes(p, t, { xticks: [0, 10, 20, 30, 40, 50, 60, 70, 80], yticks: [0, 20, 40, 60, 80, 100], xlabel: 'x₁ soldiers', ylabel: 'x₂ trains' });
 
-    fillPoly(p, t, [[0, 0], [40, 0], [40, 20], [20, 60], [0, 80]]);
+    if (fenceDone) fillPoly(p, t, [[0, 0], [40, 0], [40, 20], [20, 60], [0, 80]]);
 
-    clipLine(p, 2, 1, 100, t.ink2, 1.5);
-    clipLine(p, 1, 1, 80, t.ink2, 1.5);
-    clipLine(p, 1, 0, 40, t.ink2, 1.5);
-    VIZ.label(p, 'finishing 2x₁+x₂=100', 6, 91.5, t.ink2, { size: 12.5 });
-    VIZ.label(p, 'carpentry x₁+x₂=80', 56, 28, t.ink2, { size: 12.5 });
-    VIZ.label(p, 'demand x₁=40', 41, 96, t.ink2, { size: 12.5 });
+    if (built[0]) {
+      clipLine(p, 2, 1, 100, t.ink2, 1.5);
+      VIZ.label(p, 'finishing 2x₁+x₂=100', 6, 91.5, t.ink2, { size: 12.5 });
+    }
+    if (built[1]) {
+      clipLine(p, 1, 1, 80, t.ink2, 1.5);
+      VIZ.label(p, 'carpentry x₁+x₂=80', 56, 28, t.ink2, { size: 12.5 });
+    }
+    if (built[2]) {
+      clipLine(p, 1, 0, 40, t.ink2, 1.5);
+      VIZ.label(p, 'demand x₁=40', 41, 96, t.ink2, { size: 12.5 });
+    }
 
     if (el('gp-iso').checked) {
       [60, 100, 180].forEach(k => {
@@ -454,6 +637,16 @@ function fillPoly(p, t, pts) {
     if (revealed) {
       VIZ.star(p, 20, 60, t.s2, 11);
       VIZ.label(p, 'G (20, 60), z = $180', 21, 62, t.s2, { bold: true });
+    }
+
+    if (!fenceDone) {
+      el('gp-xy').textContent = '—';
+      el('gp-z').textContent = '—';
+      const st = el('gp-status');
+      st.className = 'status info';
+      st.textContent = 'Fence down, hunt locked — pick the three constraints above to draw it (' +
+        built.filter(Boolean).length + '/3 lines up).';
+      return;
     }
 
     const ok = feas(pt.x, pt.y);
@@ -491,15 +684,112 @@ function fillPoly(p, t, pts) {
     pt = { x: Math.round(lastPlot.invX(px)), y: Math.round(lastPlot.invY(py)) };
     draw();
   }
-  canvas.addEventListener('pointerdown', ev => { dragging = true; canvas.setPointerCapture(ev.pointerId); setFromPointer(ev); });
+  canvas.addEventListener('pointerdown', ev => {
+    if (!fenceDone) {
+      const st = el('gp-status');
+      st.className = 'status info';
+      st.textContent = 'The hunt is locked — assemble the three constraints above to draw the fence first.';
+      return;
+    }
+    dragging = true;
+    canvas.setPointerCapture(ev.pointerId);
+    setFromPointer(ev);
+  });
   canvas.addEventListener('pointermove', ev => { if (dragging) setFromPointer(ev); });
   canvas.addEventListener('pointerup', () => dragging = false);
   el('gp-iso').addEventListener('change', draw);
   el('gp-reveal').addEventListener('click', () => {
+    if (!fenceDone) {
+      const st = el('gp-status');
+      st.className = 'status info';
+      st.textContent = 'No peeking yet — build the fence first, then pass the binding-constraint check.';
+      return;
+    }
+    if (!bindOk) {
+      const st = el('gp-status');
+      st.className = 'status info';
+      st.textContent = 'One step left: below the plot, tick which constraints are binding at the best corner you found, then press Check.';
+      return;
+    }
     revealed = !revealed;
     el('gp-reveal').textContent = revealed ? 'Hide optimum' : 'Reveal optimum ★';
     draw();
   });
+
+  // --- stage 1: "build the fence" constraint-assembly gate ---
+  el('gp-reveal').classList.add('locked');
+  const FENCE = [
+    { ok: 0,
+      okMsg: '✓ Finishing fence up: 2 h for every soldier + 1 h for every train, within the 100 h available.',
+      bad: {
+        1: 'x₁ + 2x₂ charges 2 finishing hours to every TRAIN — but trains don’t need 2 finishing hours, soldiers do. Swap the coefficients back.',
+        2: 'With ≥, Giapetto would be FORCED to burn at least 100 finishing hours even when producing less pays better — the 100 h is a budget, not a quota. Flip the sense.',
+        3: '80 is the carpentry budget; the finishing shop has 100 hours. Right shape, wrong right-hand side.',
+      } },
+    { ok: 1,
+      okMsg: '✓ Carpentry fence up: 1 h per toy, at most 80 h.',
+      bad: {
+        0: '2x₁ + x₂ borrows the finishing rates — in the carpentry shop both toys take exactly 1 hour, so the coefficients are 1 and 1.',
+        2: '100 is the finishing budget; carpentry only has 80 hours to give.',
+        3: '≥ 80 forces the shop to work at least 80 carpentry hours — capacity is an upper limit, not a duty. Flip the sense.',
+      } },
+    { ok: 2,
+      okMsg: '✓ Demand fence up: at most 40 soldiers a week — and that is the whole fence: three lines. Region shaded, hunt open!',
+      bad: {
+        0: 'x₂ ≤ 40 caps the TRAINS — but the model has no limit on trains; it is soldiers that stop selling at 40.',
+        1: 'x₁ ≥ 40 forces at least 40 soldiers whether anyone buys them or not — demand is a ceiling on sales, not a floor on production.',
+        3: 'x₁ + x₂ ≤ 40 rations the whole factory to 40 toys — the 40-a-week limit is on soldiers alone.',
+      } },
+  ];
+  document.querySelectorAll('#gp-gate1 [data-g]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = +btn.dataset.g, o = +btn.dataset.o;
+      const row = btn.closest('.gq');
+      if (row.dataset.done) return;
+      const st = el('gp-gs' + q);
+      if (o === FENCE[q].ok) {
+        row.dataset.done = '1';
+        btn.classList.add('chosen-ok');
+        st.className = 'status ok';
+        st.textContent = FENCE[q].okMsg;
+        built[q] = true;
+        if (built.every(Boolean)) {
+          fenceDone = true;
+          el('gp-gate2').style.display = '';
+        }
+        draw();
+        if (fenceDone) {
+          const gs = el('gp-status');
+          gs.className = 'status ok';
+          gs.textContent = 'All three fences up — the region is shaded. Drag the violet point and hunt the maximum profit.';
+        }
+      } else {
+        st.className = 'status bad';
+        st.textContent = '✗ ' + FENCE[q].bad[o];
+      }
+    });
+  });
+
+  // --- stage 2: binding-constraint tick unlocks "Reveal optimum" ---
+  el('gp-bcheck').addEventListener('click', () => {
+    const fin = el('gp-b0').checked, car = el('gp-b1').checked, dem = el('gp-b2').checked;
+    const st = el('gp-bstatus');
+    if (fin && car && !dem) {
+      bindOk = true;
+      el('gp-reveal').classList.remove('locked');
+      st.className = 'status ok';
+      st.textContent = '✓ Finishing and carpentry are used to the last hour; the soldier cap keeps slack. ' +
+        '“Reveal optimum ★” is unlocked — watch the star pin down exactly those two lines.';
+    } else {
+      const why = [];
+      if (!fin) why.push('finishing: hug your best corner and read the meter — all 100 finishing hours are gone, and zero slack means binding');
+      if (!car) why.push('carpentry: at the top corner the shop burns its full 80 hours — binding');
+      if (dem) why.push('demand: the best plan sells far fewer than 40 soldiers — a constraint with slack is not binding, however true it stays');
+      st.className = 'status bad';
+      st.textContent = '✗ Not yet — ' + why.join('; ') + '.';
+    }
+  });
+
   VIZ.register(canvas, draw);
 })();
 
@@ -575,11 +865,93 @@ function fillPoly(p, t, pts) {
       tr.classList.add('best');
       bestRowIdx = tb.children.length - 1;
     }
+    // first feasible attempt opens the optional model clinic (never blocks the game)
+    if (allMet && el('dt-clinic').style.display === 'none') el('dt-clinic').style.display = '';
     compute();
   });
 
   ids.forEach(id => el(id).addEventListener('input', compute));
   compute();
+
+  // --- optional model clinic (appears after the first feasible logged attempt) ---
+  // (a) match repair -> symptom. Repair ids: 0 = integrality, 1 = upper bound on servings,
+  //     2 = two-sided nutrient bounds. All content comes from the widget's spoiler.
+  const CLINIC_OK = [0, 1, 2]; // correct repair per symptom
+  const CLINIC_OKMSG = [
+    '✓ Integrality: xⱼ ∈ {0, 1, 2, …}. That is exactly the step from LP to IP — and the reason this course exists.',
+    '✓ An upper bound like x₁ ≤ 2 says “variety, please” in a language the model understands — limits from above were entirely missing.',
+    '✓ Two-sided ranges: each nutrient gets a ≤ row next to its ≥ row, so “nutritious” stops meaning “at least this much, no matter what else”.',
+  ];
+  const CLINIC_BAD = {
+    '0,1': 'An upper bound trims HOW MANY brownies, not whether they come whole — 1.87 brownies would still slip through. Fractions need integrality.',
+    '0,2': 'Nutrient ranges reshape which diets are allowed, but inside them the LP can still pick 2.14 brownies — fractional servings are cured by integer variables.',
+    '1,0': 'Whole servings can still be all-brownie: 4 whole brownies clear every requirement on their own (check the bars: 600 cal, 12 oz chocolate, 16 sugar, 12 fat). Monotony needs a cap on the servings themselves.',
+    '1,2': 'Upper nutrient rows would eventually complain, but the symptom is a serving count run amok — cap the servings (x₁ ≤ 2) and the menu diversifies directly.',
+    '2,0': 'Whole servings say nothing about totals — 4 whole brownies still deliver 16 oz of sugar. The nutrient ledger needs upper rows.',
+    '2,1': 'Capping brownies caps ONE source — ice cream, cola and cheesecake can still pile the sugar on. Bound the NUTRIENT, not one food.',
+  };
+  document.querySelectorAll('#dt-clinic [data-cq]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = +btn.dataset.cq, o = +btn.dataset.co;
+      const row = btn.closest('.gq');
+      if (row.dataset.done) return;
+      const st = el('dt-cs' + q);
+      if (o === CLINIC_OK[q]) {
+        row.dataset.done = '1';
+        btn.classList.add('chosen-ok');
+        st.className = 'status ok';
+        st.textContent = CLINIC_OKMSG[q];
+      } else {
+        st.className = 'status bad';
+        st.textContent = '✗ ' + CLINIC_BAD[q + ',' + o];
+      }
+    });
+  });
+
+  // (b) commit a prediction, then verify against the whole-serving champion (170¢, from the spoiler)
+  let predDone = false;
+  document.querySelectorAll('#dt-pred [data-pp]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (predDone) return;
+      const st = el('dt-ps');
+      if (btn.dataset.pp === 'above') {
+        predDone = true;
+        btn.classList.add('active');
+        st.className = 'status ok';
+        st.textContent = '✓ Committed: above. Integrality only ADDS a constraint — every whole-serving diet was already on the LP’s menu at 147.24¢, so the whole-serving best can only cost more. Now prove it: set the sliders to your best whole-serving diet and check.';
+        el('dt-conf').style.display = '';
+      } else {
+        st.className = 'status bad';
+        st.textContent = '✗ Below is impossible: every whole-serving diet was already allowed when the LP scored 147.24¢ — restricting the menu can only push a minimum up. Commit again.';
+      }
+    });
+  });
+  el('dt-conf').addEventListener('click', () => {
+    const x = getX();
+    const st = el('dt-ps');
+    const whole = x.every(v => Math.abs(v - Math.round(v)) < 1e-9);
+    const cost = COST.reduce((s, c, i) => s + c * x[i], 0);
+    const short = REQ.filter(r => r.a.reduce((s, a, j) => s + a * x[j], 0) < r.need - 1e-9);
+    if (!whole) {
+      st.className = 'status bad';
+      st.textContent = '✗ Not whole servings yet — the sliders read (' + x.map(v => fmt(v, 2)).join(', ') + '). Snap every serving to 0, 1, 2, …';
+    } else if (short.length) {
+      st.className = 'status bad';
+      st.textContent = '✗ Whole, but the diet is short on ' + short.map(r => r.name).join(', ') + ' — feed the bars first.';
+    } else if (Math.abs(cost - 170) < 1e-6) {
+      const champ = x[0] === 3 && x[1] === 1 && x[2] === 0 && x[3] === 0;
+      st.className = 'status ok';
+      st.textContent = '✓ 170¢ — the whole-serving optimum' +
+        (champ ? ': 3 brownies + 1 ice cream, exactly the spoiler’s champion.' : ' — same cost as the spoiler’s 3 brownies + 1 ice cream.') +
+        ' Prediction confirmed: 170 > 147.24.';
+    } else if (cost < 170) {
+      st.className = 'status bad';
+      st.textContent = '✗ ' + fmt(cost, 1) + '¢ is below the 170¢ whole-serving optimum — that shouldn’t be possible; re-check the bars above.';
+    } else {
+      st.className = 'status info';
+      st.textContent = 'Whole and feasible at ' + fmt(cost, 1) + '¢ — the champion costs 170¢. Keep tinkering, or peek at the spoiler for the recipe.';
+    }
+  });
 
   window.DIET_SCORE = () => {
     const x = getX();
@@ -692,6 +1064,10 @@ function fillPoly(p, t, pts) {
   VIZ.hint(canvas, '🖱 drag the price point');
   const view = { x0: -1.2, x1: 13.8, y0: -1.2, y1: 17 };
   let pt = { x: 4, y: 5 }, best = null, revealed = false, dragging = false, lastPlot = null;
+  // boundary gate: each derive-the-boundary MCQ draws its line; all four shade the region
+  // and unlock the drag-hunt. Order: [p2-p1<=3, p1-p2<=2, p1<=10, p2<=15].
+  const derived = [false, false, false, false];
+  let regionUp = false;
 
   const rev = (p1, p2) => 1000 * p1 + 1500 * p2;
   // group 1 buys iPhone iff 10-p1 >= 8-p2 and 10-p1 >= 0
@@ -706,20 +1082,38 @@ function fillPoly(p, t, pts) {
     lastPlot = p;
     VIZ.axes(p, t, { xticks: [0, 2, 4, 6, 8, 10, 12], yticks: [0, 3, 6, 9, 12, 15], xlabel: 'p₁ iPhone price ($)', ylabel: 'p₂ iPad price ($)' });
 
-    fillPoly(p, t, [[0, 0], [2, 0], [10, 8], [10, 13], [0, 3]]);
+    if (regionUp) fillPoly(p, t, [[0, 0], [2, 0], [10, 8], [10, 13], [0, 3]]);
 
-    clipLine(p, 1, -1, 2, t.ink2, 1.5);   // p1 - p2 = 2
-    clipLine(p, -1, 1, 3, t.ink2, 1.5);   // p2 - p1 = 3
-    clipLine(p, 1, 0, 10, t.ink2, 1.5);   // p1 = 10
-    clipLine(p, 0, 1, 15, t.ink2, 1.5);   // p2 = 15
-    VIZ.label(p, 'p₂ = p₁ + 3 (group 2 defects above)', 0.4, 12.1, t.ink2, { size: 12.5 });
-    VIZ.label(p, 'p₂ = p₁ − 2 (group 1 defects below)', 6.4, 3.6, t.ink2, { size: 12.5 });
-    VIZ.label(p, 'p₁ = 10', 10.15, 15.9, t.ink2, { size: 12.5 });
-    VIZ.label(p, 'p₂ = 15', 11.4, 15.15, t.ink2, { size: 12.5 });
+    if (derived[0]) {
+      clipLine(p, -1, 1, 3, t.ink2, 1.5);   // p2 - p1 = 3
+      VIZ.label(p, 'p₂ = p₁ + 3 (group 2 defects above)', 0.4, 12.1, t.ink2, { size: 12.5 });
+    }
+    if (derived[1]) {
+      clipLine(p, 1, -1, 2, t.ink2, 1.5);   // p1 - p2 = 2
+      VIZ.label(p, 'p₂ = p₁ − 2 (group 1 defects below)', 6.4, 3.6, t.ink2, { size: 12.5 });
+    }
+    if (derived[2]) {
+      clipLine(p, 1, 0, 10, t.ink2, 1.5);   // p1 = 10
+      VIZ.label(p, 'p₁ = 10', 10.15, 15.9, t.ink2, { size: 12.5 });
+    }
+    if (derived[3]) {
+      clipLine(p, 0, 1, 15, t.ink2, 1.5);   // p2 = 15
+      VIZ.label(p, 'p₂ = 15', 11.4, 15.15, t.ink2, { size: 12.5 });
+    }
 
     if (revealed) {
       VIZ.star(p, 10, 13, t.s2, 11);
       VIZ.label(p, '(10, 13) → $29,500', 9.8, 13.4, t.s2, { bold: true, align: 'right' });
+    }
+
+    if (!regionUp) {
+      el('ap-xy').textContent = '—';
+      el('ap-rev').textContent = '—';
+      const st = el('ap-status');
+      st.className = 'status info';
+      st.textContent = 'Map blank, hunt locked — derive the four boundary lines above (' +
+        derived.filter(Boolean).length + '/4 drawn).';
+      return;
     }
 
     const ok = feas(pt.x, pt.y);
@@ -760,14 +1154,88 @@ function fillPoly(p, t, pts) {
     pt = { x: Math.round(lastPlot.invX(px) * 4) / 4, y: Math.round(lastPlot.invY(py) * 4) / 4 };
     draw();
   }
-  canvas.addEventListener('pointerdown', ev => { dragging = true; canvas.setPointerCapture(ev.pointerId); setFromPointer(ev); });
+  canvas.addEventListener('pointerdown', ev => {
+    if (!regionUp) {
+      const st = el('ap-status');
+      st.className = 'status info';
+      st.textContent = 'The hunt is locked — derive the four boundary lines above to draw the map first.';
+      return;
+    }
+    dragging = true;
+    canvas.setPointerCapture(ev.pointerId);
+    setFromPointer(ev);
+  });
   canvas.addEventListener('pointermove', ev => { if (dragging) setFromPointer(ev); });
   canvas.addEventListener('pointerup', () => dragging = false);
   el('ap-reveal').addEventListener('click', () => {
+    if (!regionUp) {
+      const st = el('ap-status');
+      st.className = 'status info';
+      st.textContent = 'The optimum star only makes sense on a drawn map — derive the four boundaries above first.';
+      return;
+    }
     revealed = !revealed;
     el('ap-reveal').textContent = revealed ? 'Hide optimum' : 'Reveal optimum ★';
     draw();
   });
+
+  // --- derive-the-boundary gate: each correct pick draws its line ---
+  el('ap-reveal').classList.add('locked');
+  const BOUND = [
+    { ok: 1,
+      okMsg: '✓ p₂ − p₁ ≤ 3: prices on one side, valuations on the other (15 − 12 = 3) — the iPad may cost at most $3 more than the iPhone.',
+      bad: {
+        0: 'Sense flipped: p₂ − p₁ ≥ 3 keeps the iPad surplus BELOW the iPhone surplus — you would be ordering group 2 to defect. From 15 − p₂ ≥ 12 − p₁ the price gap is capped, not forced.',
+        2: 'Adding the two prices mixes the products. Surpluses are compared by subtraction: 15 − p₂ ≥ 12 − p₁ rearranges to p₂ − p₁ ≤ 3 — only the price DIFFERENCE matters, and 27 never appears.',
+      } },
+    { ok: 0,
+      okMsg: '✓ p₁ − p₂ ≤ 2: the iPhone may cost at most $2 more than the iPad (10 − 8 = 2), or group 1 jumps ship.',
+      bad: {
+        1: 'Wrong gap: that caps how far the iPAD price runs above the iPhone’s. Group 1 defects when the iPHONE gets relatively expensive — rearrange 10 − p₁ ≥ 8 − p₂ and the cap lands on p₁ − p₂.',
+        2: 'Sense flipped: forcing the iPhone at least $2 pricier than the iPad is exactly when group 1’s iPhone surplus loses. Cap the gap at 2, don’t demand it.',
+      } },
+    { ok: 2,
+      okMsg: '✓ p₁ ≤ 10: group 1 pays at most what the iPhone is worth to them.',
+      bad: {
+        0: '$8 is group 1’s iPAD valuation — but the plan sends them to the iPhone, which they value at $10.',
+        1: '$12 is group 2’s iPhone valuation — and group 2 is meant to buy the iPad. The iPhone must stay affordable to its actual buyers: group 1, at $10.',
+      } },
+    { ok: 0,
+      okMsg: '✓ p₂ ≤ 15: group 2 pays at most their $15 valuation. That completes the map!',
+      bad: {
+        1: '$8 is group 1’s iPad valuation — group 1 is headed to the iPhone. The iPad’s buyers are group 2, who value it at $15.',
+        2: 'Sense flipped: p₂ ≥ 15 makes group 2’s iPad surplus 15 − p₂ zero at best — participation needs value − price ≥ 0, i.e. p₂ ≤ 15.',
+      } },
+  ];
+  document.querySelectorAll('#ap-gate [data-b]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = +btn.dataset.b, o = +btn.dataset.o;
+      const row = btn.closest('.gq');
+      if (row.dataset.done) return;
+      const st = el('ap-gs' + q);
+      if (o === BOUND[q].ok) {
+        row.dataset.done = '1';
+        btn.classList.add('chosen-ok');
+        st.className = 'status ok';
+        st.textContent = BOUND[q].okMsg;
+        derived[q] = true;
+        if (derived.every(Boolean)) {
+          regionUp = true;
+          el('ap-reveal').classList.remove('locked');
+        }
+        draw();
+        if (regionUp) {
+          const gs = el('ap-status');
+          gs.className = 'status ok';
+          gs.textContent = 'All four boundaries derived — the segmentation region is shaded. Drag the violet price point and maximize 1000p₁ + 1500p₂.';
+        }
+      } else {
+        st.className = 'status bad';
+        st.textContent = '✗ ' + BOUND[q].bad[o];
+      }
+    });
+  });
+
   VIZ.register(canvas, draw);
 })();
 
@@ -785,6 +1253,8 @@ function fillPoly(p, t, pts) {
          msg: 'The LP dumps all $10M into S₃: (0, 0, 10) → $0.90M — the rule is nowhere in the constraints! A rule-obeying investor is stuck at (3, 5, 2) → $0.65M.' },
   };
   let cur = 'A', revealed = false;
+  // checkpoint gate: the reveal stays locked until both committed answers are right
+  let q1ok = false, q2ok = false;
 
   const ids = ['sc-s1', 'sc-s2', 'sc-s3'];
   const getS = () => ids.map(id => +el(id).value);
@@ -843,17 +1313,89 @@ function fillPoly(p, t, pts) {
     el('sc-lpbar').style.display = '';
     el('sc-lpcap').style.display = '';
     el('sc-lpcap').textContent = 'the LP’s allocation: (' + sc.lp.join(', ') + ') → $' + fmt(sc.lpz, 2) + 'M';
+    el('sc-teaser').style.display = '';
   }
 
   el('sc-a').addEventListener('click', () => applyScenario('A'));
   el('sc-b').addEventListener('click', () => applyScenario('B'));
   el('sc-reveal').addEventListener('click', () => {
+    if (!(q1ok && q2ok)) {
+      const st = el('sc-status');
+      st.className = 'status info';
+      st.textContent = 'The LP shows its hand after you commit — answer the two checkpoint questions above the button first.';
+      return;
+    }
     revealed = !revealed;
     el('sc-reveal').textContent = revealed ? 'Hide the LP’s answer' : 'What would the LP do? ★';
     if (revealed) revealLP();
     else { el('sc-lpbar').style.display = 'none'; el('sc-lpcap').style.display = 'none'; }
     compute();
   });
+
+  // --- checkpoint gate (question 1: do the caps force the rule?) ---
+  el('sc-reveal').classList.add('locked');
+  const unlockIfReady = () => {
+    if (q1ok && q2ok) el('sc-reveal').classList.remove('locked');
+  };
+  el('sc-q1y').addEventListener('click', () => {
+    if (q1ok) return;
+    const st = el('sc-q1s');
+    st.className = 'status bad';
+    st.textContent = '✗ Try it on the sliders: S₁ = 0, S₂ = 5 — budget ✓, S₁ ≤ 3 ✓, S₂ ≤ 5 ✓, yet money sits in security 2 while security 1 is empty. The caps limit amounts; none of them mentions order.';
+  });
+  el('sc-q1n').addEventListener('click', () => {
+    if (q1ok) return;
+    q1ok = true;
+    el('sc-q1n').classList.add('chosen-ok');
+    const st = el('sc-q1s');
+    st.className = 'status ok';
+    st.textContent = '✓ Committed: no. Every written constraint caps an amount — “fill 1 before touching 2” is a logical condition that lives outside them.';
+    unlockIfReady();
+  });
+
+  // --- checkpoint gate (question 2: the LP's pick under scenario B, read from SCEN.B.lp) ---
+  document.querySelectorAll('#sc-gate [data-alloc]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (q2ok) return;
+      const st = el('sc-q2s');
+      if (btn.dataset.alloc === SCEN.B.lp.join(',')) {
+        q2ok = true;
+        btn.classList.add('chosen-ok');
+        st.className = 'status ok';
+        st.textContent = '✓ Committed: (' + SCEN.B.lp.join(', ') + '). Greed with no order rule sends every dollar to the uncapped 9% security. Now press the ★ button and watch it happen.';
+        unlockIfReady();
+      } else if (btn.dataset.alloc === '3,5,2') {
+        st.className = 'status bad';
+        st.textContent = '✗ (3, 5, 2) is the rule-obeying investor — but the LP never read the firm’s memo. With S₃ yielding 9% and carrying no cap, every dollar parked at 4% or 7% is yield left on the table.';
+      } else {
+        st.className = 'status bad';
+        st.textContent = '✗ Why stop halfway? S₂ earns 7%, S₃ earns 9%, and S₃ has no cap — the LP moves those S₂ millions into S₃ too. Nothing in the constraints stops it.';
+      }
+    });
+  });
+
+  // --- IP teaser (appears with the reveal) ---
+  document.querySelectorAll('#sc-teaser [data-tz]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const row = btn.closest('.gq');
+      if (row.dataset.done) return;
+      const st = el('sc-ts');
+      const o = +btn.dataset.tz;
+      if (o === 1) {
+        row.dataset.done = '1';
+        btn.classList.add('chosen-ok');
+        st.className = 'status ok';
+        st.textContent = '✓ Read it as a switch: S₂ ≤ 5·b₁ keeps S₂ at zero until b₁ flips to 1, and 3·b₁ ≤ S₁ only lets it flip once S₁ hits its full $3M. Two linear rows + one binary = the broker’s rule — the integer machinery this course builds.';
+      } else if (o === 0) {
+        st.className = 'status bad';
+        st.textContent = '✗ S₂ ≤ S₁ ties amounts, not order: S₁ = 2, S₂ = 2 passes with security 1 only two-thirds full — and it wrongly bans the broker’s own favourite (3, 5, 2), where S₂ = 5 > S₁ = 3.';
+      } else {
+        st.className = 'status bad';
+        st.textContent = '✗ S₁ ≥ 3 nails security 1 full in EVERY solution, even ones that never touch S₂ — the rule should only bite when S₂ is used. Conditional logic needs a binary switch.';
+      }
+    });
+  });
+
   ids.forEach(id => el(id).addEventListener('input', compute));
   compute();
 })();

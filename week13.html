@@ -38,6 +38,21 @@
   .quiz button { text-align: left; padding: 9px 12px; }
   .quiz button.right { border-color: var(--good); color: var(--good); font-weight: 600; }
   .quiz button.wrong { border-color: var(--critical); color: var(--critical); }
+  /* modelling gates & companion quizzes (this page) */
+  .gatebox { border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin: 14px 0 4px; }
+  .pickset { display: inline-flex; gap: 8px; flex-wrap: wrap; }
+  .pickset button.right, .upq button.right { border-color: var(--good); color: var(--good); font-weight: 600; }
+  .pickset button.wrong, .upq button.wrong { border-color: var(--critical); color: var(--critical); }
+  .upq { display: grid; gap: 8px; margin: 10px 0 4px; }
+  .upq .uprow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .upq .arcname { font-weight: 600; min-width: 110px; }
+  .balrow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 8px 0 0; }
+  .balrow .who { font-weight: 600; color: var(--ink-2); min-width: 58px; }
+  .balrow .eq { font-weight: 700; }
+  .balrow .side { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 5px 8px; border: 1px dashed var(--grid); border-radius: 8px; }
+  .balrow .side small { color: var(--muted); font-size: 0.72rem; }
+  .balrow button.term.on { border-color: var(--s5); color: var(--s5); font-weight: 600; }
+  #rf-opts.gated button { opacity: 0.45; }
 </style>
 </head>
 <body>
@@ -84,6 +99,30 @@
       <thead><tr><th>#</th><th>path pushed</th><th>barrels pushed</th><th>running total</th></tr></thead>
       <tbody></tbody>
     </table>
+  </div>
+  <div class="gatebox" id="oil-lp">
+    <p class="howto" style="margin:0">
+      <b>Write the LP to unlock the ★ reveal (slides 5–6).</b> Tracing paths above stays free —
+      but the answer key opens only once the class has written the model the note below describes.
+      <em>(Gate items written for this demo.)</em>
+    </p>
+    <p class="howto" style="margin:10px 0 0"><b>Step 1 — the objective.</b> With the artificial
+      return arc (si,so) added, which objective says “ship as much oil as possible”?</p>
+    <div class="quiz" id="oillp-obj">
+      <button data-k="sum">a) max x<sub>so,1</sub> + x<sub>so,2</sub> + x<sub>12</sub> + x<sub>13</sub> + x<sub>3,si</sub> + x<sub>2,si</sub></button>
+      <button data-k="min">b) min x<sub>si,so</sub></button>
+      <button data-k="ret">c) max x<sub>si,so</sub></button>
+      <button data-k="zero">d) max x<sub>so,1</sub> + x<sub>so,2</sub> − x<sub>si,so</sub></button>
+    </div>
+    <p class="status info" id="oillp-objstatus">Pick slide 6’s objective.</p>
+    <p class="howto" style="margin:10px 0 0"><b>Step 2 — conservation.</b> Put every arc variable
+      on the correct side of each internal node’s “flow in = flow out” (left box = in, right box
+      = out), then check.</p>
+    <div id="oillp-bal"></div>
+    <div class="controls" style="margin-top:4px">
+      <button id="oillp-check" class="primary">Check the balance constraints</button>
+    </div>
+    <p class="status info" id="oillp-balstatus">Click terms into the boxes — an arc (i,j) feeds node j and drains node i.</p>
   </div>
   <div class="note">
     Slides 5–6 turn this hunt into an LP: let x<sub>ij</sub> be the barrels per hour on arc (i,j),
@@ -161,6 +200,25 @@
       <tbody></tbody>
     </table>
   </div>
+  <div id="cut-upgrade" style="display:none">
+    <p class="howto" style="margin:14px 0 0">
+      <b>Consequence round — the class found the min cut of 3.</b> Sunco will widen exactly ONE
+      pipeline by +1 barrel per hour. Predict the new maximum flow <em>before</em> re-running
+      anything. <em>(Prediction round written for this demo.)</em>
+    </p>
+    <div class="upq" id="cut-upq">
+      <div class="uprow"><span class="arcname">so→2: 3 → 4</span>
+        <button data-a="so2" data-v="3">max flow stays 3</button>
+        <button data-a="so2" data-v="4">max flow rises to 4</button></div>
+      <div class="uprow"><span class="arcname">1→3: 4 → 5</span>
+        <button data-a="x13" data-v="3">max flow stays 3</button>
+        <button data-a="x13" data-v="4">max flow rises to 4</button></div>
+      <div class="uprow"><span class="arcname">3→si: 1 → 2</span>
+        <button data-a="x3si" data-v="3">max flow stays 3</button>
+        <button data-a="x3si" data-v="4">max flow rises to 4</button></div>
+    </div>
+    <p class="status info" id="cut-upstatus">Three upgrade offers on the table — call each one.</p>
+  </div>
   <div class="note">
     Slide 13 draws five example cuts on this network and states the punchline of the week:
     the maximum s–t flow equals the minimum s–t cut capacity.
@@ -226,6 +284,30 @@
     highlighted path and click its bottleneck c*</b>. After the last push, label the nodes still
     reachable from s to expose the minimum cut (slides 33–34).
   </p>
+  <div class="gatebox" id="rf-gate">
+    <p class="howto" style="margin:0">
+      <b>Before iteration 1 — finish slide 20’s conversion.</b> Three refineries and two terminals
+      only become a single max-flow problem once the dummy arcs get capacities “high enough to
+      never bind”. How wide, exactly? <em>(Gate items written for this demo.)</em>
+    </p>
+    <div class="controls" style="margin-top:8px">
+      <span class="readout">c(s → 2) = <b id="rfg-s2v">?</b></span>
+      <span class="pickset" id="rfg-s2">
+        <button data-v="50">50</button>
+        <button data-v="80">80</button>
+        <button data-v="150">150</button>
+      </span>
+    </div>
+    <div class="controls" style="margin-top:6px">
+      <span class="readout">c(7 → t) = <b id="rfg-7tv">?</b></span>
+      <span class="pickset" id="rfg-7t">
+        <button data-v="50">50</button>
+        <button data-v="60">60</button>
+        <button data-v="110">110</button>
+      </span>
+    </div>
+    <p class="status info" id="rfg-status">Set both dummy capacities to unlock the iterations — read the real arcs’ capacities off the drawing below.</p>
+  </div>
   <div class="controls">
     <span class="readout">total flow: <b id="rf-total">0</b></span>
     <span id="rf-opts" style="display:inline-flex;gap:8px;flex-wrap:wrap"></span>
@@ -277,6 +359,29 @@
       <tbody></tbody>
     </table>
   </div>
+  <p class="howto" style="margin-top:14px">
+    <b>Optional pre-flight check</b> — no lock, just two modelling questions to argue about while
+    the class races. (Quiz items written for this demo; slide 36 leaves the max flow itself as an
+    exercise.)
+  </p>
+  <p class="howto" style="margin:8px 0 0">1 · At the optimum, zero passengers end up in Nashville.
+    What in the LP <em>forces</em> that?</p>
+  <div class="quiz" id="bs-q1">
+    <button data-k="cap">a) The arcs into Nashville have zero capacity, so nobody can board those flights.</button>
+    <button data-k="obj">b) The objective charges a penalty for every passenger stranded in Nashville.</button>
+    <button data-k="bal">c) Flow balance at Nashville: no arc leaves it, so flow out = 0 — and flow in = flow out forces flow in = 0.</button>
+    <button data-k="ff">d) Ford–Fulkerson never happens to pick an arc into Nashville.</button>
+  </div>
+  <p class="status info" id="bs-q1status">Pick the mechanism, not the vibe.</p>
+  <p class="howto" style="margin:10px 0 0">2 · Columbus–Charlotte can be flown twice — the page
+    models one arc of capacity 2 × 11 = 22. Would TWO parallel arcs of capacity 11 change the
+    maximum flow?</p>
+  <div class="quiz" id="bs-q2">
+    <button data-k="paths">a) Yes — two arcs give Ford–Fulkerson two augmenting paths, so more passengers fit.</button>
+    <button data-k="equiv">b) No — every flow on one 22-seat arc splits into ≤ 11 + ≤ 11 on the pair, and vice versa: same totals, same max flow.</button>
+    <button data-k="plane">c) Yes — a single arc could carry 15 passengers, more than one plane holds.</button>
+  </div>
+  <p class="status info" id="bs-q2status">Answer when ready — the race above doesn’t wait for you.</p>
   <div class="note">
     Slide 36 leaves this as an exercise for Ford–Fulkerson. Nashville is a trap: flights arrive
     there but none leave, so any passengers sent that way must be re-routed. Filling
@@ -755,6 +860,135 @@ window.__oilGame = flowGame({
 });
 
 /* ============================================================
+   WIDGET 1b — LP-builder gate for the ★ reveal (slides 5-6)
+   The path-tracing hunt stays free; only the answer key waits
+   until the class writes slide 6's LP. Balance sides are derived
+   from EX1's arc list. (Gate items written for this demo.)
+   ============================================================ */
+(() => {
+  let objOK = false, balOK = false;
+
+  const revealBtn = el('oil-reveal');
+  revealBtn.classList.add('locked');
+  // capture-phase blocker on the parent: fires before flowGame's own
+  // click handler on the button, so the reveal stays shut while locked
+  revealBtn.parentElement.addEventListener('click', ev => {
+    if (ev.target !== revealBtn || (objOK && balOK)) return;
+    ev.stopPropagation();
+    ev.preventDefault();
+    const st = el('oil-status');
+    st.className = 'status info';
+    st.textContent = 'The answer key is locked — write slide 6’s LP in the box below the table first (Step 1: objective, Step 2: node balance). Tracing paths stays free.';
+  }, true);
+
+  function maybeUnlock() {
+    if (!(objOK && balOK)) return;
+    revealBtn.classList.remove('locked');
+    const st = el('oil-status');
+    st.className = 'status ok';
+    st.textContent = '✓ LP written — objective and conservation both check out. “Reveal the optimal flows ★” is unlocked.';
+  }
+
+  /* step 1 — objective MCQ */
+  const OBJ_FB = {
+    sum: '✗ That counts a barrel once per pipe it uses: one barrel along so-1-3-si scores 3, a barrel along so-2-si scores 2. It maximises pipe traffic, not oil delivered.',
+    min: '✗ Minimising x(si,so) has a proud optimum: every flow = 0. Perfectly feasible, perfectly conserving — and Sunco ships nothing.',
+    zero: '✗ With the return arc added, flow balance at so forces x(so,1) + x(so,2) = x(si,so) — this objective equals 0 for EVERY feasible flow. Nothing to maximise.',
+    ret: '✓ Slide 6: every barrel that reaches si rides the artificial return arc back to so, so x(si,so) counts exactly the barrels delivered per hour — maximise it.',
+  };
+  el('oillp-obj').querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => {
+      const ok = b.dataset.k === 'ret';
+      el('oillp-obj').querySelectorAll('button').forEach(x => x.classList.remove('right', 'wrong'));
+      b.classList.add(ok ? 'right' : 'wrong');
+      const st = el('oillp-objstatus');
+      st.className = ok ? 'status ok' : 'status bad';
+      st.textContent = OBJ_FB[b.dataset.k];
+      if (ok) { objOK = true; maybeUnlock(); }
+    });
+  });
+
+  /* step 2 — node-balance builder */
+  const NODES = ['1', '2', '3'];
+  const sel = {};
+  const incident = n => EX1.arcs.filter(a => a.u === n || a.v === n);
+  const varHTML = a => 'x<sub>' + ((a.u.length > 1 || a.v.length > 1) ? a.u + ',' + a.v : a.u + a.v) + '</sub>';
+
+  const balBox = el('oillp-bal');
+  NODES.forEach(n => {
+    sel[n] = { in: new Set(), out: new Set() };
+    const row = document.createElement('div');
+    row.className = 'balrow';
+    const who = document.createElement('span');
+    who.className = 'who';
+    who.textContent = 'node ' + n + ':';
+    row.appendChild(who);
+    ['in', 'out'].forEach((side, si) => {
+      if (si === 1) {
+        const eq = document.createElement('span');
+        eq.className = 'eq';
+        eq.textContent = '=';
+        row.appendChild(eq);
+      }
+      const span = document.createElement('span');
+      span.className = 'side';
+      const tag = document.createElement('small');
+      tag.textContent = side;
+      span.appendChild(tag);
+      incident(n).forEach(a => {
+        const b = document.createElement('button');
+        b.className = 'term';
+        b.innerHTML = varHTML(a);
+        b.addEventListener('click', () => {
+          const k = AK(a.u, a.v);
+          if (sel[n][side].has(k)) { sel[n][side].delete(k); b.classList.remove('on'); }
+          else { sel[n][side].add(k); b.classList.add('on'); }
+        });
+        span.appendChild(b);
+      });
+      row.appendChild(span);
+    });
+    balBox.appendChild(row);
+  });
+
+  el('oillp-check').addEventListener('click', () => {
+    if (balOK) return;
+    const st = el('oillp-balstatus');
+    const errs = [];
+    let any = false;
+    NODES.forEach(n => {
+      incident(n).forEach(a => {
+        const k = AK(a.u, a.v);
+        const nm = '(' + a.u + ',' + a.v + ')';
+        const inSel = sel[n].in.has(k), outSel = sel[n].out.has(k);
+        if (inSel || outSel) any = true;
+        const wantIn = a.v === n;
+        if (inSel && outSel) errs.push('Arc ' + nm + ' cannot sit on both sides of node ' + n + '’s balance — oil in a pipe flows one way.');
+        else if (wantIn && outSel) errs.push('Arc ' + nm + ' points ' + a.u + ' → ' + a.v + ': it feeds node ' + n + ' — it belongs on the flow-in side.');
+        else if (!wantIn && inSel) errs.push('Arc ' + nm + ' points ' + a.u + ' → ' + a.v + ': it carries oil OUT of node ' + n + ', not into it.');
+        else if (wantIn && !inSel) errs.push('Node ' + n + ' would ship oil it never receives — arc ' + nm + ' feeds it and is missing from the flow-in side.');
+        else if (!wantIn && !outSel) errs.push('That leaves node ' + n + ' accumulating oil — arc ' + nm + ' drains it and is missing from the flow-out side.');
+      });
+    });
+    if (!any) {
+      st.className = 'status info';
+      st.textContent = 'Nothing picked yet — click the terms into place: an arc (i,j) feeds node j and drains node i.';
+      return;
+    }
+    if (errs.length) {
+      st.className = 'status bad';
+      st.textContent = '✗ Not balanced yet. ' + errs.slice(0, 2).join(' ');
+      return;
+    }
+    balOK = true;
+    st.className = 'status ok';
+    st.innerHTML = '✓ Conservation written: x<sub>so,1</sub> = x<sub>12</sub> + x<sub>13</sub> (node 1), ' +
+      'x<sub>so,2</sub> + x<sub>12</sub> = x<sub>2,si</sub> (node 2), x<sub>13</sub> = x<sub>3,si</sub> (node 3).';
+    maybeUnlock();
+  });
+})();
+
+/* ============================================================
    STEPPER FACTORY — Ford-Fulkerson iteration player (widgets 2 and 5)
    ============================================================ */
 
@@ -1076,6 +1310,51 @@ ffStepper({
 })();
 
 /* ============================================================
+   WIDGET 3b — upgrade consequence round (appears once the min cut
+   of 3 is logged). Answers verified by enumerating all eight cuts
+   of Example 1: {so}=5, {so,1}=10, {so,2}=4, {so,3}=6, {so,1,2}=6,
+   {so,1,3}=7, {so,2,3}=5, {so,1,2,3}=3 — so the min cut of 3 is
+   unique and the runner-up costs 4. +1 on so→2 or 1→3 leaves the
+   min at 3; +1 on 3→si lifts it to 4, and a flow of 4 exists
+   (2 via so-2-si + 2 via so-1-3-si).
+   (Prediction round written for this demo.)
+   ============================================================ */
+(() => {
+  const ANS = { so2: 3, x13: 3, x3si: 4 };
+  const FB = {
+    'so2|3': '✓ so→2 is not in the min cut: S = {so,1,2,3} still cuts only 3→si (1) + 2→si (2) = 3. A wider inlet cannot help while the sink-side pipes are the bottleneck.',
+    'so2|4': '✗ The min cut S = {so,1,2,3} does not contain so→2, so its capacity stays 1 + 2 = 3 — and no flow can ever beat a cut. Extra barrels entering at node 2 still queue at the same sink-side pipes.',
+    'x13|3': '✓ 1→3 is not in the min cut — it was not even tight (the optimum uses 1 of its 4). The cut S = {so,1,2,3} still charges 1 + 2 = 3.',
+    'x13|4': '✗ 1→3 already has 3 spare units — widening a pipe with slack changes nothing. The cut S = {so,1,2,3} still caps the flow at 3→si + 2→si = 1 + 2 = 3.',
+    'x3si|4': '✓ 3→si sits in the ONLY cut of capacity 3. At capacity 2 that cut costs 2 + 2 = 4, every other cut was already ≥ 4, and 4 barrels really fit: 2 along so-2-si + 2 along so-1-3-si.',
+    'x3si|3': '✗ 3→si is exactly where the network pinches — it is in the unique minimum cut S = {so,1,2,3}. Raising it to 2 lifts that cut to 2 + 2 = 4, and a flow of 4 exists: 2 barrels so-2-si + 2 barrels so-1-3-si.',
+  };
+  const solved = new Set();
+
+  el('cut-upq').querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => {
+      const a = b.dataset.a, v = +b.dataset.v;
+      const ok = ANS[a] === v;
+      b.parentElement.querySelectorAll('button').forEach(x => x.classList.remove('right', 'wrong'));
+      b.classList.add(ok ? 'right' : 'wrong');
+      if (ok) solved.add(a);
+      const st = el('cut-upstatus');
+      st.className = ok ? 'status ok' : 'status bad';
+      st.textContent = FB[a + '|' + v] +
+        (ok && solved.size === 3 ? ' — All three offers called: only an arc in the min cut is worth paying for.' : '');
+    });
+  });
+
+  // second listener on the log button — registered after the widget's
+  // own handler, so the "best (min)" readout is already up to date
+  el('cut-log').addEventListener('click', () => {
+    if (el('cut-best').textContent !== '3') return;
+    const box = el('cut-upgrade');
+    if (box.style.display === 'none') box.style.display = '';
+  });
+})();
+
+/* ============================================================
    WIDGET 4 — course staffing grid + modelling quiz (slides 14-18)
    ============================================================ */
 (() => {
@@ -1218,6 +1497,73 @@ ffStepper({
 });
 
 /* ============================================================
+   WIDGET 5b — dummy-arc capacity gate (slide 20's conversion;
+   gate items written for this demo). Correct values recomputed
+   from EX3's arc list: refinery 2's total outflow 10+50+20 = 80
+   and terminal 7's total inflow 10+50 = 60 — matching the note.
+   ============================================================ */
+(() => {
+  const NEED = {
+    s2: EX3.byKey[AK('2', '4')].c + EX3.byKey[AK('2', '6')].c + EX3.byKey[AK('2', '5')].c,   // 80
+    t7: EX3.byKey[AK('4', '7')].c + EX3.byKey[AK('6', '7')].c,                               // 60
+  };
+  const FB = {
+    's2|50': '✗ Too narrow: refinery 2 can pump 10 + 50 + 20 = 80 into the stations (arcs 2→4, 2→6, 2→5). At 50 the DUMMY arc becomes the bottleneck and the max flow comes out wrong.',
+    's2|150': '150 works too — a dummy arc only has to be large enough to never bind, so ANY capacity ≥ 80 gives the same answer. The slides take the tightest safe value: refinery 2’s total outflow, 10 + 50 + 20 = 80. Click 80 to match slide 20.',
+    's2|80': '✓ c(s→2) = 80 — refinery 2 can send at most 10 + 50 + 20 = 80 onward, so this dummy can never be the tight pipe.',
+    't7|50': '✗ Too narrow: terminal 7 can receive at most 10 + 50 = 60 (arcs 4→7 and 6→7). A 50-wide dummy would throttle terminal 7 and steal flow the real network could deliver.',
+    't7|110': '110 works too — anything ≥ 60 can never bind (110 is, in fact, the whole network’s max flow). The slides take the tightest safe value: terminal 7’s total inflow, 10 + 50 = 60. Click 60 to match slide 20.',
+    't7|60': '✓ c(7→t) = 60 — at most 10 + 50 = 60 can ever arrive at terminal 7, so this dummy can never bind.',
+  };
+  const done = { s2: false, t7: false };
+
+  el('rf-opts').classList.add('gated');
+  // capture-phase blocker on the container: fires before the option
+  // buttons' own listeners, so no c* can be called until the gate opens
+  el('rf-opts').addEventListener('click', ev => {
+    if (done.s2 && done.t7) return;
+    if (ev.target.tagName !== 'BUTTON') return;
+    ev.stopPropagation();
+    ev.preventDefault();
+    const st = el('rfg-status');
+    st.className = 'status info';
+    st.textContent = 'The iterations are locked — finish slide 20’s conversion first: set c(s → 2) and c(7 → t) above.';
+  }, true);
+
+  function wire(groupId, key, readoutId) {
+    el(groupId).querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        if (done[key]) return;
+        const v = +b.dataset.v;
+        const ok = v === NEED[key];
+        el(groupId).querySelectorAll('button').forEach(x => x.classList.remove('right', 'wrong'));
+        const st = el('rfg-status');
+        if (!ok) {
+          b.classList.add('wrong');
+          // oversize picks are feasible modelling — say so, then point to the slide value
+          st.className = v > NEED[key] ? 'status info' : 'status bad';
+          st.textContent = FB[key + '|' + v];
+          return;
+        }
+        b.classList.add('right');
+        done[key] = true;
+        el(readoutId).textContent = v;
+        if (done.s2 && done.t7) {
+          el('rf-opts').classList.remove('gated');
+          st.className = 'status ok';
+          st.textContent = '✓ Dummy arcs set: c(s→2) = 80 and c(7→t) = 60 — wide enough to never bind, no wider than needed. Now iteration 1: read the residuals and call the bottleneck c*.';
+        } else {
+          st.className = 'status ok';
+          st.textContent = FB[key + '|' + v] + ' One dummy to go.';
+        }
+      });
+    });
+  }
+  wire('rfg-s2', 's2', 'rfg-s2v');
+  wire('rfg-7t', 't7', 'rfg-7tv');
+})();
+
+/* ============================================================
    WIDGET 6 — Seattle → Boston passenger race (slides 35-37)
    Max flow = 40. Nashville is a dead end; Colum-Charl cap 22.
    ============================================================ */
@@ -1236,6 +1582,40 @@ window.__bsGame = flowGame({
   revealHide: 'Hide the optimal flows',
   revealMsg: 'Green dashes: slide 37’s optimal flows (★passengers) — 40 reach Boston; Nashville stays empty.',
 });
+
+/* ============================================================
+   WIDGET 6b — optional pre-flight modelling quiz (no lock; quiz
+   items written for this demo). Grounding: EX4 has no arc leaving
+   Nash., and Colum.→Charl. carries 2 × 11 = 22; the optimum
+   (EX4_OPT) ships 0 on that leg.
+   ============================================================ */
+(() => {
+  const FB1 = {
+    cap: '✗ They don’t: Chicago→Nashville has 5 seats and Albuquerque→Nashville has 6. The seats exist — the model has a different reason to leave them empty.',
+    bal: '✓ Nashville is a dead end: with no outgoing arc, its balance constraint reads flow in = flow out = an empty sum = 0 — and nonnegative arc flows adding to 0 are all 0. The trap only catches human routers; the LP never falls in.',
+    obj: '✗ No penalty term exists — the objective only maximises what reaches Boston. The zero is enforced by a constraint (flow balance at Nashville), not bought by the objective.',
+    ff: '✗ True, but that is the symptom: no augmenting path can continue out of Nashville because the MODEL gives it no exit. The guarantee is the flow-balance constraint, whichever algorithm you run.',
+  };
+  const FB2 = {
+    paths: '✗ Augmenting paths are the method, not the capacity. Either way at most 11 + 11 = 22 passengers cross Columbus→Charlotte in total — and the max flow depends only on that total.',
+    equiv: '✓ The two encodings are equivalent: x ≤ 22 on one arc allows exactly the same Columbus→Charlotte totals as x₁ + x₂ with x₁ ≤ 11 and x₂ ≤ 11. (Doubly harmless here: slide 37’s optimum sends 0 passengers over that leg anyway.)',
+    plane: '✗ 15 passengers on the arc just means 15 across the two departures — say 11 + 4. The arc models the leg’s total seat supply, 2 × 11 = 22; how a number ≤ 22 splits between planes never needs to enter the model.',
+  };
+  function wireQuiz(quizId, statusId, fb, rightKey) {
+    el(quizId).querySelectorAll('button').forEach(b => {
+      b.addEventListener('click', () => {
+        const ok = b.dataset.k === rightKey;
+        el(quizId).querySelectorAll('button').forEach(x => x.classList.remove('right', 'wrong'));
+        b.classList.add(ok ? 'right' : 'wrong');
+        const st = el(statusId);
+        st.className = ok ? 'status ok' : 'status bad';
+        st.textContent = fb[b.dataset.k];
+      });
+    });
+  }
+  wireQuiz('bs-q1', 'bs-q1status', FB1, 'bal');
+  wireQuiz('bs-q2', 'bs-q2status', FB2, 'equiv');
+})();
 </script>
 <script src="assets/classroom-config.js"></script>
 <script src="assets/qrcode.js"></script>
