@@ -1,0 +1,422 @@
+/* IE342 Interactive Lectures — shared theme and layout (adapted from IE301).
+   Color roles follow the validated reference palette (see docs/DECISIONS.md ADR-002).
+   Themes are explicit: assets/theme.js stamps data-theme on <html>
+   (light | dark | projector); the initial value follows the OS preference
+   until the user picks one. Canvas code reads these tokens at draw time. */
+
+:root {
+  --page: #f9f9f7;
+  --surface: #fcfcfb;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --border: rgba(11, 11, 11, 0.10);
+
+  --s1: #2a78d6;        /* primary series: curves, objective contours */
+  --s2: #0f8757;        /* secondary series: revealed optimum / truth
+                           (darkened from the reference #1baf7a so TEXT
+                           labels in this color clear 3:1 on the light
+                           surface; validated with the palette script) */
+  --s5: #4a3aa7;        /* tertiary series: chords, student guesses    */
+  --good: #0ca30c;      /* status: feasible / correct                  */
+  --critical: #d03b3b;  /* status: infeasible / violation              */
+  --region-fill: #cde2fb; /* feasible-region / shape fill (sequential step 100) */
+
+  --viz-font-scale: 1;  /* canvas text multiplier, read by viz.js */
+}
+
+:root[data-theme="dark"] {
+  --page: #0d0d0d;
+  --surface: #1a1a19;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --border: rgba(255, 255, 255, 0.10);
+
+  --s1: #3987e5;
+  --s2: #199e70;
+  --s5: #9085e9;
+  --good: #0ca30c;
+  --critical: #d03b3b;
+  --region-fill: #16334f; /* blue step deepened for the dark surface */
+}
+
+/* Projector: high-contrast light theme for washed-out lecture-hall
+   projection — pure white surface, near-black inks, darker series colors
+   (validated ≥3:1 on white), stronger grid and borders, larger type. */
+:root[data-theme="projector"] {
+  --page: #ffffff;
+  --surface: #ffffff;
+  --ink: #000000;
+  --ink-2: #2e2d2a;
+  --muted: #4f4d47;
+  --grid: #c9c8c0;
+  --axis: #7a7870;
+  --border: rgba(0, 0, 0, 0.25);
+
+  --s1: #1c5cab;
+  --s2: #0f8757;
+  --s5: #4a3aa7;
+  --good: #006300;
+  --critical: #b02a2a;
+  --region-fill: #b7d3f6;
+
+  --viz-font-scale: 1.2;
+}
+
+:root[data-theme="projector"] body { font-size: 19px; }
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Large base size: these pages are projected in a lecture hall. */
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+header.site {
+  padding: 20px 24px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.theme-switch {
+  position: absolute;
+  top: 14px;
+  right: 20px;
+  display: flex;
+  gap: 6px;
+}
+
+.theme-switch button {
+  font-size: 0.78rem;
+  padding: 4px 12px;
+  border-radius: 999px;
+}
+
+.theme-switch button.active {
+  background: var(--s1);
+  border-color: var(--s1);
+  color: #ffffff;
+}
+
+header.site h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+header.site .sub { color: var(--ink-2); font-size: 0.95rem; }
+
+nav.widgets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+nav.widgets a {
+  color: var(--ink-2);
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--page);
+}
+
+nav.widgets a:hover { color: var(--ink); border-color: var(--axis); }
+
+main {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+
+section.widget {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin: 26px 0;
+}
+
+section.widget h2 {
+  margin: 0 0 2px;
+  font-size: 1.35rem;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  border: 1px solid var(--border);
+  background: var(--page);
+  padding: 2px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.howto { color: var(--ink-2); margin: 6px 0 14px; }
+
+canvas.viz {
+  width: 100%;
+  height: 460px;
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--grid);
+  border-radius: 10px;
+  touch-action: none; /* let pointer events drag handles on touch screens */
+  cursor: crosshair;
+}
+
+canvas.viz.short { height: 380px; }
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 22px;
+  margin: 14px 0 6px;
+}
+
+.controls .group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.controls label { color: var(--ink-2); font-size: 0.95rem; }
+
+input[type="range"] { width: 220px; accent-color: var(--s1); }
+
+button {
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 7px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--page);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+button:hover { border-color: var(--axis); }
+
+button.primary {
+  background: var(--s1);
+  border-color: var(--s1);
+  color: #ffffff;
+}
+
+button.seg { border-radius: 0; margin-left: -1px; }
+.segwrap { display: inline-flex; }
+.segwrap button:first-child { border-radius: 8px 0 0 8px; margin-left: 0; }
+.segwrap button:last-child { border-radius: 0 8px 8px 0; }
+.segwrap button.active {
+  background: var(--s1);
+  border-color: var(--s1);
+  color: #ffffff;
+}
+
+.readout {
+  font-variant-numeric: tabular-nums;
+  background: var(--page);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 0.95rem;
+}
+
+.readout b { font-size: 1.15rem; }
+
+.matrix {
+  display: inline-grid;
+  grid-template-columns: auto auto;
+  gap: 2px 20px;
+  padding: 4px 12px;
+  border-left: 2px solid var(--ink);
+  border-right: 2px solid var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: center;
+}
+
+.status { margin: 10px 0 0; font-weight: 600; min-height: 1.5em; }
+.status.ok { color: var(--good); }
+.status.bad { color: var(--critical); }
+.status.info { color: var(--ink-2); font-weight: 400; }
+
+.note {
+  color: var(--ink-2);
+  font-size: 0.92rem;
+  margin-top: 12px;
+  border-top: 1px solid var(--grid);
+  padding-top: 10px;
+}
+
+table.attempts {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 10px;
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+
+table.attempts th, table.attempts td {
+  text-align: right;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--grid);
+}
+
+table.attempts th { color: var(--ink-2); font-weight: 600; }
+table.attempts td:first-child, table.attempts th:first-child { text-align: left; }
+table.attempts tr.best td { color: var(--good); font-weight: 700; }
+table.attempts tr.infeasible td { color: var(--critical); }
+
+/* Landing page cards */
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+a.card, div.card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 18px;
+  text-decoration: none;
+  color: var(--ink);
+}
+
+a.card:hover { border-color: var(--s1); }
+
+.card .wk { font-size: 0.8rem; font-weight: 700; color: var(--s1); }
+.card h3 { margin: 4px 0 6px; font-size: 1.05rem; }
+.card p { margin: 0; color: var(--ink-2); font-size: 0.9rem; }
+
+div.card.soon { opacity: 0.55; }
+div.card.soon .wk { color: var(--muted); }
+
+footer.site {
+  max-width: 1060px;
+  margin: 0 auto;
+  padding: 0 20px 40px;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+footer.site .credit {
+  margin-top: 8px;
+  font-size: 0.78rem;
+}
+
+/* Spoiler wrapper: final answers hidden until the instructor opens them */
+details.spoiler { margin-top: 6px; }
+details.spoiler summary {
+  cursor: pointer;
+  color: var(--s1);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+details.spoiler[open] summary { color: var(--muted); }
+
+/* Interaction hint badge overlaid on a canvas (inserted by VIZ.hint) */
+.viz-hint { position: relative; height: 0; }
+.viz-hint span {
+  position: absolute;
+  right: 10px;
+  top: 8px;
+  z-index: 2;
+  font-size: 0.72rem;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--grid);
+  border-radius: 999px;
+  padding: 2px 10px;
+  pointer-events: none;
+}
+
+/* Gated buttons (e.g. run-to-convergence before any manual step) */
+button.locked { opacity: 0.45; }
+
+/* Classroom mode (Firebase-backed live leaderboards) */
+.classroom {
+  margin-top: 12px;
+  border-top: 1px dashed var(--grid);
+  padding-top: 10px;
+}
+.classroom .lb { font-variant-numeric: tabular-nums; font-size: 0.95rem; }
+.classroom .qr { display: block; margin: 8px 0; }
+.class-join {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  background: var(--surface);
+  border-top: 2px solid var(--s1);
+  padding: 10px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.class-join input[type="text"] {
+  font: inherit;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--page);
+  color: var(--ink);
+  width: 130px;
+}
+
+/* Embed mode (?embed=<id>): single-widget view for the instructor deck */
+.embed-mode header.site,
+.embed-mode footer.site,
+.embed-mode main > .howto,
+.embed-mode section.widget { display: none; }
+.embed-mode section.widget.embed-target { display: block; margin: 10px auto; }
+.embed-mode main { padding: 6px 14px 24px; }
+
+/* ---------- responsive: phones ---------- */
+@media (max-width: 700px) {
+  body { font-size: 15px; }
+  header.site { padding: 12px 14px 10px; }
+  header.site h1 { font-size: 1.02rem; }
+  .theme-switch { position: static; margin-top: 8px; }
+  main { padding: 14px 10px 70px; }
+  section.widget { padding: 14px 12px; margin: 16px 0; border-radius: 10px; }
+  section.widget h2 { font-size: 1.12rem; }
+  canvas.viz { max-height: 320px; }
+  input[type="range"] { max-width: 46vw; }
+  .controls { gap: 8px 12px; }
+  .controls .group { flex-wrap: wrap; }
+  .readout { padding: 5px 9px; font-size: 0.88rem; }
+  button { padding: 6px 12px; font-size: 0.88rem; }
+  table.attempts th, table.attempts td { padding: 4px 6px; font-size: 0.85rem; }
+  /* flex side-by-side blocks (tableau + map, list + canvas) stack full-width */
+  .widget [style*="min-width"] { min-width: 0 !important; }
+}
