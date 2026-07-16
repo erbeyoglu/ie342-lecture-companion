@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 7 — Branch and Bound, part 1 (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<style>
+  table.cons {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    margin-top: 10px;
+    font-size: 0.95rem;
+  }
+  table.cons th, table.cons td {
+    border: 1px solid var(--grid);
+    padding: 5px 12px;
+    text-align: center;
+  }
+  table.cons td:first-child { text-align: left; }
+  table.cons .ok-cell { color: var(--good); font-weight: 700; }
+  table.cons .bad-cell { color: var(--critical); font-weight: 700; }
+  .quiz-case {
+    background: var(--region-fill);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 10px 0;
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 7: Branch and Bound (part 1)</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#explode">1 · Enumeration blow-up</a>
+    <a href="#giapetto">2 · Drive the B&amp;B tree</a>
+    <a href="#fathom">3 · Fathom or branch?</a>
+    <a href="#race">4 · Bounds closing</a>
+    <a href="#dfs">5 · Depth-first calls</a>
+    <a href="#binary">6 · Binary plan duel</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : ENUMERATION EXPLOSION ================= -->
+<section class="widget" id="explode">
+  <h2>Could we just enumerate everything? <span class="chip">Slides 3–4</span></h2>
+  <p class="howto">
+    A 0/1 problem with n variables has 2ⁿ solutions. <b>Drag the slider</b> and watch the count —
+    the y-axis below is logarithmic, so a straight line means explosive growth. The slides anchor
+    two cases: n = 20 (still doable by computer) and n = 100 (hopeless).
+  </p>
+  <div class="controls">
+    <label for="ex-n">n =&nbsp;<b id="ex-nval">20</b> binary variables</label>
+    <input type="range" id="ex-n" min="1" max="100" step="1" value="20">
+    <span class="readout" style="word-break:break-all">2ⁿ = <b id="ex-count">—</b></span>
+    <span class="readout">≈ <b id="ex-approx">—</b></span>
+  </div>
+  <canvas class="viz short" id="c-ex"></canvas>
+  <p class="status info" id="ex-status"></p>
+  <div class="note">
+    At n = 20 there are 2²⁰ = 1,048,576 candidate solutions — a computer can grind through them.
+    At n = 100 there are about 1.268&thinsp;×&thinsp;10³⁰ — beyond any machine, and it is easy to build
+    combinatorial problems with more solutions than atoms in the universe. That is why the rest of
+    this week replaces brute force with branch and bound: implicit enumeration that discards huge
+    sets of candidates using bounds.
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : GIAPETTO B&B TREE EXPLORER ================= -->
+<section class="widget" id="giapetto">
+  <h2>Drive the branch-and-bound tree yourself <span class="chip">Slides 7–22</span></h2>
+  <p class="howto">
+    Giapetto again: max z = 19x₁ + 20x₂ s.t. x₁ + 2x₂ ≤ 10 (finishing), 5x₁ + 3x₂ ≤ 20 (carpentry),
+    x ≥ 0 and integer. <b>Click any dashed node in the tree to solve its LP relaxation</b> — fractional
+    nodes split into two subproblems, exactly as in the slides. The right panel shows the region each
+    subproblem still covers: watch parts of the LP region disappear while every integer point (dots) survives.
+  </p>
+  <div class="controls">
+    <span class="readout">incumbent (LB): <b id="bb-inc">—</b></span>
+    <span class="readout">nodes solved: <b id="bb-solved">0 / 9</b></span>
+    <button id="bb-reset">Reset the tree</button>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+    <div style="flex:1 1 460px;min-width:320px">
+      <canvas class="viz" id="c-bb-tree" style="height:420px"></canvas>
+    </div>
+    <div style="flex:1 1 360px;min-width:300px">
+      <canvas class="viz" id="c-bb-region" style="height:420px"></canvas>
+    </div>
+  </div>
+  <p class="status info" id="bb-status">Click the root node to solve the LP relaxation.</p>
+  <div class="note">
+    Branching adds x₁ ≤ i to one child and x₁ ≥ i+1 to the other, so the fractional strip between them
+    is cut away but no integer point is ever lost (slides 11, 16, 20). Candidate = an LP solution that
+    happens to be all-integer.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The optimum comes from SP4: x₁ = 0, x₂ = 5 with z = 100 (slide 22). SP8 stays fractional at
+      z = 90.33 but is never branched — its bound is already below the incumbent 100. SP6 dies of
+      infeasibility. Only 4 of the 9 nodes needed branching (root, SP1, SP2, SP5).
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : FATHOMING QUIZ ================= -->
+<section class="widget" id="fathom">
+  <h2>Fathom or branch? You are the algorithm <span class="chip">Slides 23–24</span></h2>
+  <p class="howto">
+    A node is <em>fathomed</em> (never branched again) in exactly three situations. Each case below is a
+    real node from Example 1 — <b>pick a case, then pick the correct action</b>. The counter tracks
+    first-try hits.
+  </p>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg active" id="fq-c0">Case A</button>
+      <button class="seg" id="fq-c1">Case B</button>
+      <button class="seg" id="fq-c2">Case C</button>
+      <button class="seg" id="fq-c3">Case D</button>
+    </span>
+    <span class="readout">first-try score: <b id="fq-score">0 / 4</b></span>
+  </div>
+  <div class="quiz-case" id="fq-text"></div>
+  <div class="controls">
+    <button id="fq-a0">Branch further</button>
+    <button id="fq-a1">Fathom — new incumbent</button>
+    <button id="fq-a2">Fathom — infeasible</button>
+    <button id="fq-a3">Fathom — bound ≤ incumbent</button>
+  </div>
+  <p class="status info" id="fq-status">Read the case, then commit to an action.</p>
+  <div class="note">
+    For a max problem the LP value of a node is an upper bound on everything below it — it can only get
+    worse as constraints pile up. That single fact powers all three fathoming rules.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      A → fathom, infeasible. B → fathom, integer and 100 &gt; 99 so it becomes the new incumbent.
+      C → branch: 101.8 &gt; 100 and fractional, the branch may still hide something better than 100.
+      D → fathom by bound: 90.33 &lt; 100, nothing below can recover.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 4 : EXAMPLE 2 STEPPER + GAP ================= -->
+<section class="widget" id="race">
+  <h2>Watch the bounds close in on the optimum <span class="chip">Slides 25–39</span></h2>
+  <p class="howto">
+    Example 2: max z = −x₁ + 4x₂ s.t. −10x₁ + 20x₂ ≤ 22, 5x₁ + 10x₂ ≤ 49, x₁ ≤ 5, x ≥ 0 integer.
+    <b>Step through the exact sequence the slides follow</b> (a dive-right, depth-first run). Left: the tree.
+    Right: the global upper bound (best open LP value) racing down toward the incumbent racing up.
+  </p>
+  <div class="controls">
+    <button id="race-step" class="primary">Next step</button>
+    <button id="race-run" class="locked">Run to the end</button>
+    <button id="race-reset">Reset</button>
+    <span class="readout">LB (incumbent): <b id="race-lb">—</b></span>
+    <span class="readout">UB (best bound): <b id="race-ub">—</b></span>
+    <span class="readout">gap: <b id="race-gap">—</b></span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start">
+    <div style="flex:1 1 460px;min-width:320px">
+      <canvas class="viz" id="c-race-tree" style="height:400px"></canvas>
+    </div>
+    <div style="flex:1 1 340px;min-width:300px">
+      <canvas class="viz" id="c-race-gap" style="height:400px"></canvas>
+    </div>
+  </div>
+  <p class="status info" id="race-status">Press “Next step” to solve the root LP relaxation.</p>
+  <div class="note">
+    Whenever LB = UB the search is over — every open node is either solved, infeasible, or provably
+    unable to beat the incumbent.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The run ends at step 13 with x* = (2, 2), z* = 6 from SP8 (slide 39). SP7’s bound 5.4 &lt; 6 is
+      fathomed instantly; the first candidate z = 4 (SP3) was overtaken along the way. Had the class
+      been asked on slide 18 “what if z<sub>SP5</sub>* &lt; the candidate?” — this is the same logic: bound below
+      incumbent ⇒ stop digging.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 5 : EXAMPLE 3 DEPTH-FIRST PREDICTIONS ================= -->
+<section class="widget" id="dfs">
+  <h2>Call each node before the algorithm does <span class="chip">Slides 40–52</span></h2>
+  <p class="howto">
+    Example 3: max z = 8x₁ + 5x₂ s.t. x₁ + x₂ ≤ 6, 9x₁ + 5x₂ ≤ 45, x ≥ 0 integer — solved depth-first
+    (LIFO), t = 1…7 as printed on slide 52. At each step the next node is highlighted:
+    <b>predict its fate before revealing</b>. The last one is a trap.
+  </p>
+  <div class="controls">
+    <span class="readout">your calls: <b id="nn-score">0 / 7</b></span>
+    <span class="readout">incumbent (LB): <b id="nn-lb">—</b></span>
+    <button id="nn-reset">Restart</button>
+  </div>
+  <div class="quiz-case" id="nn-q"></div>
+  <div class="controls">
+    <button id="nn-b0">Fractional → branch</button>
+    <button id="nn-b1">Integer → new candidate</button>
+    <button id="nn-b2">Infeasible</button>
+    <button id="nn-b3">Fathomed by bound</button>
+  </div>
+  <canvas class="viz" id="c-nn" style="height:430px"></canvas>
+  <p class="status info" id="nn-status"></p>
+  <div class="note">
+    Slide 40’s three node-selection policies: best-first (largest bound anywhere), depth-first (newest
+    nodes first — early incumbents), breadth-first (creation order). The slides run this example depth-first.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      t-order and fates: SP1 fractional (41.25) → SP2 fractional (41) → SP4 infeasible → SP5 fractional
+      (365/9) → SP7 integer, LB = 37 → SP6 integer, LB = 40 → SP3 integer at 39 but 39 ≤ 40 ⇒ fathomed
+      by bound. Optimal: x* = (5, 0), z* = 40 from SP6 (slide 52).
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 6 : EXAMPLE 4 BINARY PLAN DUEL ================= -->
+<section class="widget" id="binary">
+  <h2>Beat the tree: build the best 0/1 plan <span class="chip">Slides 53–58</span></h2>
+  <p class="howto">
+    Example 4: max z = 9x₁ + 5x₂ + 6x₃ + 4x₄ with the four constraints below, all variables 0 or 1.
+    <b>Flip the switches, keep every row green, submit your best plan.</b> Then compare with what B&amp;B
+    finds — including how many of the 2⁴ = 16 plans it never had to touch.
+  </p>
+  <div class="controls">
+    <button id="bx1">x₁ = 0</button>
+    <button id="bx2">x₂ = 0</button>
+    <button id="bx3">x₃ = 0</button>
+    <button id="bx4">x₄ = 0</button>
+    <span class="readout">z = <b id="bin-z">0</b></span>
+    <button id="bin-submit" class="primary">Submit plan</button>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="cons" id="bin-cons">
+      <thead><tr><th>constraint</th><th>value</th><th>limit</th><th>status</th></tr></thead>
+      <tbody>
+        <tr><td>6x₁ + 3x₂ + 5x₃ + 2x₄</td><td id="bc0v">0</td><td>≤ 10</td><td id="bc0s"></td></tr>
+        <tr><td>x₃ + x₄</td><td id="bc1v">0</td><td>≤ 1</td><td id="bc1s"></td></tr>
+        <tr><td>−x₁ + x₃&nbsp;&nbsp;(x₃ only if x₁)</td><td id="bc2v">0</td><td>≤ 0</td><td id="bc2s"></td></tr>
+        <tr><td>−x₂ + x₄&nbsp;&nbsp;(x₄ only if x₂)</td><td id="bc3v">0</td><td>≤ 0</td><td id="bc3s"></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="overflow-x:auto">
+    <table class="attempts" id="bin-log" style="display:none">
+      <thead><tr><th>#</th><th>plan (x₁, x₂, x₃, x₄)</th><th>z</th><th>verdict</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <p class="status info" id="bin-status">All switches start at 0 — feasible, but z = 0. Improve it.</p>
+  <div class="note">
+    This is the multiple-branching example: on a 0/1 variable, branching means fixing x = 0 or x = 1
+    (slide 53 notes the procedure does not change).
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      B&amp;B (slides 55–57): root LP (5/6, 1, 0, 1) with z = 16.5 → branch x₁. Fixing x₁ = 0 gives an
+      all-integer LP (0, 1, 0, 1), z = 9 — first candidate. x₁ = 1 gives 16.2 → branch x₂; x₂ = 1 gives 16
+      → branch x₄; x₄ = 0 leads to (1, 1, 0, 0) with z = 14 — the optimum. Seven subproblems in total,
+      versus 16 full enumerations.
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 7.
+  Figures follow the examples used in the Week 7 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+
+/* Shared B&B-tree renderer. spec = { nodes: {id: {u, v, lines[], cls, mark, sel}},
+   edges: [{a, b, label}] }. cls: hidden|open|frac|int|inf|fath|best.
+   Returns pixel boxes {id: {x,y,w,h}} for hit-testing. */
+function drawBBTree(canvas, spec) {
+  const { ctx, w, h } = VIZ.setup(canvas);
+  const t = VIZ.theme();
+  const scale = parseFloat(VIZ.cssv('--viz-font-scale')) || 1;
+  const fs = Math.round(12.5 * scale);
+  const lh = fs + 4;
+  const PX = u => 14 + u * (w - 28);
+  const PY = v => 14 + v * (h - 28);
+  ctx.font = fs + 'px system-ui, sans-serif';
+  const boxes = {};
+  Object.entries(spec.nodes).forEach(([id, n]) => {
+    if (n.cls === 'hidden') return;
+    const bw = Math.max(...n.lines.map(s => ctx.measureText(s).width)) + 16;
+    const bh = n.lines.length * lh + 10;
+    boxes[id] = { x: PX(n.u) - bw / 2, y: PY(n.v) - bh / 2, w: bw, h: bh };
+  });
+  // edges behind nodes
+  ctx.strokeStyle = t.axis;
+  ctx.lineWidth = 1.2;
+  spec.edges.forEach(e => {
+    const A = boxes[e.a], B = boxes[e.b];
+    if (!A || !B) return;
+    const x1 = A.x + A.w / 2, y1 = A.y + A.h;
+    const x2 = B.x + B.w / 2, y2 = B.y;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    if (e.label) {
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      ctx.font = '600 ' + Math.round(11.5 * scale) + 'px system-ui, sans-serif';
+      ctx.textAlign = x2 < x1 ? 'right' : 'left';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = t.surface;
+      const dx = x2 < x1 ? -6 : 6;
+      ctx.strokeText(e.label, mx + dx, my);
+      ctx.fillStyle = t.ink2;
+      ctx.fillText(e.label, mx + dx, my);
+      ctx.strokeStyle = t.axis;
+      ctx.lineWidth = 1.2;
+    }
+  });
+  const style = {
+    open: { border: t.axis, text: t.ink2, dash: [5, 4], lw: 1.4 },
+    frac: { border: t.s1, text: t.ink, dash: [], lw: 2 },
+    int:  { border: t.s2, text: t.ink, dash: [], lw: 2 },
+    inf:  { border: t.bad, text: t.bad, dash: [], lw: 1.6 },
+    fath: { border: t.muted, text: t.muted, dash: [], lw: 1.6 },
+    best: { border: t.s2, text: t.ink, dash: [], lw: 3.2 },
+  };
+  Object.entries(spec.nodes).forEach(([id, n]) => {
+    if (n.cls === 'hidden') return;
+    const b = boxes[id];
+    const s = style[n.cls] || style.open;
+    ctx.save();
+    if (n.sel) { // selection halo
+      ctx.strokeStyle = t.s5;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([2, 3]);
+      ctx.beginPath(); ctx.roundRect(b.x - 4, b.y - 4, b.w + 8, b.h + 8, 9); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.beginPath(); ctx.roundRect(b.x, b.y, b.w, b.h, 7);
+    ctx.fillStyle = t.surface;
+    ctx.fill();
+    ctx.strokeStyle = s.border;
+    ctx.lineWidth = s.lw;
+    ctx.setLineDash(s.dash);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = s.text;
+    ctx.font = fs + 'px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    n.lines.forEach((line, i) => {
+      if (i === 0) ctx.font = '600 ' + fs + 'px system-ui, sans-serif';
+      else ctx.font = fs + 'px system-ui, sans-serif';
+      ctx.fillText(line, b.x + b.w / 2, b.y + 5 + lh * i + lh / 2 - 2);
+    });
+    if (n.mark === 'x') { // fathomed cross
+      ctx.strokeStyle = t.bad;
+      ctx.lineWidth = 2.2;
+      const cx = b.x + b.w + 8, cy = b.y + b.h / 2;
+      ctx.beginPath();
+      ctx.moveTo(cx - 5, cy - 5); ctx.lineTo(cx + 5, cy + 5);
+      ctx.moveTo(cx + 5, cy - 5); ctx.lineTo(cx - 5, cy + 5);
+      ctx.stroke();
+    }
+    if (n.mark === 'star') {
+      ctx.fillStyle = t.s2;
+      ctx.font = '600 ' + Math.round(15 * scale) + 'px system-ui, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('★', b.x + b.w + 4, b.y + b.h / 2);
+    }
+    ctx.restore();
+  });
+  return boxes;
+}
+
+/* Clip a polygon by half-plane ax + by <= c (Sutherland–Hodgman). */
+function clipPoly(poly, a, b, c) {
+  const out = [];
+  const n = poly.length;
+  for (let i = 0; i < n; i++) {
+    const P = poly[i], Q = poly[(i + 1) % n];
+    const dp = a * P[0] + b * P[1] - c;
+    const dq = a * Q[0] + b * Q[1] - c;
+    if (dp <= 1e-9) out.push(P);
+    if ((dp < -1e-9 && dq > 1e-9) || (dp > 1e-9 && dq < -1e-9)) {
+      const s = dp / (dp - dq);
+      out.push([P[0] + s * (Q[0] - P[0]), P[1] + s * (Q[1] - P[1])]);
+    }
+  }
+  return out;
+}
+
+/* ============================================================
+   WIDGET 1 — enumeration explosion (slides 3-4)
+   2^20 = 1,048,576 ; 2^100 ≈ 1.268e30 (slide values).
+   ============================================================ */
+(() => {
+  const canvas = el('c-ex');
+  const LOG2 = Math.log10(2);
+  const view = { x0: 0, x1: 104, y0: 0, y1: 33 };
+
+  function bigPow2(n) {
+    return (1n << BigInt(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  function approx(n) {
+    const k = Math.floor(n * LOG2);
+    const m = Math.pow(2, n) / Math.pow(10, k);
+    return fmt(m, 3) + ' × 10<sup>' + k + '</sup>';
+  }
+
+  function draw() {
+    const n = +el('ex-n').value;
+    const p = VIZ.plot(canvas, view);
+    const t = VIZ.theme();
+    VIZ.axes(p, t, { xticks: [0, 20, 40, 60, 80, 100], yticks: [0, 6, 12, 18, 24, 30],
+      xlabel: 'n (binary variables)', ylabel: 'log₁₀ of #solutions' });
+    VIZ.curve(p, x => x * LOG2, t.s1, 2.5);
+    // slide anchors
+    VIZ.dot(p, 20, 20 * LOG2, t.s2, 5);
+    VIZ.label(p, '2²⁰ = 1,048,576', 20, 20 * LOG2, t.s2, { dx: 10, dy: 20, size: 13, bold: true, baseline: 'top' });
+    VIZ.dot(p, 100, 100 * LOG2, t.s2, 5);
+    VIZ.label(p, '2¹⁰⁰ ≈ 1.268 × 10³⁰', 100, 100 * LOG2, t.s2, { dx: -4, dy: 34, size: 13, bold: true, align: 'right', baseline: 'top' });
+    VIZ.dot(p, n, n * LOG2, t.s5, 8, true);
+
+    el('ex-nval').textContent = n;
+    el('ex-count').textContent = bigPow2(n);
+    el('ex-approx').innerHTML = approx(n);
+    const st = el('ex-status');
+    if (n <= 20) {
+      st.className = 'status ok';
+      st.textContent = 'Up to about a million candidates — full enumeration is still realistic here.';
+    } else if (n < 60) {
+      st.className = 'status info';
+      st.textContent = 'Growth is exponential: every extra variable doubles the work.';
+    } else {
+      st.className = 'status bad';
+      st.textContent = 'No computer enumerates this. We need implicit enumeration — branch and bound.';
+    }
+  }
+  el('ex-n').addEventListener('input', draw);
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 2 — Giapetto B&B explorer (slides 7-22)
+   All node LPs are the slide values (verified):
+   root 112.86 @ (10/7,30/7); SP1 109 @ (1,4.5); SP2 104.66 @ (2,3.33);
+   SP3 99 @ (1,4); SP4 100 @ (0,5); SP5 101.8 @ (2.2,3); SP6 infeasible;
+   SP7 98 @ (2,3); SP8 90.33 @ (3,1.66).
+   ============================================================ */
+(() => {
+  const treeCv = el('c-bb-tree');
+  const regCv = el('c-bb-region');
+  VIZ.hint(treeCv, '🖱 click a dashed node to solve its LP');
+
+  const D = {
+    root: { u: .50, v: .06, name: 'LP relaxation', z: '112.86', xs: '(10/7, 30/7)', pt: [10/7, 30/7], kind: 'frac',
+            kids: ['sp1', 'sp2'], bounds: {},
+            msg: 'Root LP (slide 9): z = 112.86 at x₁ = 10/7 ≈ 1.43, x₂ = 30/7 ≈ 4.29 — both fractional. The slides branch on x₁ (between 1 and 2): SP1 adds x₁ ≤ 1, SP2 adds x₁ ≥ 2. Click either.' },
+    sp1: { u: .25, v: .32, name: 'SP1', parent: 'root', lab: 'x₁ ≤ 1', z: '109', xs: '(1, 4.5)', pt: [1, 4.5], kind: 'frac',
+           kids: ['sp3', 'sp4'], bounds: { x1hi: 1 },
+           msg: 'SP1 (slide 13): z = 109 at (1, 4.5) — x₂ is fractional between 4 and 5 → SP3 (x₂ ≤ 4) and SP4 (x₂ ≥ 5) appear.' },
+    sp2: { u: .75, v: .32, name: 'SP2', parent: 'root', lab: 'x₁ ≥ 2', z: '104.66', xs: '(2, 3.33)', pt: [2, 10/3], kind: 'frac',
+           kids: ['sp5', 'sp6'], bounds: { x1lo: 2 },
+           msg: 'SP2 (slide 13): z = 104.66 at (2, 3.33) — x₂ is fractional between 3 and 4 → SP5 (x₂ ≤ 3) and SP6 (x₂ ≥ 4) appear.' },
+    sp3: { u: .09, v: .60, name: 'SP3', parent: 'sp1', lab: 'x₂ ≤ 4', z: '99', zn: 99, xs: '(1, 4)', pt: [1, 4], kind: 'int',
+           bounds: { x1hi: 1, x2hi: 4 },
+           msg: 'SP3 (slide 17): z = 99 at (1, 4) — all integer: a candidate solution.' },
+    sp4: { u: .33, v: .60, name: 'SP4', parent: 'sp1', lab: 'x₂ ≥ 5', z: '100', zn: 100, xs: '(0, 5)', pt: [0, 5], kind: 'int',
+           bounds: { x1hi: 1, x2lo: 5 },
+           msg: 'SP4 (slide 17): z = 100 at (0, 5) — integer candidate. Its region is a single point (slide 16).' },
+    sp5: { u: .60, v: .60, name: 'SP5', parent: 'sp2', lab: 'x₂ ≤ 3', z: '101.8', xs: '(2.2, 3)', pt: [2.2, 3], kind: 'frac',
+           kids: ['sp7', 'sp8'], bounds: { x1lo: 2, x2hi: 3 },
+           msg: 'SP5 (slide 18): z = 101.8 at (2.2, 3) — x₁ fractional between 2 and 3 → SP7 (x₁ ≤ 2) and SP8 (x₁ ≥ 3).' },
+    sp6: { u: .90, v: .60, name: 'SP6', parent: 'sp2', lab: 'x₂ ≥ 4', kind: 'inf',
+           bounds: { x1lo: 2, x2lo: 4 },
+           msg: 'SP6 (slide 18): INFEASIBLE — x₁ ≥ 2 with x₂ ≥ 4 already needs 5·2 + 3·4 = 22 > 20 carpentry hours. Fathomed.' },
+    sp7: { u: .46, v: .88, name: 'SP7', parent: 'sp5', lab: 'x₁ ≤ 2', z: '98', zn: 98, xs: '(2, 3)', pt: [2, 3], kind: 'int',
+           bounds: { x1lo: 2, x1hi: 2, x2hi: 3 },
+           msg: 'SP7 (slide 21): z = 98 at (2, 3) — integer candidate.' },
+    sp8: { u: .75, v: .88, name: 'SP8', parent: 'sp5', lab: 'x₁ ≥ 3', z: '90.33', xs: '(3, 1.66)', pt: [3, 5/3], kind: 'fracFathom',
+           bounds: { x1lo: 3, x2hi: 3 },
+           msg: '' },
+  };
+  const IDS = Object.keys(D);
+  let state, incumbent, selected, boxes = {};
+
+  function reset() {
+    state = { root: 'open' };
+    IDS.forEach(id => { if (id !== 'root') state[id] = 'hidden'; });
+    incumbent = null;
+    selected = 'root';
+    setStatus('info', 'Click the root node to solve the LP relaxation.');
+    refresh();
+  }
+
+  const solvedCount = () => IDS.filter(id => state[id] === 'solved').length;
+  const allSolved = () => solvedCount() === IDS.length;
+
+  function setStatus(cls, txt) {
+    const st = el('bb-status');
+    st.className = 'status ' + cls;
+    st.textContent = txt;
+  }
+
+  function solve(id) {
+    const n = D[id];
+    state[id] = 'solved';
+    selected = id;
+    let msg = n.msg;
+    if (n.kind === 'int') {
+      if (incumbent === null || n.zn > incumbent) {
+        incumbent = n.zn;
+        msg += ' New incumbent: LB = ' + n.zn + '.';
+      } else {
+        msg += ' Not better than the incumbent (' + incumbent + ').';
+      }
+    }
+    if (n.kind === 'fracFathom') {
+      msg = (incumbent !== null && incumbent >= 90.33)
+        ? 'SP8 (slide 21): z = 90.33 at (3, 1.66) — still fractional, but 90.33 is below the incumbent ' + incumbent + ' → fathomed by bound, no branching needed (slide 22).'
+        : 'SP8 (slide 21): z = 90.33 at (3, 1.66) — fractional. The slides never branch here: as soon as a candidate with z ≥ 90.33 is known, this node is fathomed. Solve the other branches and watch it get crossed out.';
+    }
+    (n.kids || []).forEach(k => { state[k] = 'open'; });
+    if (allSolved()) {
+      setStatus('ok', 'Tree complete — matches slide 22. Optimal IP solution: x₁ = 0, x₂ = 5, z = 100 (from SP4). SP8 was fathomed by bound, SP6 by infeasibility.');
+    } else {
+      setStatus(n.kind === 'inf' ? 'bad' : 'info', msg);
+    }
+    refresh();
+  }
+
+  function refresh() {
+    el('bb-inc').textContent = incumbent === null ? '—' : incumbent;
+    el('bb-solved').textContent = solvedCount() + ' / 9';
+    drawTree();
+    drawRegion();
+  }
+
+  function nodeCls(id) {
+    if (state[id] === 'hidden') return 'hidden';
+    if (state[id] === 'open') return 'open';
+    const n = D[id];
+    if (n.kind === 'inf') return 'inf';
+    if (n.kind === 'fracFathom') return (incumbent !== null && incumbent >= 90.33) ? 'fath' : 'frac';
+    if (n.kind === 'int') return (allSolved() && n.zn === 100) ? 'best' : 'int';
+    return 'frac';
+  }
+
+  function drawTree() {
+    const nodes = {}, edges = [];
+    IDS.forEach(id => {
+      const n = D[id];
+      const cls = nodeCls(id);
+      let lines;
+      if (cls === 'hidden') lines = [];
+      else if (state[id] === 'open') lines = [n.name, 'click to solve'];
+      else if (n.kind === 'inf') lines = [n.name, 'infeasible'];
+      else lines = [n.name + '  ·  z = ' + n.z, n.xs];
+      nodes[id] = { u: n.u, v: n.v, lines, cls,
+        mark: (cls === 'inf' || cls === 'fath') ? 'x' : (cls === 'best' ? 'star' : null),
+        sel: id === selected && state[id] !== 'hidden' };
+      if (n.parent && state[id] !== 'hidden') edges.push({ a: n.parent, b: id, label: n.lab });
+    });
+    boxes = drawBBTree(treeCv, { nodes, edges });
+  }
+
+  function drawRegion() {
+    const view = { x0: -0.5, x1: 6.6, y0: -0.6, y1: 7.3 };
+    const p = VIZ.plot(regCv, view);
+    const t = VIZ.theme();
+    VIZ.axes(p, t, { xticks: [0, 1, 2, 3, 4, 5, 6], yticks: [0, 1, 2, 3, 4, 5, 6, 7], xlabel: 'x₁', ylabel: 'x₂' });
+    const { ctx, X, Y } = p;
+    const n = D[selected];
+
+    // node subregion (base region ∩ node bounds)
+    let poly = [[0, 0], [30, 0], [30, 30], [0, 30]];
+    poly = clipPoly(poly, 1, 2, 10);
+    poly = clipPoly(poly, 5, 3, 20);
+    const basePoly = poly.slice();
+    const b = n.bounds || {};
+    if (b.x1lo !== undefined) poly = clipPoly(poly, -1, 0, -b.x1lo);
+    if (b.x1hi !== undefined) poly = clipPoly(poly, 1, 0, b.x1hi);
+    if (b.x2lo !== undefined) poly = clipPoly(poly, 0, -1, -b.x2lo);
+    if (b.x2hi !== undefined) poly = clipPoly(poly, 0, 1, b.x2hi);
+
+    // base LP region, faint reference
+    ctx.save();
+    ctx.beginPath();
+    basePoly.forEach(([x, y], i) => i === 0 ? ctx.moveTo(X(x), Y(y)) : ctx.lineTo(X(x), Y(y)));
+    ctx.closePath();
+    ctx.globalAlpha = 0.30;
+    ctx.fillStyle = t.region;
+    ctx.fill();
+    ctx.restore();
+
+    if (poly.length >= 3) {
+      ctx.save();
+      ctx.beginPath();
+      poly.forEach(([x, y], i) => i === 0 ? ctx.moveTo(X(x), Y(y)) : ctx.lineTo(X(x), Y(y)));
+      ctx.closePath();
+      ctx.fillStyle = t.region;
+      ctx.fill();
+      ctx.strokeStyle = t.s1;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    } else if (poly.length >= 1 && n.kind !== 'inf' && state[selected] !== 'hidden') {
+      // WHY: SP4 (x₁≤1, x₂≥5) clips down to the single feasible point (0,5) — it is NOT
+      // empty, it is the IP optimum (slide 16). Draw the degenerate region (a point or a
+      // segment) and label it as such; reserve the "empty" text for genuinely infeasible nodes.
+      ctx.save();
+      ctx.strokeStyle = t.s1;
+      ctx.fillStyle = t.s1;
+      ctx.lineWidth = 3;
+      if (poly.length === 1) {
+        ctx.beginPath();
+        ctx.arc(X(poly[0][0]), Y(poly[0][1]), 5, 0, 2 * Math.PI);
+        ctx.fill();
+      } else {
+        ctx.beginPath();
+        ctx.moveTo(X(poly[0][0]), Y(poly[0][1]));
+        for (let i = 1; i < poly.length; i++) ctx.lineTo(X(poly[i][0]), Y(poly[i][1]));
+        ctx.stroke();
+      }
+      ctx.restore();
+      VIZ.label(p, poly.length === 1 ? 'region is a single feasible point' : 'region is a single feasible segment',
+        0.4, 6.6, t.ink2, { size: 13, bold: true });
+    } else if (state[selected] !== 'hidden') {
+      VIZ.label(p, 'this subproblem has an EMPTY region', 0.4, 6.6, t.bad, { size: 13, bold: true });
+    }
+
+    // constraint lines + labels
+    VIZ.curve(p, x => (10 - x) / 2, t.axis, 1.4);
+    VIZ.curve(p, x => (20 - 5 * x) / 3, t.axis, 1.4);
+    VIZ.label(p, 'x₁ + 2x₂ = 10', 4.55, 2.95, t.ink2, { size: 12 });
+    VIZ.label(p, '5x₁ + 3x₂ = 20', 0.15, 6.35, t.ink2, { size: 12 });
+
+    // bound lines of selected node (dashed, violet)
+    ctx.save();
+    ctx.strokeStyle = t.s5;
+    ctx.lineWidth = 1.6;
+    ctx.setLineDash([6, 4]);
+    const vline = x => { ctx.beginPath(); ctx.moveTo(X(x), Y(view.y0)); ctx.lineTo(X(x), Y(view.y1)); ctx.stroke(); };
+    const hline = y => { ctx.beginPath(); ctx.moveTo(X(view.x0), Y(y)); ctx.lineTo(X(view.x1), Y(y)); ctx.stroke(); };
+    if (b.x1lo !== undefined) vline(b.x1lo);
+    if (b.x1hi !== undefined && b.x1hi !== b.x1lo) vline(b.x1hi);
+    if (b.x2lo !== undefined) hline(b.x2lo);
+    if (b.x2hi !== undefined) hline(b.x2hi);
+    ctx.restore();
+
+    // integer feasible points of the ORIGINAL IP — never cut out
+    ctx.save();
+    ctx.fillStyle = t.ink2;
+    for (let x = 0; x <= 4; x++) for (let y = 0; y <= 5; y++) {
+      if (x + 2 * y <= 10 && 5 * x + 3 * y <= 20) {
+        ctx.beginPath(); ctx.arc(X(x), Y(y), 2.4, 0, 2 * Math.PI); ctx.fill();
+      }
+    }
+    ctx.restore();
+
+    // LP optimum of the selected node
+    if (state[selected] === 'solved' && n.pt) {
+      const col = n.kind === 'int' ? t.s2 : t.s1;
+      VIZ.dot(p, n.pt[0], n.pt[1], col, 6, true);
+      VIZ.label(p, 'z = ' + n.z, n.pt[0], n.pt[1], col, { dx: 10, dy: -8, size: 13, bold: true });
+    }
+    if (allSolved()) {
+      VIZ.star(p, 0, 5, t.s2, 10);
+      VIZ.label(p, 'optimum (0, 5)', 0, 5, t.s2, { dx: 12, dy: 18, bold: true, baseline: 'top' });
+    }
+    VIZ.label(p, (state[selected] === 'hidden' ? '' : 'region of ' + (selected === 'root' ? 'the root' : D[selected].name)),
+      3.6, 6.85, t.ink2, { size: 13, bold: true });
+  }
+
+  treeCv.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(treeCv, ev);
+    for (const id of IDS) {
+      const bx = boxes[id];
+      if (bx && px >= bx.x && px <= bx.x + bx.w && py >= bx.y && py <= bx.y + bx.h) {
+        if (state[id] === 'open') solve(id);
+        else if (state[id] === 'solved') { selected = id; setStatus('info', 'Showing the region of ' + (id === 'root' ? 'the root LP' : D[id].name) + '.'); refresh(); }
+        return;
+      }
+    }
+  });
+  el('bb-reset').addEventListener('click', reset);
+  reset(); // initialize state BEFORE registering draw callbacks (register draws immediately)
+  VIZ.register(treeCv, () => drawTree());
+  VIZ.register(regCv, () => drawRegion());
+})();
+
+/* ============================================================
+   WIDGET 3 — fathoming quiz (slides 23-24, cases from Example 1)
+   ============================================================ */
+(() => {
+  const CASES = [
+    { text: 'Case A — Example 1, SP6 (added: x₁ ≥ 2 and x₂ ≥ 4). The LP relaxation has NO feasible point. Incumbent so far: z = 100.',
+      ans: 2,
+      hints: { 0: 'There is nothing to branch on — the region is empty, no LP solution exists.',
+               1: 'No feasible point means no solution at all, fractional or integer.',
+               3: 'There is no z-value to compare against the incumbent — the node dies of infeasibility, not of its bound.' } },
+    { text: 'Case B — Example 1, SP4 (added: x₁ ≤ 1 and x₂ ≥ 5). LP optimum (0, 5) with z = 100 — every variable integer. Incumbent so far: z = 99 (from SP3).',
+      ans: 1,
+      hints: { 0: 'All variables are already integer — branching cannot improve an attained LP optimum.',
+               2: '(0, 5) satisfies every constraint — the node solved just fine.',
+               3: '100 > 99: it BEATS the incumbent, so it replaces it rather than being discarded.' } },
+    { text: 'Case C — Example 1, SP5 (added: x₁ ≥ 2 and x₂ ≤ 3). LP optimum (2.2, 3) with z = 101.8. Incumbent so far: z = 100.',
+      ans: 0,
+      hints: { 1: 'x₁ = 2.2 is fractional — a node is only a candidate when ALL integer-restricted variables come out integer.',
+               2: 'The LP solved fine: (2.2, 3) is feasible for the relaxation.',
+               3: '101.8 > 100 — this branch could still hide an integer solution better than 100. Only a bound ≤ incumbent kills a node.' } },
+    { text: 'Case D — Example 1, SP8 (added: x₁ ≥ 3 and x₂ ≤ 3). LP optimum (3, 1.66) with z = 90.33. Incumbent so far: z = 100.',
+      ans: 3,
+      hints: { 0: 'Branching only DECREASES a max-LP bound — nothing below this node can ever beat 90.33, let alone 100.',
+               1: 'x₂ = 1.66 is fractional — and 90.33 is below the incumbent anyway.',
+               2: 'The LP has a perfectly good solution; the region is not empty.' } },
+  ];
+  const OK = [
+    '✓ Branch. The bound 101.8 exceeds the incumbent and the solution is fractional — the slides split it into SP7 and SP8.',
+    '✓ Fathomed with honors: integer and better than 99, so z = 100 becomes the new incumbent (the eventual optimum).',
+    '✓ Fathomed: an infeasible subproblem can never contain the IP optimum.',
+    '✓ Fathomed by bound: 90.33 < 100, so the slides never branch SP8 (slide 22).',
+  ];
+  let cur = 0;
+  const attempted = [false, false, false, false];
+  const firstTry = [false, false, false, false];
+  const answered = [false, false, false, false];
+
+  function show(i) {
+    cur = i;
+    for (let k = 0; k < 4; k++) el('fq-c' + k).classList.toggle('active', k === i);
+    el('fq-text').textContent = CASES[i].text;
+    const st = el('fq-status');
+    st.className = 'status info';
+    st.textContent = answered[i] ? 'Already solved — pick another case.' : 'Commit to an action.';
+  }
+
+  function answer(j) {
+    const c = CASES[cur];
+    const st = el('fq-status');
+    if (answered[cur]) { st.className = 'status info'; st.textContent = 'Already solved — pick another case.'; return; }
+    if (j === c.ans) {
+      answered[cur] = true;
+      if (!attempted[cur]) firstTry[cur] = true;
+      st.className = 'status ok';
+      st.textContent = OK[c.ans];
+    } else {
+      st.className = 'status bad';
+      st.textContent = '✗ Not this one. ' + c.hints[j];
+    }
+    attempted[cur] = true;
+    el('fq-score').textContent = firstTry.filter(Boolean).length + ' / 4';
+  }
+
+  for (let k = 0; k < 4; k++) el('fq-c' + k).addEventListener('click', () => show(k));
+  for (let j = 0; j < 4; j++) el('fq-a' + j).addEventListener('click', () => answer(j));
+  show(0);
+})();
+
+/* ============================================================
+   WIDGET 4 — Example 2 stepper with bound gap (slides 25-39)
+   Slide order: root, branch x1, SP2, branch, SP3 (LB=4), SP4 inf,
+   SP1, branch, SP5, SP6 inf, branch, SP8 (LB=6), SP7 fathomed. z*=6.
+   ============================================================ */
+(() => {
+  const treeCv = el('c-race-tree');
+  const gapCv = el('c-race-gap');
+
+  const N = {
+    root: { u: .50, v: .06, lines: ['root · z = 8.2', '(3.8, 3)'], cls: 'frac' },
+    sp1: { u: .28, v: .31, p: 'root', e: 'x₁ ≤ 3', lines: ['SP1 · z = 7.4', '(3, 2.6)'], cls: 'frac' },
+    sp2: { u: .72, v: .31, p: 'root', e: 'x₁ ≥ 4', lines: ['SP2 · z = 7.6', '(4, 2.9)'], cls: 'frac' },
+    sp5: { u: .14, v: .57, p: 'sp1', e: 'x₂ ≤ 2', lines: ['SP5 · z = 6.2', '(1.8, 2)'], cls: 'frac' },
+    sp6: { u: .42, v: .57, p: 'sp1', e: 'x₂ ≥ 3', lines: ['SP6', 'infeasible'], cls: 'inf' },
+    sp3: { u: .62, v: .57, p: 'sp2', e: 'x₂ ≤ 2', lines: ['SP3 · z = 4', '(4, 2) integer'], cls: 'int' },
+    sp4: { u: .89, v: .57, p: 'sp2', e: 'x₂ ≥ 3', lines: ['SP4', 'infeasible'], cls: 'inf' },
+    sp7: { u: .08, v: .85, p: 'sp5', e: 'x₁ ≤ 1', lines: ['SP7 · z = 5.4', '(1, 1.6)'], cls: 'fath' },
+    sp8: { u: .36, v: .85, p: 'sp5', e: 'x₁ ≥ 2', lines: ['SP8 · z = 6', '(2, 2) integer'], cls: 'int' },
+  };
+
+  const STEPS = [
+    { solve: 'root', lb: null, ub: 8.2, txt: 'Step 1 — root LP (slide 26): (3.8, 3), z = 8.2. x₁ fractional. Global UB = 8.2: no integer solution can ever beat this.' },
+    { branch: ['sp1', 'sp2'], lb: null, ub: 8.2, txt: 'Step 2 — branch on x₁ (slide 27): SP1 gets x₁ ≤ 3, SP2 gets x₁ ≥ 4. The strip 3 < x₁ < 4 vanishes — it held no integer point.' },
+    { solve: 'sp2', lb: null, ub: 8.2, txt: 'Step 3 — dive right: SP2 (slide 29): (4, 2.9), z = 7.6 — x₂ fractional.' },
+    { branch: ['sp3', 'sp4'], lb: null, ub: 8.2, txt: 'Step 4 — branch SP2 on x₂ (slide 30): SP3 (x₂ ≤ 2) and SP4 (x₂ ≥ 3).' },
+    { solve: 'sp3', lb: 4, ub: 8.2, txt: 'Step 5 — SP3 (slide 31): (4, 2), z = 4 — all integer! First candidate: LB = 4.' },
+    { solve: 'sp4', lb: 4, ub: 8.2, txt: 'Step 6 — SP4 (slide 31): infeasible — x₁ ≥ 4 and x₂ ≥ 3 need 5x₁ + 10x₂ ≥ 50 > 49. Fathomed.' },
+    { solve: 'sp1', lb: 4, ub: 7.4, txt: 'Step 7 — back to SP1 (slide 32): (3, 2.6), z = 7.4 — x₂ fractional. The root bound retires: UB drops to 7.4.' },
+    { branch: ['sp5', 'sp6'], lb: 4, ub: 7.4, txt: 'Step 8 — branch SP1 on x₂ (slide 33): SP5 (x₂ ≤ 2) and SP6 (x₂ ≥ 3).' },
+    { solve: 'sp5', lb: 4, ub: 7.4, txt: 'Step 9 — SP5 (slide 34): (1.8, 2), z = 6.2 — x₁ fractional.' },
+    { solve: 'sp6', lb: 4, ub: 6.2, txt: 'Step 10 — SP6 (slide 34): infeasible — x₁ ≤ 3 and x₂ ≥ 3 force −10x₁ + 20x₂ ≥ 30 > 22. UB drops to 6.2.' },
+    { branch: ['sp7', 'sp8'], lb: 4, ub: 6.2, txt: 'Step 11 — branch SP5 on x₁ (slide 35): SP7 (x₁ ≤ 1) and SP8 (x₁ ≥ 2).' },
+    { solve: 'sp8', lb: 6, ub: 6.2, txt: 'Step 12 — SP8 (slide 37): (2, 2), z = 6 — integer, and 6 > 4 → NEW incumbent: LB = 6.' },
+    { solve: 'sp7', lb: 6, ub: 6, done: true, txt: 'Step 13 — SP7 (slide 38): (1, 1.6), z = 5.4 < 6 → fathomed by bound. No open node left: UB = LB = 6. OPTIMAL: x* = (2, 2), z* = 6 (slide 39).' },
+  ];
+
+  let cur, manual;
+
+  function reset() {
+    cur = 0;
+    manual = false;
+    el('race-run').classList.add('locked');
+    el('race-status').className = 'status info';
+    el('race-status').textContent = 'Press “Next step” to solve the root LP relaxation.';
+    refresh();
+  }
+
+  function stepOnce() {
+    if (cur >= STEPS.length) return;
+    cur++;
+    const s = STEPS[cur - 1];
+    const st = el('race-status');
+    st.className = s.done ? 'status ok' : (s.txt.includes('infeasible') ? 'status bad' : 'status info');
+    st.textContent = s.txt;
+    refresh();
+  }
+
+  function visible(id) { // which nodes exist after step cur
+    if (id === 'root') return cur >= 1 ? 'done' : 'open';
+    const created = { sp1: 2, sp2: 2, sp3: 4, sp4: 4, sp5: 8, sp6: 8, sp7: 11, sp8: 11 };
+    const solved = { sp1: 7, sp2: 3, sp3: 5, sp4: 6, sp5: 9, sp6: 10, sp7: 13, sp8: 12 };
+    if (cur < created[id]) return 'hidden';
+    return cur >= solved[id] ? 'done' : 'open';
+  }
+
+  function drawTree() {
+    const nodes = {}, edges = [];
+    Object.entries(N).forEach(([id, n]) => {
+      const vis = visible(id);
+      let cls, lines;
+      if (vis === 'hidden') { cls = 'hidden'; lines = []; }
+      else if (vis === 'open') { cls = 'open'; lines = [id === 'root' ? 'root' : id.toUpperCase(), 'waiting…']; }
+      else {
+        cls = n.cls;
+        lines = n.lines;
+        if (id === 'sp8' && cur >= 13) cls = 'best';
+      }
+      nodes[id] = { u: n.u, v: n.v, lines, cls,
+        mark: (vis === 'done' && (n.cls === 'inf' || n.cls === 'fath')) ? 'x' : (id === 'sp8' && cur >= 13 ? 'star' : null) };
+      if (n.p && vis !== 'hidden') edges.push({ a: n.p, b: id, label: n.e });
+    });
+    drawBBTree(treeCv, { nodes, edges });
+  }
+
+  function drawGap() {
+    const view = { x0: 0, x1: 13.8, y0: 3.4, y1: 8.9 };
+    const p = VIZ.plot(gapCv, view);
+    const t = VIZ.theme();
+    VIZ.axes(p, t, { xticks: [1, 3, 5, 7, 9, 11, 13], yticks: [4, 5, 6, 7, 8], xlabel: 'step', ylabel: 'z', yAxisAt: 3.4 });
+    const { ctx, X, Y } = p;
+    const drawSeries = (key, color) => {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      let pen = false;
+      for (let k = 1; k <= cur; k++) {
+        const v = STEPS[k - 1][key];
+        if (v === null) { pen = false; continue; }
+        if (pen) ctx.lineTo(X(k), Y(v)); else { ctx.moveTo(X(k), Y(v)); pen = true; }
+      }
+      ctx.stroke();
+      ctx.restore();
+      for (let k = 1; k <= cur; k++) {
+        const v = STEPS[k - 1][key];
+        if (v !== null) VIZ.dot(p, k, v, color, 3.5);
+      }
+    };
+    drawSeries('ub', t.s1);
+    drawSeries('lb', t.s2);
+    if (cur >= 1) VIZ.label(p, 'UB — best open LP bound', 1.2, 8.55, t.s1, { size: 13, bold: true });
+    if (cur >= 5) VIZ.label(p, 'LB — incumbent', 5.2, 3.85, t.s2, { size: 13, bold: true });
+    if (cur >= 13) {
+      VIZ.star(p, 13, 6, t.s2, 9);
+      VIZ.label(p, 'UB = LB = 6', 12.8, 6.35, t.s2, { align: 'right', bold: true, size: 13 });
+    }
+  }
+
+  function refresh() {
+    const s = cur > 0 ? STEPS[cur - 1] : { lb: null, ub: null };
+    el('race-lb').textContent = s.lb === null ? '—' : fmt(s.lb, 1);
+    el('race-ub').textContent = s.ub === null ? '—' : fmt(s.ub, 1);
+    el('race-gap').textContent = (s.lb === null || s.ub === null) ? '—' : fmt(s.ub - s.lb, 1);
+    drawTree();
+    drawGap();
+  }
+
+  el('race-step').addEventListener('click', () => {
+    manual = true;
+    el('race-run').classList.remove('locked');
+    stepOnce();
+  });
+  el('race-run').addEventListener('click', () => {
+    if (!manual) {
+      el('race-status').className = 'status bad';
+      el('race-status').textContent = 'Take at least one manual step first — the class calls the moves before the machine does.';
+      return;
+    }
+    while (cur < STEPS.length) stepOnce();
+  });
+  el('race-reset').addEventListener('click', reset);
+  reset(); // initialize state BEFORE registering draw callbacks
+  VIZ.register(treeCv, () => drawTree());
+  VIZ.register(gapCv, () => drawGap());
+})();
+
+/* ============================================================
+   WIDGET 5 — Example 3 depth-first prediction game (slides 40-52)
+   t-order from slide 52: SP1, SP2, SP4, SP5, SP7, SP6, SP3.
+   ============================================================ */
+(() => {
+  const canvas = el('c-nn');
+  const N = {
+    sp1: { u: .50, v: .07, lines: ['SP1 · z = 165/4 = 41.25', '(15/4, 9/4) = (3.75, 2.25)'], cls: 'frac', kids: ['sp2', 'sp3'] },
+    sp2: { u: .28, v: .34, p: 'sp1', e: 'x₁ ≥ 4', lines: ['SP2 · z = 41', '(4, 9/5)'], cls: 'frac', kids: ['sp4', 'sp5'] },
+    sp3: { u: .76, v: .34, p: 'sp1', e: 'x₁ ≤ 3', lines: ['SP3 · z = 39 ≤ LB 40', '(3, 3) — fathomed'], cls: 'fath' },
+    sp4: { u: .10, v: .62, p: 'sp2', e: 'x₂ ≥ 2', lines: ['SP4', 'infeasible'], cls: 'inf' },
+    sp5: { u: .46, v: .62, p: 'sp2', e: 'x₂ ≤ 1', lines: ['SP5 · z = 365/9 ≈ 40.56', '(40/9, 1)'], cls: 'frac', kids: ['sp6', 'sp7'] },
+    sp6: { u: .28, v: .89, p: 'sp5', e: 'x₁ ≥ 5', lines: ['SP6 · z = 40', '(5, 0) — LB = 40'], cls: 'int' },
+    sp7: { u: .64, v: .89, p: 'sp5', e: 'x₁ ≤ 4', lines: ['SP7 · z = 37', '(4, 1) — LB = 37'], cls: 'int' },
+  };
+  const ORDER = ['sp1', 'sp2', 'sp4', 'sp5', 'sp7', 'sp6', 'sp3'];
+  const ANS = [0, 0, 2, 0, 1, 1, 3];
+  const QUESTIONS = [
+    't = 1 — solve SP1, the LP relaxation. Your call?',
+    't = 2 — depth-first dives into a just-created node: SP2 = SP1 + (x₁ ≥ 4). Your call?',
+    't = 3 — next off the stack: SP4 = SP2 + (x₂ ≥ 2). Your call?',
+    't = 4 — its sibling: SP5 = SP2 + (x₂ ≤ 1). Your call?',
+    't = 5 — deeper: SP7 = SP5 + (x₁ ≤ 4), so x₁ is pinned to 4. No incumbent exists yet. Your call?',
+    't = 6 — its sibling: SP6 = SP5 + (x₁ ≥ 5). Incumbent: LB = 37. Your call?',
+    't = 7 — only SP3 = SP1 + (x₁ ≤ 3) remains. Incumbent: LB = 40. Your call?',
+  ];
+  const REVEAL = [
+    'SP1 (slide 43): z = 165/4 = 41.25 at (3.75, 2.25) — fractional → branch on x₁.',
+    'SP2 (slide 43): z = 41 at (4, 9/5) — x₂ fractional → branch on x₂.',
+    'SP4 (slide 44–45): infeasible — x₁ ≥ 4 with x₂ ≥ 2 needs 9x₁ + 5x₂ ≥ 46 > 45.',
+    'SP5 (slide 46): z = 365/9 ≈ 40.56 at (40/9, 1) ≈ (4.44, 1) — fractional → branch on x₁.',
+    'SP7 (slide 49): z = 37 at (4, 1) — integer! First candidate: LB = 37.',
+    'SP6 (slide 50): z = 40 at (5, 0) — integer and 40 > 37 → new incumbent: LB = 40.',
+    'SP3 (slide 52): z = 39 at (3, 3) — integer, BUT 39 ≤ LB = 40: it cannot beat the incumbent → fathomed by bound. Done: z* = 40 at (5, 0).',
+  ];
+  const HINTS = [
+    {},
+    {},
+    { 0: 'Check the second constraint: 9·4 + 5·2 = 46 > 45.', 1: 'Check the second constraint: 9·4 + 5·2 = 46 > 45.' },
+    {},
+    { 3: 'There is no incumbent yet — nothing to fathom against.' },
+    {},
+    { 1: 'It IS integer — but check the bound first: 39 does not beat LB = 40, so no new candidate.' },
+  ];
+  const LBS = [null, null, null, null, 37, 40, 40];
+
+  let q, score, revealedUpto, committed;
+
+  function reset() {
+    q = 0; score = 0; revealedUpto = -1; committed = false;
+    el('nn-score').textContent = '0 / 7';
+    el('nn-lb').textContent = '—';
+    el('nn-q').textContent = QUESTIONS[0];
+    el('nn-status').className = 'status info';
+    el('nn-status').textContent = 'Commit to a prediction — then the node is revealed.';
+    draw();
+  }
+
+  function stateOf(id) {
+    const idx = ORDER.indexOf(id);
+    if (idx <= revealedUpto) return 'revealed';
+    const n = N[id];
+    // created (on the stack) once its parent is revealed; the root exists from the start
+    if (!n.p || ORDER.indexOf(n.p) <= revealedUpto) return 'open';
+    return 'hidden';
+  }
+
+  function draw() {
+    const nodes = {}, edges = [];
+    Object.entries(N).forEach(([id, n]) => {
+      let s = stateOf(id);
+      if (id === ORDER[q] && q <= 6 && s !== 'revealed') s = 'next';
+      let cls, lines, mark = null, sel = false;
+      if (s === 'hidden') { cls = 'hidden'; lines = []; }
+      else if (s === 'revealed') {
+        cls = n.cls;
+        lines = n.lines;
+        if (n.cls === 'inf' || n.cls === 'fath') mark = 'x';
+        if (id === 'sp6' && revealedUpto >= 6) { cls = 'best'; mark = 'star'; }
+      } else {
+        cls = 'open';
+        lines = [id.toUpperCase(), s === 'next' ? '← next: your call' : 'on the stack'];
+        sel = (s === 'next');
+      }
+      nodes[id] = { u: n.u, v: n.v, lines, cls, mark, sel };
+      if (n.p && s !== 'hidden') edges.push({ a: n.p, b: id, label: n.e });
+    });
+    drawBBTree(canvas, { nodes, edges });
+  }
+
+  function answer(j) {
+    if (q >= 7) { flash('info', 'Game over — hit Restart to play again.'); return; }
+    const correct = j === ANS[q];
+    if (correct) score++;
+    const extra = (!correct && HINTS[q][j]) ? ' ' + HINTS[q][j] : '';
+    flash(correct ? 'ok' : 'bad', (correct ? '✓ ' : '✗ ') + REVEAL[q] + extra);
+    if (LBS[q] !== null) el('nn-lb').textContent = LBS[q];
+    revealedUpto = q;
+    q++;
+    el('nn-score').textContent = score + ' / 7';
+    if (q >= 7) {
+      el('nn-q').textContent = 'Finished — 7 subproblems, optimal z* = 40 at (5, 0). Your calls: ' + score + ' / 7.';
+    } else {
+      el('nn-q').textContent = QUESTIONS[q];
+    }
+    draw();
+  }
+
+  function flash(cls, txt) {
+    const st = el('nn-status');
+    st.className = 'status ' + cls;
+    st.textContent = txt;
+  }
+
+  for (let j = 0; j < 4; j++) el('nn-b' + j).addEventListener('click', () => answer(j));
+  el('nn-reset').addEventListener('click', reset);
+  reset(); // initialize state BEFORE registering the draw callback
+  VIZ.register(canvas, () => draw());
+})();
+
+/* ============================================================
+   WIDGET 6 — Example 4 binary plan duel (slides 53-58)
+   max 9x1+5x2+6x3+4x4; 6x1+3x2+5x3+2x4<=10; x3+x4<=1; x3<=x1; x4<=x2.
+   B&B optimum: (1,1,0,0), z = 14.
+   ============================================================ */
+(() => {
+  const x = [0, 0, 0, 0];
+  const C = [9, 5, 6, 4];
+  let attempts = 0, bestZ = null;
+
+  const zNow = () => C[0] * x[0] + C[1] * x[1] + C[2] * x[2] + C[3] * x[3];
+  function consNow() {
+    return [
+      { v: 6 * x[0] + 3 * x[1] + 5 * x[2] + 2 * x[3], lim: 10 },
+      { v: x[2] + x[3], lim: 1 },
+      { v: -x[0] + x[2], lim: 0 },
+      { v: -x[1] + x[3], lim: 0 },
+    ];
+  }
+  const feasNow = () => consNow().every(c => c.v <= c.lim);
+
+  function refresh() {
+    for (let i = 0; i < 4; i++) {
+      const b = el('bx' + (i + 1));
+      b.textContent = 'x' + '₁₂₃₄'[i] + ' = ' + x[i];
+      b.classList.toggle('primary', x[i] === 1);
+    }
+    const cons = consNow();
+    cons.forEach((c, i) => {
+      el('bc' + i + 'v').textContent = c.v;
+      const s = el('bc' + i + 's');
+      const ok = c.v <= c.lim;
+      s.textContent = ok ? '✓' : '✗ violated';
+      s.className = ok ? 'ok-cell' : 'bad-cell';
+    });
+    el('bin-z').textContent = zNow();
+    const st = el('bin-status');
+    if (feasNow()) {
+      st.className = 'status ok';
+      st.textContent = 'Feasible plan — z = ' + zNow() + '. Submit it to the log, then try to do better.';
+    } else {
+      st.className = 'status bad';
+      st.textContent = 'Infeasible — fix the red row(s) before submitting.';
+    }
+  }
+
+  function submit() {
+    attempts++;
+    const feas = feasNow();
+    const z = zNow();
+    const tbl = el('bin-log');
+    tbl.style.display = '';
+    const tb = tbl.querySelector('tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + attempts + '</td><td>(' + x.join(', ') + ')</td><td>' + z + '</td><td>' +
+      (feas ? 'feasible' : 'infeasible') + '</td>';
+    if (!feas) tr.className = 'infeasible';
+    tb.appendChild(tr);
+    if (feas && (bestZ === null || z > bestZ)) bestZ = z;
+    tb.querySelectorAll('tr').forEach(r => {
+      const cells = r.children;
+      const rz = +cells[2].textContent;
+      const rf = cells[3].textContent === 'feasible';
+      r.classList.toggle('best', rf && bestZ !== null && rz === bestZ);
+    });
+    const st = el('bin-status');
+    if (!feas) { st.className = 'status bad'; st.textContent = 'Logged, but infeasible — it can never be a candidate solution.'; return; }
+    if (z === 14) { st.className = 'status ok'; st.textContent = 'z = 14 — that is exactly what B&B proves optimal. Can anyone argue for more? (Open the spoiler.)'; }
+    else { st.className = 'status ok'; st.textContent = 'Logged: z = ' + z + '. The B&B tree of the slides has a verdict — keep trying, then open the spoiler.'; }
+  }
+
+  for (let i = 0; i < 4; i++) {
+    el('bx' + (i + 1)).addEventListener('click', () => { x[i] = 1 - x[i]; refresh(); });
+  }
+  el('bin-submit').addEventListener('click', submit);
+  refresh();
+
+  window.BIN_STATE = { get z() { return feasNow() ? zNow() : null; } };
+})();
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('binary', { label: 'profit z', dir: 'max', digits: 0,
+  get: () => window.BIN_STATE.z });
+</script>
+</body>
+</html>

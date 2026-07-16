@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 9 — Implicit Enumeration &amp; Cutting Planes (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<link rel="stylesheet" href="assets/katex/katex.min.css">
+<script defer src="assets/katex/katex.min.js"></script>
+<script defer src="assets/katex/auto-render.min.js" onload="renderMathInElement(document.body,{delimiters:[{left:'\\(',right:'\\)',display:false},{left:'\\[',right:'\\]',display:true}]})"></script>
+<style>
+  table.tableau {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.92rem;
+    margin-top: 10px;
+  }
+  table.tableau th, table.tableau td {
+    border: 1px solid var(--grid);
+    padding: 5px 10px;
+    text-align: right;
+    min-width: 44px;
+  }
+  table.tableau th { color: var(--ink-2); }
+  table.tableau td:first-child, table.tableau th:first-child { text-align: left; font-weight: 600; }
+  table.tableau tr.src td { background: var(--region-fill); }
+  table.tableau tr.clickable { cursor: pointer; }
+  table.tableau tr.clickable td:first-child { color: var(--s1); text-decoration: underline; }
+  .tableau-wrap { overflow-x: auto; }
+  .rulecard {
+    flex: 1 1 300px;
+    min-width: 260px;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .rulecard h3 { margin: 0 0 6px; font-size: 1.02rem; }
+  .rulecard .prob { color: var(--ink-2); font-size: 0.95rem; margin: 4px 0 10px; }
+  .rulecard .prob b { color: var(--ink); }
+  .optlist button { display: block; width: 100%; text-align: left; margin: 6px 0; }
+  .derive {
+    border-left: 3px solid var(--s1);
+    padding: 2px 14px;
+    margin: 12px 0;
+  }
+  input.numin {
+    width: 80px; font: inherit; text-align: center; padding: 6px;
+    border: 1px solid var(--grid); border-radius: 8px;
+    background: var(--surface); color: var(--ink);
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 9: Implicit Enumeration &amp; Cutting Planes</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#rules">1 · Prune or branch?</a>
+    <a href="#ie1tree">2 · Tree walk</a>
+    <a href="#ie2game">3 · 0-1 challenge</a>
+    <a href="#cutgeom">4 · Shave the polygon</a>
+    <a href="#gomory1">5 · Gomory machine</a>
+    <a href="#gomory2">6 · Write the cut</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : THE THREE ELIMINATION RULES ================= -->
+<section class="widget" id="rules">
+  <h2>Prune it, fathom it, or keep branching? <span class="chip">Slides 6–9</span></h2>
+  <p class="howto">
+    Implicit enumeration lives on three elimination rules. Each card below puts you at one node of a
+    0-1 tree with some variables fixed — decide what happens to the node. All three instances are the
+    slides&rsquo; own.
+  </p>
+  <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
+    <div class="rulecard">
+      <h3>Rule 1 — best completion is feasible</h3>
+      <p class="prob">
+        Max z = 4x₁ + 2x₂ − x₃ + 2x₄<br>
+        s.t. x₁ + 3x₂ − x₃ − 2x₄ ≥ 1, &nbsp;x ∈ {0,1}⁴<br>
+        Node: <b>x₁ = 0, x₂ = 1</b> fixed. Pick the completion (x₃, x₄) that the rule would choose.
+      </p>
+      <div class="controls">
+        <span class="segwrap">
+          <button class="seg" data-r1="00">(0, 0)</button>
+          <button class="seg" data-r1="01">(0, 1)</button>
+          <button class="seg" data-r1="10">(1, 0)</button>
+          <button class="seg" data-r1="11">(1, 1)</button>
+        </span>
+      </div>
+      <p class="status info" id="r1-status">Best values for the free variables = ?</p>
+    </div>
+    <div class="rulecard">
+      <h3>Rule 2 — bound against the incumbent</h3>
+      <p class="prob">
+        Max z = 4x₁ + 2x₂ + x₃ − x₄ + 2x₅, &nbsp;x ∈ {0,1}⁵<br>
+        Current best integer solution: <b>z = 6</b>.<br>
+        Node: <b>x₁ = 0, x₂ = 1, x₃ = 1</b> fixed. What z does the <em>best completion</em> of this node reach?
+      </p>
+      <div class="controls">
+        <label>best-completion z =</label>
+        <input type="number" class="numin" id="r2-in" step="1">
+        <button class="primary" id="r2-check">Check</button>
+      </div>
+      <p class="status info" id="r2-status">Free variables: x₄ and x₅.</p>
+    </div>
+    <div class="rulecard">
+      <h3>Rule 3 — no feasible completion at all</h3>
+      <p class="prob">
+        Constraint: −2x₁ + 3x₂ + 2x₃ − 3x₄ − x₅ + 2x₆ ≤ −5, &nbsp;x ∈ {0,1}⁶<br>
+        Node: <b>x₂ = 1, x₃ = 1, x₄ = 1</b> fixed. How small can the left-hand side possibly get?
+      </p>
+      <div class="controls">
+        <label>min LHS =</label>
+        <input type="number" class="numin" id="r3-in" step="1">
+        <button class="primary" id="r3-check">Check</button>
+      </div>
+      <p class="status info" id="r3-status">Free variables: x₁, x₅, x₆ — push the LHS down as hard as you can.</p>
+    </div>
+  </div>
+  <div class="note">
+    These are exactly the three moves the algorithm makes at every node: fathom by a feasible best
+    completion (Rule 1), prune by bound (Rule 2), prune by infeasibility (Rule 3).
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Rule 1: the objective-best completion is x₃ = 0, x₄ = 1 → z = 4, and it satisfies the constraint
+      (LHS = 1 ≥ 1), so the node is solved — no branching. Rule 2: best completion x₄ = 0, x₅ = 1 gives
+      z = 2 + 1 + 2 = 5 &lt; 6, so the node dies even though we never checked feasibility. Rule 3: the most
+      helpful free values (x₁ = 1, x₅ = 1, x₆ = 0) still leave LHS = −1 &gt; −5 — no completion can ever be
+      feasible, prune.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : IE EXAMPLE 1 TREE WALK ================= -->
+<section class="widget" id="ie1tree">
+  <h2>Walk the implicit-enumeration tree <span class="chip">Slides 10–13</span></h2>
+  <p class="howto">
+    The slides&rsquo; Example 1:
+    max z = −7x₁ − 3x₂ − 2x₃ − x₄ − 2x₅ &nbsp;s.t.&nbsp;
+    −4x₁ − 2x₂ + x₃ − 2x₄ − x₅ ≤ −3 &nbsp;and&nbsp; −4x₁ − 2x₂ − 4x₃ + x₄ + 2x₅ ≤ −7, x ∈ {0,1}⁵.
+    You call every move; the tree grows as you answer. 2⁵ = 32 leaves — how few nodes can kill them all?
+  </p>
+  <div class="controls" id="ie1-q1">
+    <span><b>1.</b> Branch on x₁ first. Which branch can be eliminated on the spot?</span>
+    <button data-q1="a">x₁ = 0 dies</button>
+    <button data-q1="b">x₁ = 1 dies</button>
+    <button data-q1="c">both live</button>
+  </div>
+  <div class="controls" id="ie1-q2" style="display:none">
+    <span><b>2.</b> At the x₁ = 1 node, branch on x₃. Which branch dies now?</span>
+    <button data-q2="a">x₃ = 0 dies</button>
+    <button data-q2="b">x₃ = 1 dies</button>
+    <button data-q2="c">both live</button>
+  </div>
+  <div class="controls" id="ie1-q3" style="display:none">
+    <span><b>3.</b> At the x₁ = 1, x₃ = 1 node — best completion (x₂, x₄, x₅)?</span>
+    <button data-q3="a">(0, 0, 0)</button>
+    <button data-q3="b">(1, 0, 1)</button>
+    <button data-q3="c">(1, 1, 1)</button>
+  </div>
+  <div class="controls">
+    <button id="ie1-reset">Restart the tree</button>
+  </div>
+  <canvas class="viz short" id="c-ie1"></canvas>
+  <p class="status info" id="ie1-status">Hint: for each branch, give every free variable its most constraint-friendly value and test constraint 2.</p>
+  <div class="note">
+    Three questions, five nodes drawn, and all 32 assignments are accounted for — that is the
+    &ldquo;implicit&rdquo; in implicit enumeration.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      x₁ = 0 dies (constraint 2 bottoms out at −6 &gt; −7), then x₃ = 0 dies (bottoms out at −2 &gt; −3),
+      and at x₁ = x₃ = 1 the objective-best completion x₂ = x₄ = x₅ = 0 is feasible: fathomed with
+      <b>z = −9</b>, the optimum — exactly the slides&rsquo; path.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : IE EXAMPLE 2 CHALLENGE ================= -->
+<section class="widget" id="ie2game">
+  <h2>Beat the enumeration — find the best 0-1 point <span class="chip">Slides 14–15</span></h2>
+  <p class="howto">
+    Example 2 from the slides: max z = 3x₁ + x₂ + 2x₃ − x₄ + x₅ &nbsp;s.t.&nbsp;
+    2x₁ + x₂ − 3x₄ ≤ 1 &nbsp;and&nbsp; x₁ + 2x₂ − 3x₃ − x₄ + 2x₅ ≥ 2, x ∈ {0,1}⁵.
+    <b>Toggle the five variables</b>, watch both constraints, and log your best feasible z before the
+    algorithm reveals its answer.
+  </p>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg" id="ie2-t0">x₁ = 0</button>
+      <button class="seg" id="ie2-t1">x₂ = 0</button>
+      <button class="seg" id="ie2-t2">x₃ = 0</button>
+      <button class="seg" id="ie2-t3">x₄ = 0</button>
+      <button class="seg" id="ie2-t4">x₅ = 0</button>
+    </span>
+    <button class="primary" id="ie2-log">Log this attempt</button>
+  </div>
+  <div class="controls">
+    <span class="readout">2x₁ + x₂ − 3x₄ = <b id="ie2-c1">0</b> (need ≤ 1)</span>
+    <span class="readout">x₁ + 2x₂ − 3x₃ − x₄ + 2x₅ = <b id="ie2-c2">0</b> (need ≥ 2)</span>
+    <span class="readout">z = <b id="ie2-z">0</b></span>
+  </div>
+  <p class="status bad" id="ie2-status">All zeros: constraint 2 gives 0 &lt; 2 — infeasible. Start toggling.</p>
+  <div style="overflow-x:auto"><table class="attempts" id="ie2-table" style="display:none">
+    <thead><tr><th>#</th><th>x₁x₂x₃x₄x₅</th><th>c1 (≤ 1)</th><th>c2 (≥ 2)</th><th>z</th><th>verdict</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <div class="note">
+    Five binary switches make 32 candidate points; the two constraints disagree about which switches
+    they like. <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+    The optimum is <b>z = 4 at x = (1, 1, 0, 1, 1)</b> (slide 15) — x₄ takes −1 in the objective just to
+    unlock x₁ and x₂ in constraint 1. Only 7 of the 32 assignments are feasible (we counted).
+  </details></div>
+</section>
+
+<!-- ================= WIDGET 4 : CUT GEOMETRY ================= -->
+<section class="widget" id="cutgeom">
+  <h2>Shave the polygon — what a cut is allowed to do <span class="chip">Slides 17–24</span></h2>
+  <p class="howto">
+    The cutting-plane idea on the slides&rsquo; CP Example 1: max z = x₁ + x₂ s.t. −5x₁ + 4x₂ ≤ 0,
+    5x₁ + 2x₂ ≤ 15, x ≥ 0 and integer. <b>Click the map</b> to guess where the LP-relaxation optimum
+    sits, reveal it, then let the algorithm shave the polygon — cut by cut — and guess again.
+  </p>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg active" id="cg-s0">LP relaxation</button>
+      <button class="seg" id="cg-s1">+ cut 1</button>
+      <button class="seg" id="cg-s2">+ cuts 1 &amp; 2</button>
+    </span>
+    <button class="primary" id="cg-reveal">Reveal LP optimum ★</button>
+    <span class="readout">your guess: <b id="cg-guess">—</b></span>
+  </div>
+  <canvas class="viz" id="c-cut"></canvas>
+  <p class="status info" id="cg-status">Relaxation of the IP: maximize x₁ + x₂ over the triangle. Click your guess, then reveal.</p>
+  <div class="note">
+    Watch the dots: the 7 feasible integer points survive every stage — a legal cut never removes an
+    integer solution, and each cut line passes through integer points (slide 22).
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The relaxation peaks at (2, 5/2) with z = 9/2. Cut 1 (x₂ ≤ 2, derived on slide 27) moves the LP
+      optimum to (11/5, 2), z = 21/5 — still fractional. Cut 2 (in (x₁, x₂)-space: x₁ + x₂ ≤ 4, slide 31)
+      lands it on (2, 2) with <b>z = 4 — integer, and optimal for the IP</b>.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 5 : GOMORY CUTTING-PLANE MACHINE ================= -->
+<section class="widget" id="gomory1">
+  <h2>The cutting-plane machine — from tableau to cut to pivot <span class="chip">Slides 25–32</span></h2>
+  <p class="howto">
+    Same example, now in the tableau. Start from the optimal tableau of the LP relaxation (slide 25)
+    and run the algorithm: <b>click the row</b> that should generate the cut, derive it, add it, choose
+    the entering variable, pivot — and repeat until every value is integer.
+  </p>
+  <div class="controls">
+    <span class="readout">current LP solution: <b id="g1-sol">x₁ = 2, x₂ = 5/2, z = 9/2</b></span>
+    <button id="g1-reset">Restart</button>
+  </div>
+  <div class="tableau-wrap"><table class="tableau" id="g1-table"></table></div>
+  <div class="derive" id="g1-d1" style="display:none">
+    <p>Source row: \( x_2 + \tfrac{1}{6}y_1 + \tfrac{1}{6}y_2 = \tfrac{5}{2} \).
+    Keep the fractional pieces on the left, move the integer pieces to the right:</p>
+    \[ \tfrac{1}{6}y_1 + \tfrac{1}{6}y_2 \;=\; \tfrac{1}{2} + (2 - x_2) \]
+    <p>At any integer solution the right side is \( \tfrac12 \) plus an integer, and the left side is
+    \( \ge 0 \) — so the left side can never drop below \( \tfrac12 \). The cut
+    (equivalent to \( x_2 \le 2 \), added with surplus \( y_3 \)):</p>
+    \[ \tfrac{1}{6}y_1 + \tfrac{1}{6}y_2 \;\ge\; \tfrac{1}{2} \]
+  </div>
+  <div class="derive" id="g1-d2" style="display:none">
+    <p>Source row: \( x_1 + \tfrac{1}{5}y_2 - \tfrac{2}{5}y_3 = \tfrac{11}{5} \).
+    Add \( y_3 \) to both sides so every fraction is positive \( (-\tfrac25 = -1 + \tfrac35) \), then
+    split integers from fractions:</p>
+    \[ \tfrac{1}{5}y_2 + \tfrac{3}{5}y_3 \;=\; \tfrac{1}{5} + (2 - x_1 + y_3) \]
+    <p>Same argument: the left side can never drop below \( \tfrac15 \). The cut (in
+    \( (x_1, x_2) \)-space: \( x_1 + x_2 \le 4 \), added with surplus \( y_4 \)):</p>
+    \[ \tfrac{1}{5}y_2 + \tfrac{3}{5}y_3 \;\ge\; \tfrac{1}{5} \]
+  </div>
+  <div class="controls" id="g1-add1" style="display:none">
+    <button class="primary" id="g1-badd1">Add the cut row to the tableau</button>
+  </div>
+  <div class="controls" id="g1-e1" style="display:none">
+    <span><b>Entering variable?</b></span>
+    <button data-e1="y1">y₁</button>
+    <button data-e1="y2">y₂</button>
+    <button data-e1="y3">y₃</button>
+  </div>
+  <div class="controls" id="g1-add2" style="display:none">
+    <button class="primary" id="g1-badd2">Add the second cut row</button>
+  </div>
+  <div class="controls" id="g1-e2" style="display:none">
+    <span><b>Entering variable?</b></span>
+    <button data-e2="y2">y₂</button>
+    <button data-e2="y3">y₃</button>
+  </div>
+  <p class="status info" id="g1-status">x₁ = 2 is integer, x₂ = 5/2 is not. Click the row that generates the cut.</p>
+  <div class="note">
+    Every tableau here is the slides&rsquo; own (pages 25, 28, 29, 32) — except one entry: in the final
+    z-row the slides print −3/5 under y₃, but redoing the pivot (z-row + ⅕ × cut row) gives 0, marked
+    &dagger; here. Both versions read the same solution. Widget 4 shows the same three optima on the map.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Cut 1 comes from the x₂ row (fractional part ½), pivot y₁ in → x = (11/5, 2), z = 21/5.
+      Cut 2 comes from the x₁ row (fractional part ⅕), pivot y₂ in → <b>x₁ = 2, x₂ = 2, z = 4</b>,
+      all integer: the IP optimum, with y₁ = 2, y₂ = 1.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 6 : WRITE THE GOMORY CUT ================= -->
+<section class="widget" id="gomory2">
+  <h2>Write the Gomory cut yourself <span class="chip">Slides 33–36</span></h2>
+  <p class="howto">
+    CP Example 2: max z = 7x₁ + 9x₂ s.t. −x₁ + 3x₂ ≤ 6, 7x₁ + x₂ ≤ 35, x ≥ 0 and integer.
+    Ignoring integrality gives the optimal tableau below; the slides take the first row (the x₂ row,
+    highlighted) as the source. <b>Which of the four candidates is the correct Gomory cut?</b>
+  </p>
+  <div class="tableau-wrap"><table class="tableau">
+    <thead><tr><th>basic</th><th>x₁</th><th>x₂</th><th>s₁</th><th>s₂</th><th>z</th><th>RHS</th></tr></thead>
+    <tbody>
+      <tr class="src"><td>x₂</td><td>0</td><td>1</td><td>7/22</td><td>1/22</td><td>0</td><td>7/2</td></tr>
+      <tr><td>x₁</td><td>1</td><td>0</td><td>−1/22</td><td>3/22</td><td>0</td><td>9/2</td></tr>
+      <tr><td>z</td><td>0</td><td>0</td><td>28/11</td><td>15/11</td><td>1</td><td>63</td></tr>
+    </tbody>
+  </table></div>
+  <div class="optlist" style="max-width:560px">
+    <button data-g2="dir">A. &nbsp; \( \tfrac{1}{2} - \tfrac{7}{22}s_1 - \tfrac{1}{22}s_2 \ge 0 \)</button>
+    <button data-g2="sign">B. &nbsp; \( \tfrac{1}{2} - \tfrac{7}{22}s_1 + \tfrac{1}{22}s_2 \le 0 \)</button>
+    <button data-g2="ok">C. &nbsp; \( \tfrac{1}{2} - \tfrac{7}{22}s_1 - \tfrac{1}{22}s_2 \le 0 \)</button>
+    <button data-g2="whole">D. &nbsp; \( \tfrac{7}{2} - \tfrac{7}{22}s_1 - \tfrac{1}{22}s_2 \le 0 \)</button>
+  </div>
+  <p class="status info" id="g2-status">Source row: x₂ + (7/22)s₁ + (1/22)s₂ = 7/2. Split every number into integer + fraction, then decide what the fractional side may do.</p>
+  <div class="note">
+    A valid cut must do two jobs at once: keep <em>every</em> feasible integer point, and throw out the
+    current fractional optimum. Test each candidate on both jobs.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      C is the Gomory cut (slide 35): x₂ − 3 = ½ − (7/22)s₁ − (1/22)s₂ has an integer left side, and the
+      right side — a fraction minus nonnegatives — can only be 0, −1, −2, …, never positive. At the
+      current optimum s₁ = s₂ = 0 the left side is ½ &gt; 0, so the point (9/2, 7/2) is cut off (slide 36).
+      In (x₁, x₂)-space the cut reads <b>x₂ ≤ 3</b>.
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 9.
+  Figures follow the examples used in the Week 9 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+
+/* ============================================================
+   WIDGET 1 — the three elimination rules (slides 6-9)
+   Rule 1: max 4x1+2x2-x3+2x4, x1+3x2-x3-2x4 >= 1; node x1=0,x2=1.
+   Rule 2: max 4x1+2x2+x3-x4+2x5, incumbent 6; node x1=0,x2=1,x3=1 -> best z=5.
+   Rule 3: -2x1+3x2+2x3-3x4-x5+2x6 <= -5; node x2=x3=x4=1 -> min LHS=-1.
+   ============================================================ */
+(() => {
+  // Rule 1 card: completion (x3,x4) with x1=0, x2=1 fixed
+  const r1z = (x3, x4) => 2 - x3 + 2 * x4;           // 4*0 + 2*1 - x3 + 2*x4
+  const r1lhs = (x3, x4) => 3 - x3 - 2 * x4;         // 0 + 3 - x3 - 2*x4
+  const R1MSG = {
+    '00': 'feasible (LHS = 3 ≥ 1) but z = 2 — the completion must take the objective-BEST values, and x₄ adds +2.',
+    '10': 'feasible (LHS = 2 ≥ 1) but z = 1 — x₃ costs −1 in z; the best completion leaves it at 0.',
+    '11': 'z = 3 and infeasible (LHS = 0 < 1) — x₃ hurts z AND x₄ was already taken; not the rule&rsquo;s pick.',
+    '01': '✓ Rule 1&rsquo;s pick: x₃ = 0 (coeff −1), x₄ = 1 (coeff +2) → z = 4, and it is feasible (LHS = 1 ≥ 1). The node is SOLVED — no further branching (slide 7).',
+  };
+  document.querySelectorAll('[data-r1]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.r1;
+    document.querySelectorAll('[data-r1]').forEach(q => q.classList.toggle('active', q === b));
+    const st = el('r1-status');
+    st.className = k === '01' ? 'status ok' : 'status bad';
+    st.innerHTML = (k === '01' ? '' : '✗ (x₃, x₄) = (' + k[0] + ', ' + k[1] + '): z = ' + r1z(+k[0], +k[1]) +
+      ', constraint LHS = ' + r1lhs(+k[0], +k[1]) + '. ') + R1MSG[k];
+  }));
+
+  // Rule 2 card
+  el('r2-check').addEventListener('click', () => {
+    const v = +el('r2-in').value;
+    const st = el('r2-status');
+    if (v === 5) {
+      st.className = 'status ok';
+      st.textContent = '✓ Best completion: x₄ = 0 (coeff −1), x₅ = 1 (coeff +2) → z = 2 + 1 + 2 = 5. Since 5 < 6, the node is pruned by bound — feasibility never even gets checked (slide 8).';
+    } else if (v === 6) {
+      st.className = 'status bad';
+      st.textContent = '✗ 6 is the incumbent, not this node’s bound. Recount: with x₁ = 0, x₂ = 1, x₃ = 1 fixed, z = 2 + 1 − x₄ + 2x₅.';
+    } else {
+      st.className = 'status bad';
+      st.textContent = '✗ Not quite. Give each free variable its objective-best value: x₄ = 0 avoids −1, x₅ = 1 grabs +2.';
+    }
+  });
+
+  // Rule 3 card
+  el('r3-check').addEventListener('click', () => {
+    const v = +el('r3-in').value;
+    const st = el('r3-status');
+    if (v === -1) {
+      st.className = 'status ok';
+      st.textContent = '✓ Fixed part: 3 + 2 − 3 = 2. The friendliest free values (x₁ = 1 gives −2, x₅ = 1 gives −1, x₆ = 0) drag it to −1. But −1 > −5 — NO completion is feasible, prune the node (slide 9).';
+    } else if (v < -1) {
+      st.className = 'status bad';
+      st.textContent = '✗ Too optimistic — only x₁, x₅, x₆ are free. The fixed part 3x₂ + 2x₃ − 3x₄ = 2 is locked in.';
+    } else {
+      st.className = 'status bad';
+      st.textContent = '✗ The LHS can go lower: x₁ = 1 contributes −2, x₅ = 1 contributes −1, and keep x₆ = 0.';
+    }
+  });
+})();
+
+/* ============================================================
+   WIDGET 2 — IE Example 1 tree walk (slides 10-13)
+   max -7x1-3x2-2x3-x4-2x5
+   c1: -4x1-2x2+x3-2x4-x5 <= -3 ; c2: -4x1-2x2-4x3+x4+2x5 <= -7
+   x1=0 pruned (c2 min -6 > -7); then x3=0 pruned (c2 min -2 > -3);
+   at x1=x3=1 completion (0,0,0) feasible, z=-9 = IP optimum.
+   ============================================================ */
+(() => {
+  const canvas = el('c-ie1');
+  let step = 0; // 0: root only, 1: x1 branched, 2: x3 branched, 3: fathomed
+
+  const NODES = [
+    { x: 5.0, y: 9.0, cap: 'all variables free' },
+    { x: 2.4, y: 6.3, cap: 'c₂ ≥ −6 always: > −7 ✗' },
+    { x: 7.6, y: 6.3, cap: '' },
+    { x: 5.0, y: 3.4, cap: 'c₂ ≥ −2 always: > −3 ✗' },
+    { x: 9.4, y: 3.4, cap: 'x₂ = x₄ = x₅ = 0 feasible', capDx: -105 },
+  ];
+  const EDGES = [
+    { a: 0, b: 1, lab: 'x₁ = 0', showAt: 1 },
+    { a: 0, b: 2, lab: 'x₁ = 1', showAt: 1 },
+    { a: 2, b: 3, lab: 'x₃ = 0', showAt: 2 },
+    { a: 2, b: 4, lab: 'x₃ = 1', showAt: 2 },
+  ];
+
+  function draw() {
+    const p = VIZ.plot(canvas, { x0: 0, x1: 11.4, y0: 0, y1: 10.4, padL: 8, padR: 8, padT: 8, padB: 8 });
+    const t = VIZ.theme();
+    const { ctx, X, Y } = p;
+    const R = 16;
+
+    const visible = i => (i === 0) || (i <= 2 ? step >= 1 : step >= 2);
+    const pruned = i => (i === 1 && step >= 1) || (i === 3 && step >= 2);
+    const fathom = i => i === 4 && step >= 3;
+    const current = i => (step === 0 && i === 0) || (step === 1 && i === 2) || (step === 2 && i === 4);
+
+    // ghost skeleton of the not-yet-explored tree
+    ctx.save();
+    ctx.setLineDash([4, 5]);
+    ctx.strokeStyle = t.grid;
+    ctx.lineWidth = 1.3;
+    EDGES.forEach(e => {
+      if (step >= e.showAt) return;
+      const A = NODES[e.a], B = NODES[e.b];
+      ctx.beginPath();
+      ctx.moveTo(X(A.x), Y(A.y));
+      ctx.lineTo(X(B.x), Y(B.y));
+      ctx.stroke();
+    });
+    NODES.forEach((n, i) => {
+      const vis = (i === 0) || (i <= 2 ? step >= 1 : step >= 2);
+      if (vis) return;
+      ctx.beginPath();
+      ctx.arc(X(n.x), Y(n.y), R, 0, 2 * Math.PI);
+      ctx.stroke();
+    });
+    ctx.restore();
+
+    // edges
+    EDGES.forEach(e => {
+      if (step < e.showAt) return;
+      const A = NODES[e.a], B = NODES[e.b];
+      const dx = B.x - A.x, dy = B.y - A.y, L = Math.hypot(X(dx) - X(0), Y(dy) - Y(0));
+      const ux = (X(B.x) - X(A.x)) / L, uy = (Y(B.y) - Y(A.y)) / L;
+      ctx.save();
+      ctx.strokeStyle = t.axis;
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(X(A.x) + ux * R, Y(A.y) + uy * R);
+      ctx.lineTo(X(B.x) - ux * (R + 3), Y(B.y) - uy * (R + 3));
+      ctx.stroke();
+      ctx.restore();
+      const mx = (A.x + B.x) / 2, my = (A.y + B.y) / 2;
+      VIZ.label(p, e.lab, mx, my, t.ink2, { dx: B.x < A.x ? -58 : 10, dy: -4, size: 13, bold: true });
+    });
+
+    // nodes
+    NODES.forEach((n, i) => {
+      if (!visible(i)) return;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(X(n.x), Y(n.y), R, 0, 2 * Math.PI);
+      ctx.fillStyle = pruned(i) ? t.surface : fathom(i) ? t.s2 : t.s1;
+      if (pruned(i)) { ctx.fill(); ctx.strokeStyle = t.bad; ctx.lineWidth = 2; ctx.stroke(); }
+      else { ctx.fill(); }
+      if (current(i)) {
+        ctx.beginPath();
+        ctx.arc(X(n.x), Y(n.y), R + 5, 0, 2 * Math.PI);
+        ctx.strokeStyle = t.s5; ctx.lineWidth = 2.5; ctx.stroke();
+      }
+      ctx.fillStyle = pruned(i) ? t.bad : t.surface;
+      ctx.font = '600 14px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(pruned(i) ? '✗' : fathom(i) ? '✓' : String(i === 0 ? 1 : i + 1), X(n.x), Y(n.y));
+      ctx.restore();
+      if ((pruned(i) || i === 0 || fathom(i)) && n.cap) {
+        VIZ.label(p, n.cap, n.x, n.y, pruned(i) ? t.bad : t.ink2, { dx: n.capDx || -52, dy: R + 18, size: 12 });
+      }
+      if (fathom(i)) {
+        VIZ.label(p, 'fathomed: z = −9 ★ optimal', n.x, n.y, t.s2, { dx: -105, dy: R + 34, size: 13, bold: true });
+      }
+    });
+
+    if (step === 0) VIZ.label(p, 'root — click an answer to question 1', 5, 9, t.muted, { dx: 26, dy: 5, size: 13 });
+  }
+
+  function setStatus(cls, txt) { const s = el('ie1-status'); s.className = 'status ' + cls; s.textContent = txt; }
+
+  document.querySelectorAll('[data-q1]').forEach(b => b.addEventListener('click', () => {
+    if (step !== 0) return;
+    const k = b.dataset.q1;
+    if (k === 'a') {
+      step = 1;
+      el('ie1-q1').style.display = 'none';
+      el('ie1-q2').style.display = '';
+      setStatus('ok', '✓ With x₁ = 0, constraint 2 bottoms out at −2 − 4 + 0 + 0 = −6 > −7: infeasible for every completion — the whole branch dies (slide 11). The problem shrinks to the x₁ = 1 node.');
+      draw();
+    } else if (k === 'b') {
+      setStatus('bad', '✗ Try x₁ = 1 in constraint 2: the LHS can reach −4 − 2 − 4 + 0 + 0 = −10 ≤ −7, so that branch lives. Re-check x₁ = 0.');
+    } else {
+      setStatus('bad', '✗ One branch is doomed. Give every free variable its most constraint-friendly value in constraint 2 (−4x₁ − 2x₂ − 4x₃ + x₄ + 2x₅ ≤ −7) and compare.');
+    }
+  }));
+
+  document.querySelectorAll('[data-q2]').forEach(b => b.addEventListener('click', () => {
+    if (step !== 1) return;
+    const k = b.dataset.q2;
+    if (k === 'a') {
+      step = 2;
+      el('ie1-q2').style.display = 'none';
+      el('ie1-q3').style.display = '';
+      setStatus('ok', '✓ With x₁ = 1 and x₃ = 0, constraint 2 becomes −2x₂ + x₄ + 2x₅ ≤ −3, which bottoms out at −2 > −3 — prune (slide 12). Only the x₁ = 1, x₃ = 1 node survives.');
+      draw();
+    } else if (k === 'b') {
+      setStatus('bad', '✗ x₃ = 1 contributes −4 to constraint 2 — the friendliest move available. Its branch bottoms out at −6 ≤ −3, so it lives. Check x₃ = 0.');
+    } else {
+      setStatus('bad', '✗ Again one branch cannot ever satisfy constraint 2. Fix x₃ each way and push the free variables to their most helpful values.');
+    }
+  }));
+
+  document.querySelectorAll('[data-q3]').forEach(b => b.addEventListener('click', () => {
+    if (step !== 2) return;
+    const k = b.dataset.q3;
+    if (k === 'a') {
+      step = 3;
+      el('ie1-q3').style.display = 'none';
+      setStatus('ok', '✓ All remaining objective coefficients are negative (−3, −1, −2), so the best completion is all zeros — and it is feasible (c₁: −3 ≤ −3 ✓, c₂: −8 ≤ −7 ✓). Rule 1 fathoms the node: z = −7 − 2 = −9, the IP optimum (slide 13).');
+      draw();
+    } else {
+      setStatus('bad', '✗ This is a MAX problem and every free variable now costs (−3, −1, −2 in z). Turning any of them on only lowers z — and you must still check feasibility afterwards.');
+    }
+  }));
+
+  el('ie1-reset').addEventListener('click', () => {
+    step = 0;
+    el('ie1-q1').style.display = '';
+    el('ie1-q2').style.display = 'none';
+    el('ie1-q3').style.display = 'none';
+    setStatus('info', 'Hint: for each branch, give every free variable its most constraint-friendly value and test constraint 2.');
+    draw();
+  });
+
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 3 — IE Example 2 challenge (slides 14-15)
+   max 3x1+x2+2x3-x4+x5 ; 2x1+x2-3x4 <= 1 ; x1+2x2-3x3-x4+2x5 >= 2
+   optimum z=4 at (1,1,0,1,1).
+   ============================================================ */
+let ie2score = () => null; // classroom hook reads this
+(() => {
+  const x = [0, 0, 0, 0, 0];
+  const SUB = ['x₁', 'x₂', 'x₃', 'x₄', 'x₅'];
+  const attempts = [];
+
+  const c1 = () => 2 * x[0] + x[1] - 3 * x[3];
+  const c2 = () => x[0] + 2 * x[1] - 3 * x[2] - x[3] + 2 * x[4];
+  const zv = () => 3 * x[0] + x[1] + 2 * x[2] - x[3] + x[4];
+  const feas = () => c1() <= 1 && c2() >= 2;
+
+  ie2score = () => (feas() ? zv() : null);
+
+  function refresh() {
+    for (let i = 0; i < 5; i++) {
+      const b = el('ie2-t' + i);
+      b.textContent = SUB[i] + ' = ' + x[i];
+      b.classList.toggle('active', x[i] === 1);
+    }
+    el('ie2-c1').textContent = c1();
+    el('ie2-c2').textContent = c2();
+    el('ie2-z').textContent = zv();
+    const st = el('ie2-status');
+    if (feas()) {
+      st.className = 'status ok';
+      st.textContent = 'Feasible — z = ' + zv() + '. Log it, then try to push z higher.';
+    } else {
+      st.className = 'status bad';
+      const bad1 = c1() > 1 ? 'constraint 1 gives ' + c1() + ' > 1' : '';
+      const bad2 = c2() < 2 ? 'constraint 2 gives ' + c2() + ' < 2' : '';
+      st.textContent = 'Infeasible: ' + [bad1, bad2].filter(Boolean).join(' and ') + '.';
+    }
+  }
+
+  function logAttempt() {
+    attempts.push({ x: x.join(''), c1: c1(), c2: c2(), z: zv(), ok: feas() });
+    const tbl = el('ie2-table');
+    tbl.style.display = '';
+    const bestZ = Math.max(...attempts.filter(a => a.ok).map(a => a.z), -Infinity);
+    tbl.querySelector('tbody').innerHTML = attempts.map((a, i) =>
+      '<tr class="' + (!a.ok ? 'infeasible' : (a.z === bestZ ? 'best' : '')) + '">' +
+      '<td>' + (i + 1) + '</td><td>' + a.x + '</td><td>' + a.c1 + '</td><td>' + a.c2 + '</td>' +
+      '<td><b>' + a.z + '</b></td><td>' + (a.ok ? '✓ feasible' : '✗ infeasible') + '</td></tr>').join('');
+  }
+
+  for (let i = 0; i < 5; i++) {
+    el('ie2-t' + i).addEventListener('click', () => { x[i] = 1 - x[i]; refresh(); });
+  }
+  el('ie2-log').addEventListener('click', logAttempt);
+  refresh();
+})();
+
+/* ============================================================
+   WIDGET 4 — cut geometry on CP Example 1 (slides 17-24)
+   max x1+x2 ; -5x1+4x2<=0 ; 5x1+2x2<=15 ; x>=0 integer.
+   Stage 0: triangle (0,0),(3,0),(2,5/2); LP opt (2,5/2), z=9/2.
+   Stage 1 (+x2<=2): opt (11/5,2), z=21/5.
+   Stage 2 (+x1+x2<=4): opt (2,2), z=4 (integer, IP optimum).
+   ============================================================ */
+(() => {
+  const canvas = el('c-cut');
+  VIZ.hint(canvas, '🖱 click your guess for the LP optimum');
+  const view = { x0: -0.35, x1: 3.7, y0: -0.4, y1: 3.15 };
+
+  const STAGES = [
+    {
+      poly: [[0, 0], [3, 0], [2, 2.5]],
+      opt: [2, 2.5], optLab: '(2, 5/2), z = 9/2',
+      base: 'Relaxation of the IP: maximize x₁ + x₂ over the triangle. Click your guess, then reveal.',
+    },
+    {
+      poly: [[0, 0], [3, 0], [2.2, 2], [1.6, 2]],
+      opt: [2.2, 2], optLab: '(11/5, 2), z = 21/5',
+      base: 'Cut 1 shaved the top off — no integer point harmed. Where does the LP optimum land now?',
+    },
+    {
+      poly: [[0, 0], [3, 0], [7 / 3, 5 / 3], [2, 2], [1.6, 2]],
+      opt: [2, 2], optLab: '(2, 2), z = 4 — integer!',
+      base: 'Cut 2 shaved the corner. Guess again — anything integer yet?',
+    },
+  ];
+  let stage = 0, revealed = false, guess = null, lastPlot = null;
+
+  const insidePoly = (pt, poly) => {
+    // convex polygon, counterclockwise: point is inside iff left of every edge
+    for (let i = 0; i < poly.length; i++) {
+      const [ax, ay] = poly[i], [bx, by] = poly[(i + 1) % poly.length];
+      if ((bx - ax) * (pt[1] - ay) - (by - ay) * (pt[0] - ax) < -1e-9) return false;
+    }
+    return true;
+  };
+
+  function draw() {
+    const p = VIZ.plot(canvas, view);
+    const t = VIZ.theme();
+    lastPlot = p;
+    VIZ.axes(p, t, { xticks: [0, 1, 2, 3], yticks: [0, 1, 2, 3], xlabel: 'x₁', ylabel: 'x₂' });
+    const { ctx, X, Y } = p;
+    const S = STAGES[stage];
+
+    // ghost of the original triangle once cuts start shaving
+    if (stage > 0) {
+      ctx.save();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = t.muted;
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      STAGES[0].poly.forEach(([a, b], i) => i ? ctx.lineTo(X(a), Y(b)) : ctx.moveTo(X(a), Y(b)));
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // current region
+    ctx.save();
+    ctx.beginPath();
+    S.poly.forEach(([a, b], i) => i ? ctx.lineTo(X(a), Y(b)) : ctx.moveTo(X(a), Y(b)));
+    ctx.closePath();
+    ctx.fillStyle = t.region;
+    ctx.fill();
+    ctx.strokeStyle = t.axis;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+    ctx.restore();
+    VIZ.label(p, '−5x₁ + 4x₂ ≤ 0', 0.62, 1.45, t.ink2, { size: 12.5 });
+    VIZ.label(p, '5x₁ + 2x₂ ≤ 15', 2.72, 1.0, t.ink2, { size: 12.5 });
+
+    // cut lines
+    if (stage >= 1) {
+      ctx.save();
+      ctx.strokeStyle = t.bad;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(X(-0.2), Y(2)); ctx.lineTo(X(3.55), Y(2)); ctx.stroke();
+      ctx.restore();
+      VIZ.label(p, 'cut 1: x₂ = 2', 0.02, 2.02, t.bad, { size: 12.5, bold: true });
+    }
+    if (stage >= 2) {
+      ctx.save();
+      ctx.strokeStyle = t.bad;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(X(1.05), Y(2.95)); ctx.lineTo(X(3.55), Y(0.45)); ctx.stroke();
+      ctx.restore();
+      VIZ.label(p, 'cut 2: x₁ + x₂ = 4', 2.62, 1.62, t.bad, { size: 12.5, bold: true });
+    }
+
+    // integer points (never change): -5a+4b<=0 and 5a+2b<=15
+    for (let a = 0; a <= 3; a++) for (let b = 0; b <= 3; b++) {
+      if (-5 * a + 4 * b <= 0 && 5 * a + 2 * b <= 15) VIZ.dot(p, a, b, t.ink2, 4);
+    }
+
+    if (revealed) {
+      // iso-profit line through the optimum
+      const z = S.opt[0] + S.opt[1];
+      ctx.save();
+      ctx.setLineDash([6, 5]);
+      ctx.strokeStyle = t.s2;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(X(z - 3.05), Y(3.05)); ctx.lineTo(X(3.6), Y(z - 3.6)); ctx.stroke();
+      ctx.restore();
+      VIZ.star(p, S.opt[0], S.opt[1], t.s2, 10);
+      VIZ.label(p, S.optLab, S.opt[0], S.opt[1], t.s2, { dx: 12, dy: -8, bold: true });
+    }
+
+    if (guess) VIZ.dot(p, guess[0], guess[1], t.s5, 7, true);
+
+    const st = el('cg-status');
+    let msg = S.base;
+    if (guess) {
+      const gz = guess[0] + guess[1];
+      const inR = insidePoly(guess, S.poly);
+      msg = 'Your guess (' + fmt(guess[0], 2) + ', ' + fmt(guess[1], 2) + '): ' +
+        (inR ? 'z = ' + fmt(gz, 2) + '.' : 'outside the current region!');
+      if (revealed && inR && Math.hypot(guess[0] - S.opt[0], guess[1] - S.opt[1]) < 0.15) msg += ' Nailed it ★';
+      st.className = 'status ' + (inR ? 'ok' : 'bad');
+    } else {
+      st.className = 'status info';
+    }
+    st.textContent = msg;
+    el('cg-guess').textContent = guess ? '(' + fmt(guess[0], 2) + ', ' + fmt(guess[1], 2) + ')' : '—';
+  }
+
+  function setStage(s) {
+    stage = s;
+    guess = null;
+    [0, 1, 2].forEach(i => el('cg-s' + i).classList.toggle('active', i === s));
+    draw();
+  }
+  el('cg-s0').addEventListener('click', () => setStage(0));
+  el('cg-s1').addEventListener('click', () => setStage(1));
+  el('cg-s2').addEventListener('click', () => setStage(2));
+  el('cg-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('cg-reveal').textContent = revealed ? 'Hide LP optimum' : 'Reveal LP optimum ★';
+    draw();
+  });
+  canvas.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const gx = lastPlot.invX(px), gy = lastPlot.invY(py);
+    if (gx < view.x0 || gx > view.x1 || gy < view.y0 || gy > view.y1) return;
+    guess = [gx, gy];
+    draw();
+  });
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 5 — Gomory cutting-plane machine (slides 25-32)
+   All tableau snapshots reproduce the slides (pages 25/28/29/32),
+   verified by exact-fraction pivoting; the final z-row's y3 entry
+   is the recomputed 0 (the slide prints -3/5), marked with †.
+   ============================================================ */
+(() => {
+  const T0 = {
+    cols: ['basic', 'x₁', 'x₂', 'y₁', 'y₂', 'bᵢ'],
+    rows: [
+      { n: '−z', c: ['0', '0', '−1/10', '−3/10', '−9/2'] },
+      { n: 'x₂', c: ['0', '1', '1/6', '1/6', '5/2'] },
+      { n: 'x₁', c: ['1', '0', '−1/15', '2/15', '2'] },
+    ],
+  };
+  const T1 = {
+    cols: ['basic', 'x₁', 'x₂', 'y₁', 'y₂', 'y₃', 'bᵢ'],
+    rows: [
+      { n: '−z', c: ['0', '0', '−1/10', '−3/10', '0', '−9/2'] },
+      { n: 'x₂', c: ['0', '1', '1/6', '1/6', '0', '5/2'] },
+      { n: 'x₁', c: ['1', '0', '−1/15', '2/15', '0', '2'] },
+      { n: 'cut₁', c: ['0', '0', '1/6', '1/6', '−1', '1/2'], src: true },
+    ],
+  };
+  const T2 = {
+    cols: ['basic', 'x₁', 'x₂', 'y₁', 'y₂', 'y₃', 'bᵢ'],
+    rows: [
+      { n: '−z', c: ['0', '0', '0', '−1/5', '−3/5', '−21/5'] },
+      { n: 'x₂', c: ['0', '1', '0', '0', '1', '2'] },
+      { n: 'x₁', c: ['1', '0', '0', '1/5', '−2/5', '11/5'] },
+      { n: 'y₁', c: ['0', '0', '1', '1', '−6', '3'] },
+    ],
+  };
+  const T3 = {
+    cols: ['basic', 'x₁', 'x₂', 'y₁', 'y₂', 'y₃', 'y₄', 'bᵢ'],
+    rows: [
+      { n: '−z', c: ['0', '0', '0', '−1/5', '−3/5', '0', '−21/5'] },
+      { n: 'x₂', c: ['0', '1', '0', '0', '1', '0', '2'] },
+      { n: 'x₁', c: ['1', '0', '0', '1/5', '−2/5', '0', '11/5'] },
+      { n: 'y₁', c: ['0', '0', '1', '1', '−6', '0', '3'] },
+      { n: 'cut₂', c: ['0', '0', '0', '1/5', '3/5', '−1', '1/5'], src: true },
+    ],
+  };
+  const T4 = {
+    cols: ['basic', 'x₁', 'x₂', 'y₁', 'y₂', 'y₃', 'y₄', 'bᵢ'],
+    rows: [
+      { n: '−z', c: ['0', '0', '0', '0', '0†', '−1', '−4'] },
+      { n: 'x₂', c: ['0', '1', '0', '0', '1', '0', '2'] },
+      { n: 'x₁', c: ['1', '0', '0', '0', '−1', '1', '2'] },
+      { n: 'y₁', c: ['0', '0', '1', '0', '−9', '5', '2'] },
+      { n: 'y₂', c: ['0', '0', '0', '1', '3', '−5', '1'] },
+    ],
+  };
+
+  let phase = 0;
+  // phase 0: T0, pick row 1     phase 1: T0 + derivation 1 + add button
+  // phase 2: T1, pick entering  phase 3: T2, pick row 2
+  // phase 4: T2 + derivation 2 + add button
+  // phase 5: T3, pick entering  phase 6: T4, done
+
+  const SOL = {
+    0: 'x₁ = 2, x₂ = 5/2, z = 9/2', 1: 'x₁ = 2, x₂ = 5/2, z = 9/2', 2: 'x₁ = 2, x₂ = 5/2, z = 9/2',
+    3: 'x₁ = 11/5, x₂ = 2, z = 21/5', 4: 'x₁ = 11/5, x₂ = 2, z = 21/5', 5: 'x₁ = 11/5, x₂ = 2, z = 21/5',
+    6: 'x₁ = 2, x₂ = 2, z = 4 ✓',
+  };
+  const TAB = { 0: T0, 1: T0, 2: T1, 3: T2, 4: T2, 5: T3, 6: T4 };
+  const PICKABLE = { 0: ['x₂', 'x₁', '−z'], 3: ['x₂', 'x₁', 'y₁', '−z'] };
+
+  function render() {
+    const T = TAB[phase];
+    const pick = PICKABLE[phase] || [];
+    let html = '<thead><tr>' + T.cols.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>';
+    T.rows.forEach(r => {
+      const click = pick.includes(r.n);
+      html += '<tr' + (r.src ? ' class="src"' : (click ? ' class="clickable" data-row="' + r.n + '"' : '')) + '>' +
+        '<td>' + r.n + '</td>' + r.c.map(v => '<td>' + v + '</td>').join('') + '</tr>';
+    });
+    html += '</tbody>';
+    const tbl = el('g1-table');
+    tbl.innerHTML = html;
+    tbl.querySelectorAll('tr.clickable').forEach(tr => tr.addEventListener('click', () => pickRow(tr.dataset.row)));
+
+    el('g1-sol').textContent = SOL[phase];
+    el('g1-d1').style.display = phase >= 1 && phase <= 2 ? '' : 'none';
+    el('g1-d2').style.display = phase >= 4 && phase <= 5 ? '' : 'none';
+    el('g1-add1').style.display = phase === 1 ? '' : 'none';
+    el('g1-e1').style.display = phase === 2 ? '' : 'none';
+    el('g1-add2').style.display = phase === 4 ? '' : 'none';
+    el('g1-e2').style.display = phase === 5 ? '' : 'none';
+  }
+
+  function setStatus(cls, txt) { const s = el('g1-status'); s.className = 'status ' + cls; s.textContent = txt; }
+
+  function pickRow(name) {
+    if (phase === 0) {
+      if (name === 'x₂') {
+        phase = 1;
+        setStatus('ok', '✓ The x₂ row: bᵢ = 5/2 has fractional part 1/2 — the largest (and only) one. The derivation below turns it into a cut; then add the cut to the tableau.');
+      } else if (name === 'x₁') {
+        setStatus('bad', '✗ The x₁ row has bᵢ = 2 — already integer, fractional part 0. Pick the row whose right-hand side has the largest fractional part (slide 20, step 2).');
+      } else {
+        setStatus('bad', '✗ The objective row is not a source row — cuts come from a constraint row with a fractional right-hand side.');
+      }
+    } else if (phase === 3) {
+      if (name === 'x₁') {
+        phase = 4;
+        setStatus('ok', '✓ The x₁ row: bᵢ = 11/5, fractional part 1/5. The x₂ and y₁ rows are already integer. Derive the second cut below, then add it.');
+      } else if (name === 'x₂' || name === 'y₁') {
+        setStatus('bad', '✗ That row’s bᵢ (' + (name === 'x₂' ? '2' : '3') + ') is already integer — it cannot generate a cut. Which basic variable is still fractional?');
+      } else {
+        setStatus('bad', '✗ The objective row is not a source row — pick the constraint row with the fractional right-hand side.');
+      }
+    }
+    render();
+  }
+
+  el('g1-badd1').addEventListener('click', () => {
+    phase = 2;
+    setStatus('info', 'Cut row added with surplus y₃ (slide 28): 1/6·y₁ + 1/6·y₂ − y₃ = 1/2. The basis needs one more variable — who enters?');
+    render();
+  });
+  el('g1-badd2').addEventListener('click', () => {
+    phase = 5;
+    setStatus('info', 'Second cut row added with surplus y₄: 1/5·y₂ + 3/5·y₃ − y₄ = 1/5. Who enters this time?');
+    render();
+  });
+
+  document.querySelectorAll('[data-e1]').forEach(b => b.addEventListener('click', () => {
+    if (phase !== 2) return;
+    const k = b.dataset.e1;
+    if (k === 'y1') {
+      phase = 3;
+      setStatus('ok', '✓ Pivot on the cut row, y₁ in (slide 29). New solution: x₁ = 11/5, x₂ = 2, y₁ = 3, z = 21/5 — x₂ became integer but x₁ went fractional. Click the next source row.');
+    } else if (k === 'y2') {
+      setStatus('bad', '✗ Legal too — the slides note y₁ or y₂ both work, then pick y₁. Follow the deck so every number matches the printed tableaus.');
+    } else {
+      setStatus('bad', '✗ y₃ cannot enter: its entry in the cut row is −1, so bringing it in would push the cut row’s bᵢ the wrong way (slide 29 rules it out).');
+    }
+    render();
+  }));
+  document.querySelectorAll('[data-e2]').forEach(b => b.addEventListener('click', () => {
+    if (phase !== 5) return;
+    const k = b.dataset.e2;
+    if (k === 'y2') {
+      phase = 6;
+      setStatus('ok', '✓ Pivot on the cut row, y₂ in (slide 32). Everything is integer now: x₁ = 2, x₂ = 2 (y₁ = 2, y₂ = 1) with z = 4 — the IP optimum. Two cuts were enough.');
+    } else {
+      setStatus('bad', '✗ y₃ ties in the ratio test, but the slides pivot y₂ in — follow the deck so the final tableau matches page 32.');
+    }
+    render();
+  }));
+
+  el('g1-reset').addEventListener('click', () => {
+    phase = 0;
+    setStatus('info', 'x₁ = 2 is integer, x₂ = 5/2 is not. Click the row that generates the cut.');
+    render();
+  });
+
+  render();
+})();
+
+/* ============================================================
+   WIDGET 6 — write the Gomory cut (slides 33-36)
+   Source row: x2 + 7/22 s1 + 1/22 s2 = 7/2 ; cut: 1/2 - 7/22 s1 - 1/22 s2 <= 0.
+   ============================================================ */
+(() => {
+  const MSG = {
+    ok: ['ok', '✓ Correct (slide 35). x₂ − 3 = 1/2 − (7/22)s₁ − (1/22)s₂ has an integer left side, and the right side — a positive fraction minus nonnegative terms — can only be 0, −1, −2, …: never positive. At the current optimum s₁ = s₂ = 0 it evaluates to 1/2 > 0, so the fractional point (9/2, 7/2) is cut off (slide 36): a genuine Gomory cut.'],
+    dir: ['bad', '✗ Wrong direction. Plug in the current LP optimum (s₁ = s₂ = 0): 1/2 ≥ 0 already holds, so this inequality cuts NOTHING off. A cut must be violated by the current fractional solution.'],
+    whole: ['bad', '✗ Only the fractional part of the right-hand side survives the split: 7/2 = 3 + 1/2. Using the whole 7/2 slices off feasible integer points — e.g. (x₁, x₂) = (0, 1) has s₁ = 3, s₂ = 34 and violates this one. Cuts must keep every integer solution.'],
+    sign: ['bad', '✗ A sign flipped. Each slack keeps its coefficient’s fractional part with a minus in front. Check the integer point (0, 0) (s₁ = 6, s₂ = 35): this candidate evaluates to 1/2 − 42/22 + 35/22 = 2/11 > 0 — it would cut off a perfectly feasible integer point.'],
+  };
+  document.querySelectorAll('[data-g2]').forEach(b => b.addEventListener('click', () => {
+    const [cls, txt] = MSG[b.dataset.g2];
+    const st = el('g2-status');
+    st.className = 'status ' + cls;
+    st.textContent = txt;
+  }));
+})();
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('ie2game', {
+  label: 'best feasible z', dir: 'max', digits: 0,
+  get: () => ie2score(),
+});
+</script>
+</body>
+</html>

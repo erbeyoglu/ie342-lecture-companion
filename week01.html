@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 1 — Introduction and LP Review (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<style>
+  /* quiz rows */
+  .qitem {
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin: 10px 0;
+  }
+  .qitem p.qtext { margin: 0 0 8px; }
+  .qitem .status { margin-top: 6px; }
+
+  /* nutrient bars (diet widget) */
+  .nrow { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+  .nrow .nname { width: 130px; color: var(--ink-2); font-size: 0.92rem; text-align: right; }
+  .nrow .nval { width: 130px; font-variant-numeric: tabular-nums; font-size: 0.92rem; }
+  .nbar {
+    position: relative; flex: 1 1 160px; min-width: 120px; height: 14px;
+    background: var(--grid); border-radius: 7px; overflow: hidden;
+  }
+  .nbar > i { display: block; height: 100%; width: 0; background: var(--critical); border-radius: 7px; }
+  .nbar.met > i { background: var(--good); }
+  .nbar::after {
+    content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
+    width: 2px; background: var(--axis);
+  }
+
+  /* shipping grid (Powerco) */
+  table.ship { border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 8px; }
+  table.ship th, table.ship td { border: 1px solid var(--grid); padding: 5px 8px; text-align: center; }
+  table.ship th { color: var(--ink-2); font-weight: 600; }
+  table.ship td .uc { display: block; font-size: 0.78rem; color: var(--muted); }
+  table.ship input {
+    width: 62px; font: inherit; text-align: center;
+    border: 1px solid var(--border); border-radius: 6px;
+    background: var(--page); color: var(--ink); padding: 3px 4px;
+  }
+  table.ship td.sum { font-size: 0.9rem; color: var(--ink-2); }
+  table.ship td.sum.bad { color: var(--critical); font-weight: 700; }
+  table.ship td.sum.ok { color: var(--good); font-weight: 700; }
+
+  /* small static tables in notes/spoilers */
+  table.plan { border-collapse: collapse; margin: 8px 0; font-variant-numeric: tabular-nums; }
+  table.plan th, table.plan td { border: 1px solid var(--grid); padding: 4px 9px; text-align: center; }
+  table.plan th { color: var(--ink-2); font-weight: 600; }
+
+  /* allocation bars (securities widget) */
+  .alloc { display: flex; height: 22px; border-radius: 8px; overflow: hidden; background: var(--grid); margin: 8px 0 2px; max-width: 640px; }
+  .alloc i { display: block; height: 100%; }
+  .alloc i.a1 { background: var(--s1); }
+  .alloc i.a2 { background: var(--s5); }
+  .alloc i.a3 { background: var(--muted); }
+  .alloc-cap { font-size: 0.85rem; color: var(--muted); margin: 0 0 6px; }
+  .legend { font-size: 0.88rem; color: var(--ink-2); }
+  .legend .sw { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin: 0 4px 0 12px; vertical-align: -1px; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 1: Introduction and LP Review</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#lpquiz">1 · Can an LP say that?</a>
+    <a href="#giapetto">2 · Giapetto explorer</a>
+    <a href="#diet">3 · Diet builder</a>
+    <a href="#powerco">4 · Powerco game</a>
+    <a href="#apple">5 · Price the iPhone</a>
+    <a href="#securities">6 · Broker&rsquo;s rule</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : CAN AN LP SAY THAT? ================= -->
+<section class="widget" id="lpquiz">
+  <h2>Can a linear program say that? <span class="chip">Slides 4–9</span></h2>
+  <p class="howto">
+    Futoshiki and sudoku (slides 4–5) look nothing like the LPs of IE201 — but <em>why</em> exactly?
+    For each requirement below, decide: can it be written with linear constraints on continuous
+    variables, or does it need more? (Quiz items written for this demo; the slides pose the general question.)
+  </p>
+  <div class="controls">
+    <span class="readout">correct so far: <b id="lq-score">0 / 0</b></span>
+  </div>
+  <div id="lq-items"></div>
+  <p class="status info" id="lq-status">Answer all six to see the moral of the story.</p>
+  <div class="note">
+    A linear constraint is a weighted sum of decision variables compared to a constant — nothing more.
+    Everything a plain LP cannot say (whole numbers, either–or choices, &ldquo;exactly one of&rdquo;,
+    products of variables) is precisely what the <em>exact methods</em> of this course will add.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      LP-expressible: items 1 and 5 (the blend ratio linearizes: multiply by the nonnegative total to get
+      2a − b ≥ 0 — Example 8 on slide 32 uses exactly this trick). Not LP-expressible: &ldquo;exactly one
+      of {1,2,3,4}&rdquo;, integrality, price × quantity, and either–or — they need integer variables or
+      nonlinear terms. That is why sudoku resists IE201 tools, and why integer models (slide 9) are the
+      subject of this course.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : GIAPETTO EXPLORER ================= -->
+<section class="widget" id="giapetto">
+  <h2>Where is Giapetto&rsquo;s best plan? <span class="chip">Slides 12–14</span></h2>
+  <p class="howto">
+    Example 1: soldiers earn $3, trains $2 (per unit, after costs). Finishing hours 2x₁ + x₂ ≤ 100,
+    carpentry x₁ + x₂ ≤ 80, at most 40 soldiers. <b>Drag the point</b> to a weekly production plan and
+    hunt the maximum profit — then argue where the optimum <em>must</em> sit before revealing it.
+  </p>
+  <div class="controls">
+    <span class="readout">plan (x₁, x₂) = <b id="gp-xy">—</b></span>
+    <span class="readout">profit z = $<b id="gp-z">—</b></span>
+    <span class="readout">your best: $<b id="gp-best">—</b></span>
+    <label><input type="checkbox" id="gp-iso"> iso-profit lines (z = 60, 100, 180)</label>
+    <button id="gp-reveal" class="primary">Reveal optimum ★</button>
+  </div>
+  <canvas class="viz" id="c-gp"></canvas>
+  <p class="status info" id="gp-status">Drag the violet point into the shaded region.</p>
+  <div class="note">
+    Every constraint cuts the plane in half; what survives is the feasible region of slide 14.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The optimum is the corner G = (20, 60) with z = $180 — check the corners: (0,0) → 0,
+      (40,0) → 120, (40,20) → 160, (20,60) → 180, (0,80) → 160. At G the finishing (100/100) and
+      carpentry (80/80) constraints are <b>binding</b>; the soldier-demand constraint (20 &lt; 40) is
+      <b>nonbinding</b> — exactly slide 14&rsquo;s classification. An LP optimum always sits on a corner
+      of the region, which is what the simplex method will exploit.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : DIET BUILDER ================= -->
+<section class="widget" id="diet">
+  <h2>Can you eat for less? <span class="chip">Slides 15–16</span></h2>
+  <p class="howto">
+    Example 2: brownies 50¢, ice cream 20¢, cola 30¢, cheesecake 80¢ — hit at least 500 cal,
+    6 oz chocolate, 10 oz sugar, 8 oz fat (nutrition table on slide 15). <b>Slide the servings</b>
+    until every bar turns green, then push the cost as low as you can and <b>log your attempt</b>.
+  </p>
+  <div class="controls">
+    <span class="group"><label>brownies</label><input type="range" id="dt-x1" min="0" max="6" step="0.05" value="0"><span class="readout"><b id="dt-v1">0</b></span></span>
+    <span class="group"><label>ice cream</label><input type="range" id="dt-x2" min="0" max="8" step="0.05" value="0"><span class="readout"><b id="dt-v2">0</b></span></span>
+    <span class="group"><label>cola</label><input type="range" id="dt-x3" min="0" max="6" step="0.05" value="0"><span class="readout"><b id="dt-v3">0</b></span></span>
+    <span class="group"><label>cheesecake</label><input type="range" id="dt-x4" min="0" max="6" step="0.05" value="0"><span class="readout"><b id="dt-v4">0</b></span></span>
+  </div>
+  <div id="dt-bars"></div>
+  <div class="controls">
+    <span class="readout">daily cost = <b id="dt-cost">0.0</b> ¢</span>
+    <button id="dt-log" class="primary">Log attempt</button>
+  </div>
+  <p class="status info" id="dt-status"></p>
+  <div style="overflow-x:auto"><table class="attempts" id="dt-att" style="display:none">
+    <thead><tr><th>#</th><th>brownies</th><th>ice cream</th><th>cola</th><th>cheesecake</th><th>cost (¢)</th><th>diet met?</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <div class="note">
+    Slide 16 asks: <em>what may be wrong with this model?</em> Watch what your cheapest diets look like
+    while you optimize…
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The LP optimum (computed from the slide&rsquo;s data — the slide shows only the formulation) is
+      ≈ <b>147.24¢</b>: about 2.14 brownies, 0.29 bottles of cola and 0.40 pieces of cheesecake, with
+      calories, sugar and fat exactly at their limits and chocolate slack (6.61 ≥ 6). What&rsquo;s wrong?
+      Fractional servings (if you insist on whole servings the best is 3 brownies + 1 ice cream = 170¢),
+      no upper limits on anything, and &ldquo;nutrition&rdquo; measured only from below — the model happily
+      prescribes brownies for breakfast, lunch and dinner.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 4 : POWERCO GAME ================= -->
+<section class="widget" id="powerco">
+  <h2>Route the megawatts — who ships to whom? <span class="chip">Slides 17–18</span></h2>
+  <p class="howto">
+    Example 3: three plants (supplies 35, 50, 40 million kwh) serve four cities (demands 45, 20, 30, 30);
+    unit costs per cell as on slide 17. <b>Type shipment amounts</b> into the grid: respect every supply,
+    satisfy every demand, and get the total cost as low as you can. Log attempts and challenge the class.
+  </p>
+  <div style="overflow-x:auto">
+    <table class="ship">
+      <thead><tr><th>from \ to</th><th>City 1</th><th>City 2</th><th>City 3</th><th>City 4</th><th>shipped / supply</th></tr></thead>
+      <tbody id="pw-body"></tbody>
+    </table>
+  </div>
+  <div class="controls">
+    <span class="readout">total cost = $<b id="pw-cost">0</b></span>
+    <button id="pw-log" class="primary">Log attempt</button>
+    <button id="pw-clear">Clear plan</button>
+  </div>
+  <p class="status info" id="pw-status"></p>
+  <div style="overflow-x:auto"><table class="attempts" id="pw-att" style="display:none">
+    <thead><tr><th>#</th><th>total cost ($)</th><th>feasible?</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <div class="note">
+    Total supply (125) equals total demand (125), so nothing can be wasted — every feasible plan ships
+    everything. The pattern of this LP (slide 18) is the <em>transportation problem</em>, a structure
+    that returns many times in this course.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The minimum total cost (computed from the slide&rsquo;s data — the slide shows only the formulation)
+      is <b>$1020</b>, for example:
+      <table class="plan">
+        <thead><tr><th></th><th>City 1</th><th>City 2</th><th>City 3</th><th>City 4</th></tr></thead>
+        <tbody>
+          <tr><th>Plant 1</th><td>—</td><td>10</td><td>25</td><td>—</td></tr>
+          <tr><th>Plant 2</th><td>45</td><td>—</td><td>5</td><td>—</td></tr>
+          <tr><th>Plant 3</th><td>—</td><td>10</td><td>—</td><td>30</td></tr>
+        </tbody>
+      </table>
+      Note the counter-intuitive moves: Plant 1 never uses its cheapest lane ($8 to City 1) — Plant 2
+      needs City 1 more. Local greed ≠ global optimum.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 5 : PRICE THE IPHONE ================= -->
+<section class="widget" id="apple">
+  <h2>Price the iPhone — without losing group 2 <span class="chip">Slides 19–20</span></h2>
+  <p class="howto">
+    Example 4: group 1 (1000 people) values iPhone at $10, iPad at $8; group 2 (1500 people) values them
+    at $12 and $15. A customer buys the product with the larger value − price surplus (if nonnegative).
+    <b>Drag the price point</b> (p₁ = iPhone, p₂ = iPad) so that group 1 buys iPhone AND group 2 buys
+    iPad — then maximize revenue 1000p₁ + 1500p₂.
+  </p>
+  <div class="controls">
+    <span class="readout">(p₁, p₂) = <b id="ap-xy">—</b></span>
+    <span class="readout">revenue = <b id="ap-rev">—</b></span>
+    <span class="readout">your best: <b id="ap-best">—</b></span>
+    <button id="ap-reveal" class="primary">Reveal optimum ★</button>
+  </div>
+  <canvas class="viz" id="c-ap"></canvas>
+  <p class="status info" id="ap-status">Drag the violet price point.</p>
+  <div class="note">
+    The shaded region is where the intended segmentation holds: each boundary line is one customer
+    group changing its mind. Prices, not productions, are the decision variables here — LP does not care.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Optimum (computed from the slide&rsquo;s model — the slide shows only the formulation):
+      p₁ = $10, p₂ = $13, revenue = <b>$29,500</b>. Why not p₂ = $15? Because at (10, 15) group 2&rsquo;s
+      iPad surplus (0) drops below its iPhone surplus (2) — they defect, so p₂ − p₁ ≤ 3 binds together
+      with p₁ ≤ 10. Apple leaves $2 of &ldquo;incentive money&rdquo; on the table for every group-2
+      customer to keep them on the iPad.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 6 : BROKER'S RULE ================= -->
+<section class="widget" id="securities">
+  <h2>Is the broker&rsquo;s rule really in the model? <span class="chip">Slides 21–22</span></h2>
+  <p class="howto">
+    Example 5: invest $10M in securities yielding 9%, 7%, 4%, with caps $3M on security 1 and $5M on
+    security 2. The firm requires filling security 1 to its cap before touching 2, and 2 before 3.
+    <b>Allocate with the sliders</b>, then ask what a plain LP would do — first with the slide&rsquo;s
+    yields, then with the yields flipped to 4%, 7%, 9%.
+  </p>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg active" id="sc-a">yields 9 / 7 / 4 % (slide)</button>
+      <button class="seg" id="sc-b">what if 4 / 7 / 9 %?</button>
+    </span>
+  </div>
+  <div class="controls">
+    <span class="group"><label>S₁ ($M, cap 3)</label><input type="range" id="sc-s1" min="0" max="3" step="0.1" value="0"><span class="readout"><b id="sc-v1">0.0</b></span></span>
+    <span class="group"><label>S₂ ($M, cap 5)</label><input type="range" id="sc-s2" min="0" max="5" step="0.1" value="0"><span class="readout"><b id="sc-v2">0.0</b></span></span>
+    <span class="group"><label>S₃ ($M)</label><input type="range" id="sc-s3" min="0" max="10" step="0.1" value="0"><span class="readout"><b id="sc-v3">0.0</b></span></span>
+  </div>
+  <div class="alloc" id="sc-bar"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+  <p class="alloc-cap">your allocation of the $10M budget
+    <span class="legend"><span class="sw" style="background:var(--s1)"></span>S₁<span class="sw" style="background:var(--s5)"></span>S₂<span class="sw" style="background:var(--muted)"></span>S₃</span></p>
+  <div class="controls">
+    <span class="readout">invested = $<b id="sc-sum">0.0</b>M / 10</span>
+    <span class="readout">annual yield = $<b id="sc-z">0.000</b>M</span>
+    <button id="sc-reveal" class="primary">What would the LP do? ★</button>
+  </div>
+  <div class="alloc" id="sc-lpbar" style="display:none"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+  <p class="alloc-cap" id="sc-lpcap" style="display:none">the LP&rsquo;s allocation</p>
+  <p class="status info" id="sc-status"></p>
+  <div class="note">
+    Slide 22 asks two questions: are the constraints S₁+S₂+S₃ ≤ 10, S₁ ≤ 3, S₂ ≤ 5 enough — and what
+    if the yields were 4%, 7%, 9%?
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      With yields 9/7/4 the LP optimum is (3, 5, 2) → $0.70M: greed fills the best security first, so the
+      answer <em>happens</em> to respect the firm&rsquo;s rule — the constraints are enough only by luck.
+      Flip the yields to 4/7/9 and the same constraints let the LP dump all $10M into security 3
+      (→ $0.90M), while a rule-obeying investor is stuck at (3, 5, 2) → $0.65M. The priority rule
+      (&ldquo;don&rsquo;t touch 2 before 1 is full&rdquo;) is a <em>logical</em> condition that no linear
+      inequality expresses — it needs the integer-programming machinery this course builds.
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 1.
+  Figures follow the examples used in the Week 1 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+const trim = v => String(Math.round(v * 100) / 100);
+
+/* Draw an infinite line a*x + b*y = c clipped to the plot area. */
+function clipLine(p, a, b, c, color, width, dash) {
+  const { ctx, X, Y } = p;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(p.padL, p.padT, p.w - p.padL - p.padR, p.h - p.padT - p.padB);
+  ctx.clip();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width || 1.5;
+  if (dash) ctx.setLineDash(dash);
+  ctx.beginPath();
+  if (Math.abs(b) > 1e-12) {
+    const y0 = (c - a * p.view.x0) / b;
+    const y1 = (c - a * p.view.x1) / b;
+    ctx.moveTo(X(p.view.x0), Y(y0));
+    ctx.lineTo(X(p.view.x1), Y(y1));
+  } else {
+    ctx.moveTo(X(c / a), Y(p.view.y0));
+    ctx.lineTo(X(c / a), Y(p.view.y1));
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function fillPoly(p, t, pts) {
+  const { ctx, X, Y } = p;
+  ctx.save();
+  ctx.beginPath();
+  pts.forEach(([x, y], i) => i === 0 ? ctx.moveTo(X(x), Y(y)) : ctx.lineTo(X(x), Y(y)));
+  ctx.closePath();
+  ctx.fillStyle = t.region;
+  ctx.fill();
+  ctx.strokeStyle = t.axis;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+}
+
+/* ============================================================
+   WIDGET 1 — Can a linear program say that? (slides 4–9)
+   ============================================================ */
+(() => {
+  const ITEMS = [
+    { s: 'Keep total finishing time within the weekly limit: 2·(soldiers) + 1·(trains) must not exceed 100 hours.',
+      lp: true,
+      why: 'A weighted sum of decision variables compared to a constant — the very definition of a linear constraint (it reappears on slide 13).',
+      hint: 'Look again: it has the shape a₁x₁ + a₂x₂ ≤ b — a weighted sum of variables against a constant. LPs eat this for breakfast.' },
+    { s: 'A futoshiki / sudoku cell must take exactly one value out of {1, 2, 3, 4}.',
+      lp: false,
+      why: '&ldquo;Exactly one of a list&rdquo; is a logical disjunction — it needs binary/integer variables. This is the wall the puzzles of slides 4–5 run into.',
+      hint: 'Try writing &ldquo;x is 1 OR 2 OR 3 OR 4&rdquo; with inequalities: every linear system describes one convex piece, and {1,2,3,4} is four separate points. Integer variables are needed.' },
+    { s: 'Revenue equals price × units sold, where BOTH the price and the units sold are decision variables.',
+      lp: false,
+      why: 'A product of two decision variables is nonlinear. If one of the two were a known constant, the term would become linear.',
+      hint: 'p·q with both p and q variable is a quadratic term. Linear means every term is (constant) × (one variable).' },
+    { s: 'The bank must hire a whole number of tellers.',
+      lp: false,
+      why: 'Integrality is not a linear inequality — it turns the LP into an integer model (slide 9), usually much harder to solve.',
+      hint: 'No set of linear inequalities carves {0, 1, 2, 3, …} out of the real line — that is integer-model territory (slide 9).' },
+    { s: 'A juice blend of a gallons of grade-6 and b gallons of grade-3 oranges must average at least grade 4: (6a + 3b)/(a + b) ≥ 4.',
+      lp: true,
+      why: 'Multiply both sides by the nonnegative total (a + b): 6a + 3b ≥ 4a + 4b, i.e. 2a − b ≥ 0 — linear after all. Example 8 (slide 32) uses exactly this trick.',
+      hint: 'It LOOKS like a ratio, but multiply out by the nonnegative total: 6a + 3b ≥ 4(a + b) ⇒ 2a − b ≥ 0. Linear! Slide 32 does this.' },
+    { s: 'Use machine A or machine B for the job — but not both.',
+      lp: false,
+      why: 'Either–or is logic, not arithmetic: encoding it takes binary variables — the exact-methods part of this course.',
+      hint: '&ldquo;Or&rdquo; splits the feasible set into two disconnected pieces; a linear system always describes ONE convex piece. Binary variables to the rescue — later in IE342.' },
+  ];
+  let answered = 0, correct = 0;
+  const host = el('lq-items');
+  ITEMS.forEach((it, i) => {
+    const row = document.createElement('div');
+    row.className = 'qitem';
+    row.innerHTML = '<p class="qtext"><b>' + (i + 1) + '.</b> ' + it.s + '</p>' +
+      '<span class="segwrap">' +
+      '<button class="seg" data-a="1">an LP can say this</button>' +
+      '<button class="seg" data-a="0">needs more than an LP</button>' +
+      '</span><p class="status info qfb"></p>';
+    host.appendChild(row);
+    const fb = row.querySelector('.qfb');
+    row.querySelectorAll('button.seg').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (row.dataset.done) return;
+        row.dataset.done = '1';
+        btn.classList.add('active');
+        answered++;
+        const saidLp = btn.dataset.a === '1';
+        if (saidLp === it.lp) {
+          correct++;
+          fb.className = 'status ok qfb';
+          fb.innerHTML = '✓ ' + it.why;
+        } else {
+          fb.className = 'status bad qfb';
+          fb.innerHTML = '✗ ' + it.hint;
+        }
+        el('lq-score').textContent = correct + ' / ' + answered;
+        if (answered === ITEMS.length) {
+          const st = el('lq-status');
+          st.className = 'status ' + (correct === ITEMS.length ? 'ok' : 'info');
+          st.textContent = (correct === ITEMS.length ? 'Perfect. ' : correct + ' of ' + ITEMS.length + ' — worth a second look above. ') +
+            'The “needs more” items are exactly where IE342 goes beyond IE201: integers, logic and products, made solvable by exact methods.';
+        }
+      });
+    });
+  });
+})();
+
+/* ============================================================
+   WIDGET 2 — Giapetto explorer (slides 12–14)
+   max 3x1+2x2  s.t. 2x1+x2<=100, x1+x2<=80, x1<=40, x>=0
+   optimum (20,60), z=180; finishing & carpentry binding.
+   ============================================================ */
+(() => {
+  const canvas = el('c-gp');
+  VIZ.hint(canvas, '🖱 drag the production plan');
+  const view = { x0: -4, x1: 88, y0: -6, y1: 110 };
+  let pt = { x: 10, y: 20 }, best = null, revealed = false, dragging = false, lastPlot = null;
+
+  const z = (x, y) => 3 * x + 2 * y;
+  const feas = (x, y) => x >= 0 && y >= 0 && 2 * x + y <= 100 && x + y <= 80 && x <= 40;
+
+  function draw() {
+    const p = VIZ.plot(canvas, view);
+    const t = VIZ.theme();
+    lastPlot = p;
+    VIZ.axes(p, t, { xticks: [0, 10, 20, 30, 40, 50, 60, 70, 80], yticks: [0, 20, 40, 60, 80, 100], xlabel: 'x₁ soldiers', ylabel: 'x₂ trains' });
+
+    fillPoly(p, t, [[0, 0], [40, 0], [40, 20], [20, 60], [0, 80]]);
+
+    clipLine(p, 2, 1, 100, t.ink2, 1.5);
+    clipLine(p, 1, 1, 80, t.ink2, 1.5);
+    clipLine(p, 1, 0, 40, t.ink2, 1.5);
+    VIZ.label(p, 'finishing 2x₁+x₂=100', 6, 91.5, t.ink2, { size: 12.5 });
+    VIZ.label(p, 'carpentry x₁+x₂=80', 56, 28, t.ink2, { size: 12.5 });
+    VIZ.label(p, 'demand x₁=40', 41, 96, t.ink2, { size: 12.5 });
+
+    if (el('gp-iso').checked) {
+      [60, 100, 180].forEach(k => {
+        clipLine(p, 3, 2, k, t.s1, 1.5, [6, 5]);
+        VIZ.label(p, 'z=' + k, k / 3 - 8, (k - 3 * (k / 3 - 8)) / 2, t.s1, { size: 12.5, dy: -4 });
+      });
+    }
+
+    if (revealed) {
+      VIZ.star(p, 20, 60, t.s2, 11);
+      VIZ.label(p, 'G (20, 60), z = $180', 21, 62, t.s2, { bold: true });
+    }
+
+    const ok = feas(pt.x, pt.y);
+    VIZ.dot(p, pt.x, pt.y, ok ? t.s5 : t.bad, 8, true);
+
+    const v = z(pt.x, pt.y);
+    if (ok && (best === null || v > best)) best = v;
+    el('gp-xy').textContent = '(' + trim(pt.x) + ', ' + trim(pt.y) + ')';
+    el('gp-z').textContent = fmt(v, 0);
+    el('gp-best').textContent = best === null ? '—' : fmt(best, 0);
+
+    const st = el('gp-status');
+    if (!ok) {
+      const why = [];
+      if (pt.x < 0 || pt.y < 0) why.push('negative production');
+      if (2 * pt.x + pt.y > 100) why.push('finishing over by ' + trim(2 * pt.x + pt.y - 100) + ' h');
+      if (pt.x + pt.y > 80) why.push('carpentry over by ' + trim(pt.x + pt.y - 80) + ' h');
+      if (pt.x > 40) why.push('more soldiers than the market buys (x₁ > 40)');
+      st.className = 'status bad';
+      st.textContent = 'Infeasible: ' + why.join('; ') + '.';
+    } else if (revealed) {
+      st.className = 'status info';
+      st.textContent = 'At G: finishing 100/100 and carpentry 80/80 are binding; demand 20 < 40 is nonbinding (slide 14).';
+    } else if (v >= 179) {
+      st.className = 'status ok';
+      st.textContent = 'z ≥ $179 — you are hugging the optimum. Which two constraints pin you down?';
+    } else {
+      st.className = 'status info';
+      st.textContent = 'Feasible: finishing ' + trim(2 * pt.x + pt.y) + '/100 h · carpentry ' + trim(pt.x + pt.y) + '/80 h · soldiers ' + trim(pt.x) + '/40.';
+    }
+  }
+
+  function setFromPointer(ev) {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    pt = { x: Math.round(lastPlot.invX(px)), y: Math.round(lastPlot.invY(py)) };
+    draw();
+  }
+  canvas.addEventListener('pointerdown', ev => { dragging = true; canvas.setPointerCapture(ev.pointerId); setFromPointer(ev); });
+  canvas.addEventListener('pointermove', ev => { if (dragging) setFromPointer(ev); });
+  canvas.addEventListener('pointerup', () => dragging = false);
+  el('gp-iso').addEventListener('change', draw);
+  el('gp-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('gp-reveal').textContent = revealed ? 'Hide optimum' : 'Reveal optimum ★';
+    draw();
+  });
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 3 — Diet builder (slides 15–16)
+   min 50x1+20x2+30x3+80x4 (cents)
+   s.t. 150x1+90x2+210x3+300x4>=500 ; 3x1+x2+0.5x4>=6 ;
+        4x1+2x2+3x3+1.5x4>=10 ; 3x1+0.5x2+4x4>=8 ; x>=0
+   LP optimum ~147.24c at (2.136, 0, 0.287, 0.398).
+   ============================================================ */
+(() => {
+  const REQ = [
+    { name: 'calories', unit: 'cal', need: 500, a: [150, 90, 210, 300] },
+    { name: 'chocolate', unit: 'oz', need: 6, a: [3, 1, 0, 0.5] },
+    { name: 'sugar', unit: 'oz', need: 10, a: [4, 2, 3, 1.5] },
+    { name: 'fat', unit: 'oz', need: 8, a: [3, 0.5, 0, 4] },
+  ];
+  const COST = [50, 20, 30, 80];
+  const bars = el('dt-bars');
+  REQ.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'nrow';
+    row.innerHTML = '<span class="nname">' + r.name + '</span>' +
+      '<span class="nbar" id="dt-b' + i + '"><i></i></span>' +
+      '<span class="nval" id="dt-t' + i + '"></span>';
+    bars.appendChild(row);
+  });
+
+  const ids = ['dt-x1', 'dt-x2', 'dt-x3', 'dt-x4'];
+  const getX = () => ids.map(id => +el(id).value);
+  let bestCost = null, nAtt = 0, bestRowIdx = -1;
+
+  function compute() {
+    const x = getX();
+    x.forEach((v, i) => el('dt-v' + (i + 1)).textContent = fmt(v, 2));
+    const cost = COST.reduce((s, c, i) => s + c * x[i], 0);
+    let allMet = true;
+    REQ.forEach((r, i) => {
+      const got = r.a.reduce((s, a, j) => s + a * x[j], 0);
+      const met = got >= r.need - 1e-9;
+      allMet = allMet && met;
+      const bar = el('dt-b' + i);
+      bar.className = 'nbar' + (met ? ' met' : '');
+      bar.firstElementChild.style.width = Math.min(100, got / (2 * r.need) * 100) + '%';
+      el('dt-t' + i).textContent = fmt(got, r.need >= 100 ? 0 : 1) + ' / ' + r.need + ' ' + r.unit;
+    });
+    el('dt-cost').textContent = fmt(cost, 1);
+    const st = el('dt-status');
+    if (!allMet) {
+      st.className = 'status bad';
+      st.textContent = 'The diet is short on ' + REQ.filter((r, i) => r.a.reduce((s, a, j) => s + a * x[j], 0) < r.need - 1e-9).map(r => r.name).join(', ') + '.';
+    } else {
+      st.className = 'status ok';
+      st.textContent = 'All requirements met at ' + fmt(cost, 1) + '¢' + (bestCost !== null && cost >= bestCost ? ' — your best is ' + fmt(bestCost, 1) + '¢.' : '. Log it!');
+    }
+    return { x, cost, allMet };
+  }
+
+  el('dt-log').addEventListener('click', () => {
+    const { x, cost, allMet } = compute();
+    nAtt++;
+    const table = el('dt-att');
+    table.style.display = '';
+    const tb = table.querySelector('tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + nAtt + '</td>' + x.map(v => '<td>' + fmt(v, 2) + '</td>').join('') +
+      '<td>' + fmt(cost, 1) + '</td><td>' + (allMet ? 'yes' : 'no') + '</td>';
+    if (!allMet) tr.className = 'infeasible';
+    tb.appendChild(tr);
+    if (allMet && (bestCost === null || cost < bestCost)) {
+      bestCost = cost;
+      if (bestRowIdx >= 0) tb.children[bestRowIdx].classList.remove('best');
+      tr.classList.add('best');
+      bestRowIdx = tb.children.length - 1;
+    }
+    compute();
+  });
+
+  ids.forEach(id => el(id).addEventListener('input', compute));
+  compute();
+
+  window.DIET_SCORE = () => {
+    const x = getX();
+    const cost = COST.reduce((s, c, i) => s + c * x[i], 0);
+    const ok = REQ.every(r => r.a.reduce((s, a, j) => s + a * x[j], 0) >= r.need - 1e-9);
+    return ok ? cost : null;
+  };
+})();
+
+/* ============================================================
+   WIDGET 4 — Powerco shipping game (slides 17–18)
+   costs [[8,6,10,9],[9,12,13,7],[14,9,16,5]], supply (35,50,40),
+   demand (45,20,30,30); LP minimum = $1020.
+   ============================================================ */
+(() => {
+  const C = [[8, 6, 10, 9], [9, 12, 13, 7], [14, 9, 16, 5]];
+  const SUP = [35, 50, 40];
+  const DEM = [45, 20, 30, 30];
+  const body = el('pw-body');
+  let html = '';
+  for (let i = 0; i < 3; i++) {
+    html += '<tr><th>Plant ' + (i + 1) + '</th>';
+    for (let j = 0; j < 4; j++) {
+      html += '<td><span class="uc">$' + C[i][j] + ' /unit</span><input type="number" min="0" step="1" value="0" id="pw-' + i + '-' + j + '"></td>';
+    }
+    html += '<td class="sum" id="pw-r' + i + '"></td></tr>';
+  }
+  html += '<tr><th>delivered / demand</th>';
+  for (let j = 0; j < 4; j++) html += '<td class="sum" id="pw-c' + j + '"></td>';
+  html += '<td></td></tr>';
+  body.innerHTML = html;
+
+  const val = (i, j) => Math.max(0, +el('pw-' + i + '-' + j).value || 0);
+  let bestCost = null, nAtt = 0, bestRowIdx = -1;
+
+  function compute() {
+    let cost = 0;
+    const rows = [0, 0, 0], cols = [0, 0, 0, 0];
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) {
+      const v = val(i, j);
+      cost += C[i][j] * v;
+      rows[i] += v;
+      cols[j] += v;
+    }
+    const bad = [];
+    rows.forEach((r, i) => {
+      const c = el('pw-r' + i);
+      c.textContent = trim(r) + ' / ' + SUP[i];
+      c.className = 'sum' + (r > SUP[i] + 1e-9 ? ' bad' : '');
+      if (r > SUP[i] + 1e-9) bad.push('Plant ' + (i + 1) + ' ships ' + trim(r) + ' > supply ' + SUP[i]);
+    });
+    cols.forEach((cv, j) => {
+      const c = el('pw-c' + j);
+      c.textContent = trim(cv) + ' / ' + DEM[j];
+      c.className = 'sum' + (cv >= DEM[j] - 1e-9 ? ' ok' : '');
+      if (cv < DEM[j] - 1e-9) bad.push('City ' + (j + 1) + ' is short by ' + trim(DEM[j] - cv));
+    });
+    el('pw-cost').textContent = fmt(cost, 0);
+    const st = el('pw-status');
+    if (bad.length) {
+      st.className = 'status bad';
+      st.textContent = 'Not feasible yet: ' + bad.join(' · ') + '.';
+    } else {
+      st.className = 'status ok';
+      st.textContent = 'Feasible plan at $' + fmt(cost, 0) + (bestCost !== null && cost >= bestCost ? ' — your best is $' + fmt(bestCost, 0) + '.' : '. Log it and try to shave it further.');
+    }
+    return { cost, feasible: bad.length === 0 };
+  }
+
+  el('pw-log').addEventListener('click', () => {
+    const { cost, feasible } = compute();
+    nAtt++;
+    const table = el('pw-att');
+    table.style.display = '';
+    const tb = table.querySelector('tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + nAtt + '</td><td>' + fmt(cost, 0) + '</td><td>' + (feasible ? 'yes' : 'no') + '</td>';
+    if (!feasible) tr.className = 'infeasible';
+    tb.appendChild(tr);
+    if (feasible && (bestCost === null || cost < bestCost)) {
+      bestCost = cost;
+      if (bestRowIdx >= 0) tb.children[bestRowIdx].classList.remove('best');
+      tr.classList.add('best');
+      bestRowIdx = tb.children.length - 1;
+    }
+    compute();
+  });
+
+  el('pw-clear').addEventListener('click', () => {
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) el('pw-' + i + '-' + j).value = 0;
+    compute();
+  });
+
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) el('pw-' + i + '-' + j).addEventListener('input', compute);
+  compute();
+
+  window.POWERCO_SCORE = () => {
+    const r = compute();
+    return r.feasible ? r.cost : null;
+  };
+})();
+
+/* ============================================================
+   WIDGET 5 — Price the iPhone (slides 19–20)
+   max 1000p1+1500p2  s.t. p1-p2<=2, p2-p1<=3, p1<=10, p2<=15, p>=0
+   optimum (10,13), z = 29500.
+   ============================================================ */
+(() => {
+  const canvas = el('c-ap');
+  VIZ.hint(canvas, '🖱 drag the price point');
+  const view = { x0: -1.2, x1: 13.8, y0: -1.2, y1: 17 };
+  let pt = { x: 4, y: 5 }, best = null, revealed = false, dragging = false, lastPlot = null;
+
+  const rev = (p1, p2) => 1000 * p1 + 1500 * p2;
+  // group 1 buys iPhone iff 10-p1 >= 8-p2 and 10-p1 >= 0
+  // group 2 buys iPad  iff 15-p2 >= 12-p1 and 15-p2 >= 0
+  const g1ok = (p1, p2) => 10 - p1 >= 8 - p2 - 1e-9 && p1 <= 10 + 1e-9;
+  const g2ok = (p1, p2) => 15 - p2 >= 12 - p1 - 1e-9 && p2 <= 15 + 1e-9;
+  const feas = (p1, p2) => p1 >= 0 && p2 >= 0 && g1ok(p1, p2) && g2ok(p1, p2);
+
+  function draw() {
+    const p = VIZ.plot(canvas, view);
+    const t = VIZ.theme();
+    lastPlot = p;
+    VIZ.axes(p, t, { xticks: [0, 2, 4, 6, 8, 10, 12], yticks: [0, 3, 6, 9, 12, 15], xlabel: 'p₁ iPhone price ($)', ylabel: 'p₂ iPad price ($)' });
+
+    fillPoly(p, t, [[0, 0], [2, 0], [10, 8], [10, 13], [0, 3]]);
+
+    clipLine(p, 1, -1, 2, t.ink2, 1.5);   // p1 - p2 = 2
+    clipLine(p, -1, 1, 3, t.ink2, 1.5);   // p2 - p1 = 3
+    clipLine(p, 1, 0, 10, t.ink2, 1.5);   // p1 = 10
+    clipLine(p, 0, 1, 15, t.ink2, 1.5);   // p2 = 15
+    VIZ.label(p, 'p₂ = p₁ + 3 (group 2 defects above)', 0.4, 12.1, t.ink2, { size: 12.5 });
+    VIZ.label(p, 'p₂ = p₁ − 2 (group 1 defects below)', 6.4, 3.6, t.ink2, { size: 12.5 });
+    VIZ.label(p, 'p₁ = 10', 10.15, 15.9, t.ink2, { size: 12.5 });
+    VIZ.label(p, 'p₂ = 15', 11.4, 15.15, t.ink2, { size: 12.5 });
+
+    if (revealed) {
+      VIZ.star(p, 10, 13, t.s2, 11);
+      VIZ.label(p, '(10, 13) → $29,500', 9.8, 13.4, t.s2, { bold: true, align: 'right' });
+    }
+
+    const ok = feas(pt.x, pt.y);
+    VIZ.dot(p, pt.x, pt.y, ok ? t.s5 : t.bad, 8, true);
+
+    el('ap-xy').textContent = '($' + fmt(pt.x, 2) + ', $' + fmt(pt.y, 2) + ')';
+    const v = rev(pt.x, pt.y);
+    if (ok && (best === null || v > best)) best = v;
+    el('ap-rev').textContent = ok ? '$' + fmt(v, 0) : '—';
+    el('ap-best').textContent = best === null ? '—' : '$' + fmt(best, 0);
+
+    const st = el('ap-status');
+    if (pt.x < 0 || pt.y < 0) {
+      st.className = 'status bad';
+      st.textContent = 'Prices cannot be negative.';
+    } else if (!g1ok(pt.x, pt.y)) {
+      st.className = 'status bad';
+      st.textContent = pt.x > 10 ? 'Group 1 buys nothing: the iPhone costs more than the $10 they value it at.' :
+        'Group 1 defects to the iPad: their iPad surplus ' + fmt(8 - pt.y, 2) + ' beats their iPhone surplus ' + fmt(10 - pt.x, 2) + '.';
+    } else if (!g2ok(pt.x, pt.y)) {
+      st.className = 'status bad';
+      st.textContent = pt.y > 15 ? 'Group 2 buys nothing: the iPad costs more than the $15 they value it at.' :
+        'Group 2 defects to the iPhone: their iPhone surplus ' + fmt(12 - pt.x, 2) + ' beats their iPad surplus ' + fmt(15 - pt.y, 2) + '.';
+    } else if (revealed) {
+      st.className = 'status info';
+      st.textContent = 'Binding at the optimum: p₁ ≤ 10 and p₂ − p₁ ≤ 3. Group 2 keeps a $2 surplus so they stay on the iPad.';
+    } else if (v >= 29000) {
+      st.className = 'status ok';
+      st.textContent = 'Revenue ≥ $29,000 — very close. Which two constraints stop you?';
+    } else {
+      st.className = 'status ok';
+      st.textContent = 'Segmentation holds: group 1 → iPhone, group 2 → iPad. Revenue $' + fmt(v, 0) + ' from 1000·p₁ + 1500·p₂.';
+    }
+  }
+
+  function setFromPointer(ev) {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    pt = { x: Math.round(lastPlot.invX(px) * 4) / 4, y: Math.round(lastPlot.invY(py) * 4) / 4 };
+    draw();
+  }
+  canvas.addEventListener('pointerdown', ev => { dragging = true; canvas.setPointerCapture(ev.pointerId); setFromPointer(ev); });
+  canvas.addEventListener('pointermove', ev => { if (dragging) setFromPointer(ev); });
+  canvas.addEventListener('pointerup', () => dragging = false);
+  el('ap-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('ap-reveal').textContent = revealed ? 'Hide optimum' : 'Reveal optimum ★';
+    draw();
+  });
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 6 — Broker's rule (slides 21–22)
+   max y1*S1+y2*S2+y3*S3  s.t. S1+S2+S3<=10, S1<=3, S2<=5, S>=0
+   scenario A (9/7/4): LP = (3,5,2) -> 0.70
+   scenario B (4/7/9): LP = (0,0,10) -> 0.90 ; rule-obeying (3,5,2) -> 0.65
+   ============================================================ */
+(() => {
+  const SCEN = {
+    A: { y: [0.09, 0.07, 0.04], lp: [3, 5, 2], lpz: 0.70,
+         msg: 'The LP fills S₁, then S₂, then S₃: (3, 5, 2) → $0.70M. Greed and the firm’s rule agree — but only because 9 > 7 > 4.' },
+    B: { y: [0.04, 0.07, 0.09], lp: [0, 0, 10], lpz: 0.90,
+         msg: 'The LP dumps all $10M into S₃: (0, 0, 10) → $0.90M — the rule is nowhere in the constraints! A rule-obeying investor is stuck at (3, 5, 2) → $0.65M.' },
+  };
+  let cur = 'A', revealed = false;
+
+  const ids = ['sc-s1', 'sc-s2', 'sc-s3'];
+  const getS = () => ids.map(id => +el(id).value);
+  const EPS = 0.05;
+
+  function setBar(barId, s) {
+    const seg = el(barId).children;
+    for (let i = 0; i < 3; i++) seg[i].style.width = (s[i] / 10 * 100) + '%';
+  }
+
+  function ruleOk(s) {
+    const okS2 = s[1] < EPS || s[0] > 3 - EPS;
+    const okS3 = s[2] < EPS || (s[1] > 5 - EPS && s[0] > 3 - EPS);
+    return okS2 && okS3;
+  }
+
+  function compute() {
+    const s = getS();
+    s.forEach((v, i) => el('sc-v' + (i + 1)).textContent = fmt(v, 1));
+    const sum = s[0] + s[1] + s[2];
+    const y = SCEN[cur].y;
+    const zv = y[0] * s[0] + y[1] * s[1] + y[2] * s[2];
+    el('sc-sum').textContent = fmt(sum, 1);
+    el('sc-z').textContent = fmt(zv, 3);
+    setBar('sc-bar', s);
+    const st = el('sc-status');
+    if (sum > 10 + 1e-9) {
+      st.className = 'status bad';
+      st.textContent = 'Over budget: $' + fmt(sum, 1) + 'M invested but only $10M available.';
+      return;
+    }
+    const obeys = ruleOk(s);
+    if (revealed) {
+      st.className = 'status info';
+      st.textContent = SCEN[cur].msg;
+    } else if (!obeys) {
+      st.className = 'status bad';
+      st.textContent = 'Yield $' + fmt(zv, 3) + 'M — but the firm’s fill-in-order rule is broken (money in a later security before the earlier one is full).';
+    } else {
+      st.className = 'status ok';
+      st.textContent = 'Yield $' + fmt(zv, 3) + 'M, rule respected. Can a plain LP be trusted to do the same?';
+    }
+  }
+
+  function applyScenario(k) {
+    cur = k;
+    el('sc-a').classList.toggle('active', k === 'A');
+    el('sc-b').classList.toggle('active', k === 'B');
+    if (revealed) revealLP();
+    compute();
+  }
+
+  function revealLP() {
+    const sc = SCEN[cur];
+    setBar('sc-lpbar', sc.lp);
+    el('sc-lpbar').style.display = '';
+    el('sc-lpcap').style.display = '';
+    el('sc-lpcap').textContent = 'the LP’s allocation: (' + sc.lp.join(', ') + ') → $' + fmt(sc.lpz, 2) + 'M';
+  }
+
+  el('sc-a').addEventListener('click', () => applyScenario('A'));
+  el('sc-b').addEventListener('click', () => applyScenario('B'));
+  el('sc-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('sc-reveal').textContent = revealed ? 'Hide the LP’s answer' : 'What would the LP do? ★';
+    if (revealed) revealLP();
+    else { el('sc-lpbar').style.display = 'none'; el('sc-lpcap').style.display = 'none'; }
+    compute();
+  });
+  ids.forEach(id => el(id).addEventListener('input', compute));
+  compute();
+})();
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('diet', {
+  label: 'diet cost (¢)', dir: 'min', digits: 1,
+  get: () => window.DIET_SCORE(),
+});
+CLASSROOM.register('powerco', {
+  label: 'total cost ($)', dir: 'min', digits: 0,
+  get: () => window.POWERCO_SCORE(),
+});
+</script>
+</body>
+</html>

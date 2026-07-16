@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 14 — Network Models: MCNFP &amp; MST (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<style>
+  /* keep the long page title clear of the absolutely-positioned theme switch */
+  @media (min-width: 701px) {
+    header.site h1 { padding-right: 250px; }
+  }
+  /* --- flow-balance matrix builder --- */
+  table.mat {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.95rem;
+    margin-top: 10px;
+  }
+  table.mat th, table.mat td {
+    border: 1px solid var(--grid);
+    padding: 4px 8px;
+    text-align: center;
+    min-width: 58px;
+  }
+  table.mat th { color: var(--ink-2); }
+  table.mat td:first-child, table.mat th:first-child { text-align: left; font-weight: 600; min-width: 76px; }
+  table.mat button.coef {
+    width: 52px; padding: 5px 0; font: inherit; font-weight: 600;
+    border: 1px solid var(--axis); border-radius: 7px; background: var(--surface);
+    color: var(--muted); cursor: pointer;
+  }
+  table.mat button.coef.set { color: var(--s1); border-color: var(--s1); }
+  table.mat input.rhs { width: 62px; font: inherit; text-align: center; }
+  .mat-wrap { overflow-x: auto; }
+  /* --- assignment cost table --- */
+  table.cost {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.98rem;
+    margin-top: 10px;
+  }
+  table.cost th, table.cost td {
+    border: 1px solid var(--grid);
+    padding: 7px 13px;
+    text-align: center;
+    min-width: 52px;
+  }
+  table.cost th { color: var(--ink-2); }
+  table.cost td.pick { cursor: pointer; }
+  table.cost td.pick:hover { background: var(--region-fill); }
+  table.cost td.sel { background: var(--region-fill); color: var(--s5); font-weight: 700; outline: 2px solid var(--s5); outline-offset: -2px; }
+  table.cost td.opt { outline: 2px dashed var(--s2); outline-offset: -2px; }
+  .cost-wrap { overflow-x: auto; }
+  /* --- pear flow inputs --- */
+  .flowgrid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+    gap: 8px 14px; margin: 10px 0 4px;
+  }
+  .flowgrid label {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    color: var(--ink-2); font-size: 0.92rem; white-space: nowrap;
+  }
+  .flowgrid input { width: 64px; font: inherit; text-align: center; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 14: Network Models (MCNFP, MST)</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#balance">1 · Flow-balance builder</a>
+    <a href="#assign">2 · Assignment duel</a>
+    <a href="#pear">3 · Pear transshipment</a>
+    <a href="#treeq">4 · Tree warm-up</a>
+    <a href="#prim">5 · Prim, called by you</a>
+    <a href="#georgia">6 · Wire Atlanta</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : FLOW-BALANCE BUILDER ================= -->
+<section class="widget" id="balance">
+  <h2>Write the flow-balance rows <span class="chip">Slides 3–5</span></h2>
+  <p class="howto">
+    The week's first example: two supply points (4 and 5 units at nodes 1–2) ship to two demand
+    points (6 and 3 units at nodes 3–4) along four arcs with unit costs 1, 2, 3, 4. Every MCNFP
+    constraint says <b>net flow out of node i = b<sub>i</sub></b>. Build that constraint matrix:
+    click each cell to cycle its coefficient through 0 → +1 → −1, type the right-hand sides,
+    then check.
+  </p>
+  <canvas class="viz short" id="c-bl"></canvas>
+  <div class="mat-wrap">
+    <table class="mat" id="bl-table"></table>
+  </div>
+  <div class="controls">
+    <button id="bl-check" class="primary">Check my matrix</button>
+    <button id="bl-clear">Clear</button>
+  </div>
+  <p class="status info" id="bl-status">All coefficients start at 0.</p>
+  <div class="note">
+    Generic MCNFP (slide 3): min Σ c<sub>ij</sub>X<sub>ij</sub> subject to
+    Σ<sub>j</sub>X<sub>ij</sub> − Σ<sub>k</sub>X<sub>ki</sub> = b<sub>i</sub> at every node and
+    L<sub>ij</sub> ≤ X<sub>ij</sub> ≤ U<sub>ij</sub> on every arc. Transportation, assignment,
+    transshipment, shortest path, max flow and CPM are all special cases.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Slide 5's model: min Z = X₁₃ + 2X₁₄ + 3X₂₃ + 4X₂₄ with rows
+      X₁₃ + X₁₄ = 4 (node 1), X₂₃ + X₂₄ = 5 (node 2),
+      −X₁₃ − X₂₃ = −6 (node 3), −X₁₄ − X₂₄ = −3 (node 4).
+      Every column holds exactly one +1 and one −1: each unit of flow leaves one node and enters
+      another. (For the curious: the cheapest such flow costs 22 — computed from the slide's data;
+      the deck stops at the formulation.)
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : ASSIGNMENT DUEL ================= -->
+<section class="widget" id="assign">
+  <h2>Five jobs, five machines — find the cheapest matching <span class="chip">Slides 6–7</span></h2>
+  <p class="howto">
+    Slide 6's table gives the cost of running each job on each machine. <b>Click a cell</b> to
+    assign that job to that machine — one machine per job, one job per machine (clicking a taken
+    machine steals it). Assign all five, log your attempt, then try to beat yourself. Careful:
+    the obvious greedy picks are a trap.
+  </p>
+  <div class="cost-wrap">
+    <table class="cost" id="as-table"></table>
+  </div>
+  <div class="controls">
+    <span class="readout">assigned: <b id="as-count">0 / 5</b></span>
+    <span class="readout">total cost: <b id="as-cost">—</b></span>
+    <button id="as-log" class="primary">Log this attempt</button>
+    <button id="as-clear">Clear</button>
+    <button id="as-reveal">Reveal optimal ★</button>
+  </div>
+  <p class="status info" id="as-status">No assignments yet.</p>
+  <div id="as-attwrap" style="display:none">
+    <table class="attempts" id="as-att"><thead><tr><th>#</th><th>assignment</th><th>total cost</th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="note">
+    Slide 7 recasts this as an MCNFP: a source with b = +5 feeds the jobs, arcs (0, 1, c<sub>ij</sub>)
+    join jobs to machines, and a sink with b = −5 drains them — assignment is just network flow.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The unique optimum assigns 1→A (22), 2→D (20), 3→C (21), 4→B (24), 5→E (31) for a total of
+      118 (computed from slide 6's table; the deck stops at the formulation). The row-by-row greedy
+      plan — grab 16 for job 1 first — lands on 119: one unit worse, because D is worth more to job 2.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : PEAR TRANSSHIPMENT ================= -->
+<section class="widget" id="pear">
+  <h2>Route Pear's drives — can you serve everyone? <span class="chip">Slides 13–19</span></h2>
+  <p class="howto">
+    Pear Corp. now ships through Sacramento and Chicago (both transship <em>and</em> consume).
+    Plants hold 45 / 120 / 95 (thousand drives); demands are Amarillo 80, Teaneck 78, Chicago 47,
+    Sioux Falls 55, Sacramento 25. Type flows (in thousands) on the arcs below — arc labels show
+    the unit costs — and try to cover all the demand. Then answer: <b>is something wrong with this
+    network?</b>
+  </p>
+  <canvas class="viz" id="c-pr"></canvas>
+  <div class="flowgrid" id="pr-inputs"></div>
+  <div class="controls">
+    <span class="readout">delivered: <b id="pr-del">0</b> / 285</span>
+    <span class="readout">cost: <b id="pr-cost">0</b></span>
+    <button id="pr-best" class="primary">Load a best-effort plan</button>
+    <button id="pr-reset">Zero all flows</button>
+    <button id="pr-dummy">Reveal the fix ★</button>
+  </div>
+  <p class="status info" id="pr-status">All flows are zero. Start shipping.</p>
+  <div class="controls" style="align-items:center">
+    <span style="color:var(--ink-2)">Verdict — can a cleverer routing meet all 285?</span>
+    <span class="segwrap">
+      <button class="seg" id="pr-qa">Yes — reroute smarter</button>
+      <button class="seg" id="pr-qb">No — add a dummy plant</button>
+      <button class="seg" id="pr-qc">No — arcs are too tight</button>
+    </span>
+  </div>
+  <p class="status info" id="pr-verdict"></p>
+  <div class="note">
+    The plain transportation version (slide 16) was balanced: 260 supply, 260 demand, no dummy
+    needed. Here the transshipment expansion added 25 (Sacramento) of demand without new supply.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Total supply 45 + 120 + 95 = 260; total demand 80 + 78 + 47 + 55 + 25 = 285. The network is
+      NOT balanced — slide 19's punchline — so an MCNFP needs a dummy plant with b = +25 whose
+      zero-cost arcs absorb the unmet demand (the reveal draws one standard completion; the slide
+      states the need without drawing it). No routing can deliver more than 260.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 4 : TREE WARM-UP ================= -->
+<section class="widget" id="treeq">
+  <h2>Spanning-tree warm-up <span class="chip">Slides 20–21</span></h2>
+  <p class="howto">
+    Before touching the examples, settle slide 20's and slide 21's questions. Answer all three —
+    each wrong guess earns a targeted hint.
+  </p>
+  <div class="controls" style="align-items:center">
+    <span style="color:var(--ink-2)">1 · A spanning tree on the 5-computer campus network uses how many arcs?</span>
+    <input type="number" id="tq-n" style="width:70px;font:inherit;text-align:center">
+    <button id="tq-ncheck" class="primary">Check</button>
+  </div>
+  <p class="status info" id="tq-nstatus"></p>
+  <div class="controls" style="align-items:center">
+    <span style="color:var(--ink-2)">2 · Is the MST problem easy or hard to solve?</span>
+    <span class="segwrap">
+      <button class="seg" id="tq-easy">Easy — greedy solves it exactly</button>
+      <button class="seg" id="tq-hard">Hard — needs branch &amp; bound</button>
+    </span>
+  </div>
+  <p class="status info" id="tq-estatus"></p>
+  <div class="controls" style="align-items:center">
+    <span style="color:var(--ink-2)">3 · Does Prim's greedy algorithm always end at a true MST?</span>
+    <span class="segwrap">
+      <button class="seg" id="tq-always">Always</button>
+      <button class="seg" id="tq-ties">Only if no ties</button>
+      <button class="seg" id="tq-heur">No — it is a heuristic</button>
+    </span>
+  </div>
+  <p class="status info" id="tq-astatus"></p>
+  <div class="note">
+    Slide 20: a spanning tree on n nodes is a set of n − 1 arcs connecting all nodes with no loops;
+    the shortest one is the MST.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      1: n − 1 = 4 arcs. 2: easy — unusually for combinatorial optimization, a greedy pass is exact.
+      3: always; ties for the closest node may be broken arbitrarily (slide 21) and every choice
+      still ends in a minimum spanning tree.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 5 : PRIM STEPPER ================= -->
+<section class="widget" id="prim">
+  <h2>Prim's algorithm — the class calls every arc <span class="chip">Slides 22–26</span></h2>
+  <p class="howto">
+    The State University campus: five computers, cable distances on the links (two machines are
+    unlinked — underground rock). Prim starts from node 1, as on slide 23. At every iteration,
+    <b>click the arc you think Prim adds next</b> — the cheapest arc from the connected set C to
+    an unconnected node. Wrong calls get corrected; ties are yours to break.
+  </p>
+  <div class="controls">
+    <span class="readout">C = <b id="pm-set">{1}</b></span>
+    <span class="readout">length so far: <b id="pm-len">0</b></span>
+    <button id="pm-run" class="locked">Run remaining steps</button>
+    <button id="pm-reset">Reset</button>
+  </div>
+  <canvas class="viz short" id="c-pm"></canvas>
+  <p class="status info" id="pm-status">Iteration 1 — C = {1}. Click the arc Prim adds first.</p>
+  <div class="note">
+    This is exactly the loop of slide 21: pick the unconnected node closest to C, add the arc that
+    realizes that distance, repeat until C holds everything.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Slides 23–26: arc (1,2), then the 2-block tie for node 5 — the slide picks (2,5) — then (5,3)
+      and finally (5,4). The minimum spanning tree has length 1 + 2 + 2 + 4 = 9 blocks. Taking (1,5)
+      at the tie gives a different tree with the same length 9.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 6 : GEORGIA POWER GAME ================= -->
+<section class="widget" id="georgia">
+  <h2>Wire Atlanta for less <span class="chip">Slides 27–29</span></h2>
+  <p class="howto">
+    Georgia Power must connect seven districts to the power station network; link costs are on the
+    arcs. <b>Click links to add or remove them.</b> A valid plan connects all seven districts —
+    cheapest plan wins the class. Log attempts, then compare with Prim's answer.
+  </p>
+  <div class="controls">
+    <span class="readout">links: <b id="ga-arcs">0</b></span>
+    <span class="readout">connected: <b id="ga-conn">1 / 7</b></span>
+    <span class="readout">cost: <b id="ga-cost">0</b></span>
+    <button id="ga-log" class="primary">Log this attempt</button>
+    <button id="ga-clear">Clear</button>
+    <button id="ga-reveal">Reveal Prim's plan ★</button>
+  </div>
+  <canvas class="viz short" id="c-ga"></canvas>
+  <p class="status info" id="ga-status">Click a link to start your plan.</p>
+  <div id="ga-attwrap" style="display:none">
+    <table class="attempts" id="ga-att"><thead><tr><th>#</th><th>links</th><th>verdict</th><th>cost</th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="note">
+    A connected plan with no loops on 7 nodes uses exactly 6 links — anything more is paying for a
+    cycle.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Slides 28–29: Prim picks a–d (2), a–b (3), a–e (4), e–g (2), f–g (3) and finally a–c (10) —
+      total cost 24. Node c is the expensive customer: its cheapest link costs 10 no matter what.
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 14.
+  Figures follow the examples used in the Week 14 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+
+/* === SHARED NETWORK-DRAWING HELPERS (canvas, theme-token colors only) === */
+
+function vfont(px, bold) {
+  const s = parseFloat(VIZ.cssv('--viz-font-scale')) || 1;
+  return (bold ? '600 ' : '') + Math.round(px * s) + 'px system-ui, sans-serif';
+}
+
+// sampled quadratic bezier from a to b, bowed sideways by `bow` px
+function bezPts(a, b, bow) {
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+  const nx = -dy / L, ny = dx / L;
+  const cx = mx + nx * bow, cy = my + ny * bow;
+  const pts = [];
+  for (let k = 0; k <= 40; k++) {
+    const u = k / 40;
+    pts.push({
+      x: (1 - u) * (1 - u) * a.x + 2 * (1 - u) * u * cx + u * u * b.x,
+      y: (1 - u) * (1 - u) * a.y + 2 * (1 - u) * u * cy + u * u * b.y,
+    });
+  }
+  return pts;
+}
+
+// text with a surface-colored halo so labels stay readable over edges
+function halo(ctx, t, txt, x, y, color, px, bold, align, baseline) {
+  ctx.save();
+  ctx.font = vfont(px || 13, bold);
+  ctx.textAlign = align || 'center';
+  ctx.textBaseline = baseline || 'middle';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = t.surface;
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = color;
+  ctx.fillText(txt, x, y);
+  ctx.restore();
+}
+
+function drawLink(ctx, t, a, b, o = {}) {
+  const pts = bezPts(a, b, o.bow || 0);
+  ctx.save();
+  ctx.strokeStyle = o.color || t.axis;
+  ctx.lineWidth = o.width || 1.6;
+  if (o.dash) ctx.setLineDash(o.dash);
+  ctx.beginPath();
+  pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  if (o.arrow) {
+    const R = (o.nodeR || 16) + 4;
+    let tip = pts[pts.length - 1], prev = pts[pts.length - 2];
+    for (let k = pts.length - 1; k > 0; k--) {
+      if (Math.hypot(pts[k].x - b.x, pts[k].y - b.y) >= R) { tip = pts[k]; prev = pts[k - 1]; break; }
+    }
+    const ang = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+    ctx.beginPath();
+    ctx.moveTo(tip.x, tip.y);
+    ctx.lineTo(tip.x - 10 * Math.cos(ang - 0.42), tip.y - 10 * Math.sin(ang - 0.42));
+    ctx.lineTo(tip.x - 10 * Math.cos(ang + 0.42), tip.y - 10 * Math.sin(ang + 0.42));
+    ctx.closePath();
+    ctx.fillStyle = o.color || t.axis;
+    ctx.fill();
+  }
+  if (o.label !== undefined) {
+    const at = o.labelAt !== undefined ? o.labelAt : 20;
+    const mid = pts[at];
+    const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+    const nx = -dy / L, ny = dx / L;
+    const off = o.labelOff !== undefined ? o.labelOff : 13;
+    const s = (o.bow || 0) !== 0 ? Math.sign(o.bow) : (o.side || 1);
+    halo(ctx, t, String(o.label), mid.x + nx * off * s, mid.y + ny * off * s,
+      o.labelColor || t.ink2, o.labelSize || 13, o.labelBold);
+  }
+  ctx.restore();
+  return pts;
+}
+
+function drawNodeCircle(ctx, t, n, txt, o = {}) {
+  const r = o.r || 16;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
+  ctx.fillStyle = o.fill || t.surface;
+  ctx.fill();
+  ctx.lineWidth = o.ring ? 3 : 2;
+  ctx.strokeStyle = o.stroke || t.axis;
+  ctx.stroke();
+  ctx.font = vfont(o.size || 14, true);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = o.fill && o.fill !== t.surface ? t.surface : t.ink;
+  ctx.fillText(txt, n.x, n.y + 1);
+  ctx.restore();
+}
+
+// distance from point (px,py) to segment a-b
+function distToSeg(px, py, a, b) {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const L2 = dx * dx + dy * dy || 1;
+  let u = ((px - a.x) * dx + (py - a.y) * dy) / L2;
+  u = Math.max(0, Math.min(1, u));
+  return Math.hypot(px - (a.x + u * dx), py - (a.y + u * dy));
+}
+
+/* ============================================================
+   WIDGET 1 — flow-balance matrix builder (slides 3-5)
+   Network: nodes 1,2 supply 4,5; nodes 3,4 demand 6,3.
+   Arcs 1→3 ($1), 1→4 ($2), 2→3 ($3), 2→4 ($4).  Answer = slide 5.
+   ============================================================ */
+(() => {
+  const canvas = el('c-bl');
+  const ARCS = [
+    { a: 1, b: 3, c: 1 }, { a: 1, b: 4, c: 2 },
+    { a: 2, b: 3, c: 3 }, { a: 2, b: 4, c: 4 },
+  ];
+  const ARCNAMES = ['X₁₃', 'X₁₄', 'X₂₃', 'X₂₄'];
+  const B = { 1: 4, 2: 5, 3: -6, 4: -3 };
+  const ANS = [
+    [1, 1, 0, 0], [0, 0, 1, 1], [-1, 0, -1, 0], [0, -1, 0, -1],
+  ];
+  // coef[i][j] for node i (0..3) and arc j (0..3)
+  let coef = ANS.map(r => r.map(() => 0));
+
+  function layout() {
+    const { ctx, w, h } = VIZ.setup(canvas);
+    const x0 = w * 0.24, x1 = w * 0.76;
+    return {
+      ctx, w, h,
+      N: { 1: { x: x0, y: h * 0.24 }, 2: { x: x0, y: h * 0.74 }, 3: { x: x1, y: h * 0.24 }, 4: { x: x1, y: h * 0.74 } },
+    };
+  }
+
+  function draw() {
+    const { ctx, N } = layout();
+    const t = VIZ.theme();
+    ARCS.forEach((arc, j) => {
+      drawLink(ctx, t, N[arc.a], N[arc.b], {
+        arrow: true, nodeR: 18, label: ARCNAMES[j] + '  ($' + arc.c + ')',
+        labelAt: arc.a !== arc.b - 2 ? 13 : 20, side: arc.a === 1 ? -1 : 1,
+        labelBold: true, labelColor: t.s1,
+      });
+    });
+    Object.keys(N).forEach(k => {
+      const supply = B[k] > 0;
+      drawNodeCircle(ctx, t, N[k], k, { r: 18, fill: supply ? t.s1 : t.s2 });
+      halo(ctx, t, (supply ? 'supply, b = +' : 'demand, b = −') + Math.abs(B[k]),
+        N[k].x, N[k].y + (k % 2 === 1 ? -32 : 32), supply ? t.s1 : t.s2, 13, true);
+    });
+  }
+
+  function render() {
+    let html = '<thead><tr><th>net outflow of…</th>' + ARCNAMES.map(n => '<th>' + n + '</th>').join('') +
+      '<th></th><th>rhs = b</th></tr></thead><tbody>';
+    for (let i = 0; i < 4; i++) {
+      html += '<tr><td>Node ' + (i + 1) + '</td>';
+      for (let j = 0; j < 4; j++) {
+        const v = coef[i][j];
+        html += '<td><button class="coef' + (v !== 0 ? ' set' : '') + '" data-i="' + i + '" data-j="' + j + '">' +
+          (v === 0 ? '0' : (v > 0 ? '+1' : '−1')) + '</button></td>';
+      }
+      html += '<td>=</td><td><input type="number" class="rhs" id="bl-rhs' + i + '" step="1"></td></tr>';
+    }
+    html += '</tbody>';
+    const keep = [0, 1, 2, 3].map(i => { const f = el('bl-rhs' + i); return f ? f.value : ''; });
+    el('bl-table').innerHTML = html;
+    [0, 1, 2, 3].forEach(i => { el('bl-rhs' + i).value = keep[i]; });
+    el('bl-table').querySelectorAll('button.coef').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = +btn.dataset.i, j = +btn.dataset.j;
+        coef[i][j] = coef[i][j] === 0 ? 1 : (coef[i][j] === 1 ? -1 : 0);
+        render();
+      });
+    });
+  }
+
+  function check() {
+    const st = el('bl-status');
+    const rhs = [0, 1, 2, 3].map(i => el('bl-rhs' + i).value === '' ? null : +el('bl-rhs' + i).value);
+    const hints = [];
+    // 1: coefficients on non-incident arcs
+    for (let i = 0; i < 4 && hints.length === 0; i++) {
+      for (let j = 0; j < 4; j++) {
+        if (ANS[i][j] === 0 && coef[i][j] !== 0) {
+          hints.push(ARCNAMES[j] + ' never touches node ' + (i + 1) + ' — its coefficient in that row must be 0.');
+          break;
+        }
+      }
+    }
+    // 2: whole row written as net inflow
+    for (let i = 0; i < 4 && hints.length === 0; i++) {
+      const negated = ANS[i].every((v, j) => coef[i][j] === -v) && ANS[i].some(v => v !== 0);
+      if (negated) hints.push('Node ' + (i + 1) + '’s row is net INflow. The slide’s convention is net OUTflow: arcs leaving get +1, arcs entering get −1, and b flips sign with it.');
+    }
+    // 3: individual sign slips
+    for (let i = 0; i < 4 && hints.length === 0; i++) {
+      for (let j = 0; j < 4; j++) {
+        if (ANS[i][j] !== 0 && coef[i][j] === -ANS[i][j]) {
+          const leaving = ANS[i][j] > 0;
+          hints.push('Check ' + ARCNAMES[j] + ' at node ' + (i + 1) + ': that arc ' + (leaving ? 'LEAVES the node, so it adds +1 to net outflow.' : 'ENTERS the node, so it contributes −1.'));
+          break;
+        }
+      }
+    }
+    // 4: missing coefficients
+    for (let i = 0; i < 4 && hints.length === 0; i++) {
+      for (let j = 0; j < 4; j++) {
+        if (ANS[i][j] !== 0 && coef[i][j] === 0) {
+          hints.push(ARCNAMES[j] + ' is incident to node ' + (i + 1) + ' — it cannot have coefficient 0 there.');
+          break;
+        }
+      }
+    }
+    const coefOK = hints.length === 0;
+    // rhs checks
+    const bAns = [4, 5, -6, -3];
+    let rhsOK = true;
+    for (let i = 0; i < 4; i++) {
+      if (rhs[i] === null || Math.abs(rhs[i] - bAns[i]) > 1e-9) rhsOK = false;
+    }
+    if (coefOK && !rhsOK) {
+      for (let i = 2; i < 4; i++) {
+        if (rhs[i] !== null && Math.abs(rhs[i] + bAns[i]) < 1e-9) {
+          hints.push('Node ' + (i + 1) + ' is a DEMAND point: more flow comes in than goes out, so its net outflow b is negative.');
+          break;
+        }
+      }
+      if (hints.length === 0) hints.push('Read the b values off the figure: supplies 4 and 5, demands 6 and 3 (with a minus sign).');
+    }
+    if (coefOK && rhsOK) {
+      st.className = 'status ok';
+      st.textContent = '✓ Exactly slide 5’s matrix. Notice every column holds one +1 and one −1 — each shipped unit leaves one node and enters another.';
+    } else {
+      st.className = 'status bad';
+      st.textContent = '✗ Not yet. ' + hints[0];
+    }
+  }
+
+  el('bl-check').addEventListener('click', check);
+  el('bl-clear').addEventListener('click', () => {
+    coef = ANS.map(r => r.map(() => 0));
+    render();
+    [0, 1, 2, 3].forEach(i => { el('bl-rhs' + i).value = ''; });
+    el('bl-status').className = 'status info';
+    el('bl-status').textContent = 'All coefficients start at 0.';
+  });
+  render();
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 2 — assignment duel (slides 6-7)
+   Costs from slide 6.  Optimum (computed): 1A 2D 3C 4B 5E = 118.
+   ============================================================ */
+(() => {
+  const MACH = ['A', 'B', 'C', 'D', 'E'];
+  const COST = [
+    [22, 30, 26, 16, 25],
+    [27, 29, 28, 20, 32],
+    [33, 25, 21, 29, 23],
+    [24, 24, 30, 19, 26],
+    [30, 33, 32, 37, 31],
+  ];
+  const OPT = [0, 3, 2, 1, 4]; // job i -> machine index (1A 2D 3C 4B 5E), cost 118
+  let pick = [null, null, null, null, null];
+  let revealed = false, attempts = [];
+
+  window.__assignScore = () => pick.every(p => p !== null)
+    ? pick.reduce((s, m, i) => s + COST[i][m], 0) : null;
+
+  function render() {
+    let html = '<thead><tr><th>job \\ machine</th>' + MACH.map(m => '<th>' + m + '</th>').join('') + '</tr></thead><tbody>';
+    for (let i = 0; i < 5; i++) {
+      html += '<tr><td>' + (i + 1) + '</td>';
+      for (let j = 0; j < 5; j++) {
+        const cls = ['pick'];
+        if (pick[i] === j) cls.push('sel');
+        if (revealed && OPT[i] === j) cls.push('opt');
+        html += '<td class="' + cls.join(' ') + '" data-i="' + i + '" data-j="' + j + '">' + COST[i][j] + '</td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody>';
+    el('as-table').innerHTML = html;
+    el('as-table').querySelectorAll('td.pick').forEach(td => {
+      td.addEventListener('click', () => {
+        const i = +td.dataset.i, j = +td.dataset.j;
+        if (pick[i] === j) { pick[i] = null; } else {
+          pick.forEach((m, k) => { if (m === j && k !== i) pick[k] = null; });
+          pick[i] = j;
+        }
+        update();
+      });
+    });
+    const n = pick.filter(p => p !== null).length;
+    el('as-count').textContent = n + ' / 5';
+    const cost = window.__assignScore();
+    el('as-cost').textContent = cost === null ? '—' : cost;
+  }
+
+  function update() {
+    render();
+    const n = pick.filter(p => p !== null).length;
+    const st = el('as-status');
+    if (n === 0) { st.className = 'status info'; st.textContent = 'No assignments yet.'; return; }
+    if (n < 5) { st.className = 'status info'; st.textContent = n + ' of 5 jobs assigned — every job needs a machine and no machine takes two jobs.'; return; }
+    const cost = window.__assignScore();
+    st.className = 'status ok';
+    st.textContent = 'Complete matching, total cost ' + cost + '. Log it, then hunt for something cheaper.';
+  }
+
+  function log() {
+    const cost = window.__assignScore();
+    const st = el('as-status');
+    if (cost === null) { st.className = 'status bad'; st.textContent = '✗ Assign all five jobs before logging.'; return; }
+    attempts.push({ txt: pick.map((m, i) => (i + 1) + MACH[m]).join(' '), cost });
+    const best = Math.min(...attempts.map(a => a.cost));
+    el('as-attwrap').style.display = '';
+    el('as-att').querySelector('tbody').innerHTML = attempts.map((a, k) =>
+      '<tr' + (a.cost === best ? ' class="best"' : '') + '><td>' + (k + 1) + '</td><td>' + a.txt + '</td><td>' + a.cost + '</td></tr>').join('');
+    st.className = 'status ok';
+    st.textContent = 'Attempt #' + attempts.length + ' logged at ' + cost + '. Class best so far: ' + best + '.';
+  }
+
+  el('as-log').addEventListener('click', log);
+  el('as-clear').addEventListener('click', () => { pick = [null, null, null, null, null]; update(); });
+  el('as-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('as-reveal').textContent = revealed ? 'Hide optimal' : 'Reveal optimal ★';
+    render();
+    if (revealed) {
+      const st = el('as-status');
+      st.className = 'status info';
+      st.textContent = 'Dashed green cells mark the optimal matching (118). Compare it with your picks.';
+    }
+  });
+  render();
+})();
+
+/* ============================================================
+   WIDGET 3 — Pear transshipment (slides 13-19)
+   Arc costs and node data exactly as the slide-19 figure.
+   Punchline: supply 260 < demand 285 → dummy plant needed.
+   ============================================================ */
+(() => {
+  const canvas = el('c-pr');
+  const NAMES = { so: 'SOURCE', 1: 'Sunnyvale', 2: 'Dublin', 3: 'Bangkok', 4: 'Sacramento', 5: 'Chicago', 6: 'Amarillo', 7: 'Teaneck', 8: 'Sioux Falls', si: 'SINK' };
+  const SUP = { 1: 45, 2: 120, 3: 95 };
+  const DEM = { 4: 25, 5: 47, 6: 80, 7: 78, 8: 55 };
+  const ARCS = [
+    { f: 1, t: 6, c: 250 }, { f: 1, t: 4, c: 76 }, { f: 1, t: 5, c: 380 },
+    { f: 2, t: 5, c: 1440 }, { f: 3, t: 5, c: 1660 },
+    { f: 4, t: 6, c: 110 }, { f: 4, t: 8, c: 95 },
+    { f: 5, t: 6, c: 180 }, { f: 5, t: 7, c: 120 }, { f: 5, t: 8, c: 195 },
+  ];
+  // one max-delivery plan (260 delivered; Amarillo left 25 short)
+  const BESTPLAN = [20, 25, 0, 120, 95, 0, 0, 35, 78, 55];
+  let flows = ARCS.map(() => 0);
+  let showDummy = false;
+
+  function layout() {
+    const { ctx, w, h } = VIZ.setup(canvas);
+    const P = pt => ({ x: pt[0] * w, y: pt[1] * h });
+    return {
+      ctx, w, h,
+      N: {
+        so: P([0.06, 0.45]),
+        1: P([0.24, 0.14]), 2: P([0.22, 0.45]), 3: P([0.24, 0.76]),
+        4: P([0.48, 0.26]), 5: P([0.48, 0.64]),
+        6: P([0.74, 0.10]), 7: P([0.76, 0.44]), 8: P([0.74, 0.82]),
+        si: P([0.93, 0.45]),
+      },
+    };
+  }
+
+  const arr = k => ARCS.reduce((s, a, j) => s + (a.t === k ? flows[j] : 0), 0);
+  const out = k => ARCS.reduce((s, a, j) => s + (a.f === k ? flows[j] : 0), 0);
+
+  function evalPlan() {
+    const keep4 = arr(4) - out(4), keep5 = arr(5) - out(5);
+    const problems = [];
+    [1, 2, 3].forEach(p => { if (out(p) > SUP[p]) problems.push(NAMES[p] + ' ships ' + out(p) + ' but only holds ' + SUP[p] + '.'); });
+    if (keep4 < 0) problems.push('Sacramento sends out ' + out(4) + ' but receives only ' + arr(4) + ' — flow balance is broken.');
+    if (keep5 < 0) problems.push('Chicago sends out ' + out(5) + ' but receives only ' + arr(5) + ' — flow balance is broken.');
+    if (keep4 > DEM[4]) problems.push('Sacramento keeps ' + keep4 + ' but its demand is only 25 — the extra units are stranded.');
+    if (keep5 > DEM[5]) problems.push('Chicago keeps ' + keep5 + ' but its demand is only 47 — the extra units are stranded.');
+    [6, 7, 8].forEach(k => { if (arr(k) > DEM[k]) problems.push(NAMES[k] + ' receives ' + arr(k) + ' but can absorb only ' + DEM[k] + '.'); });
+    const delivered = problems.length ? null : keep4 + keep5 + arr(6) + arr(7) + arr(8);
+    const cost = ARCS.reduce((s, a, j) => s + a.c * flows[j], 0);
+    return { problems, delivered, cost, keep4, keep5 };
+  }
+
+  function draw() {
+    const { ctx, N, w } = layout();
+    const t = VIZ.theme();
+    const R = 17;
+    // On the narrow mobile canvas this dense 10-node graph crowds. There the
+    // ≤capacity arc tags are dropped (they merely restate each node's own
+    // +supply / −demand label and the intro text) and the cost / node-name
+    // fonts shrink a step, so nothing overlaps. Desktop/projector are unchanged.
+    const narrow = w < 660;
+    const costPx = narrow ? 11 : 13;
+    const namePx = narrow ? 11 : 12;
+    // source & sink arcs (cost 0, capacity = supply/demand)
+    [1, 2, 3].forEach(p => drawLink(ctx, t, N.so, N[p], {
+      arrow: true, nodeR: R, label: narrow ? undefined : '≤' + SUP[p], labelColor: t.muted, labelAt: 16,
+      side: p === 3 ? -1 : 1,
+    }));
+    [6, 7, 4, 5, 8].forEach(k => drawLink(ctx, t, N[k], N.si, {
+      arrow: true, nodeR: R, label: narrow ? undefined : '≤' + DEM[k], labelColor: t.muted, labelAt: 24,
+      side: k === 8 || k === 5 ? -1 : 1,
+    }));
+    // transport arcs with cost labels; flow shown violet
+    ARCS.forEach((a, j) => {
+      const x = flows[j];
+      const pts = drawLink(ctx, t, N[a.f], N[a.t], {
+        arrow: true, nodeR: R,
+        color: x > 0 ? t.s5 : t.axis, width: x > 0 ? 1.8 + 2.6 * x / 120 : 1.4,
+        label: '$' + a.c, labelBold: true, labelColor: t.s1, labelAt: 13, labelSize: costPx,
+        // Narrow: lift the 1→6 cost above its near-horizontal arc so it clears
+        // the "Sacramento −25" node label sitting just below that arc.
+        side: (a.f === 1 && a.t === 5) || (a.f === 4 && a.t === 8) || (a.f === 5 && a.t === 8) || (narrow && a.f === 1 && a.t === 6) ? -1 : 1,
+      });
+      if (x > 0) halo(ctx, t, x, pts[28].x, pts[28].y - 10, t.s5, 14, true);
+    });
+    if (showDummy) {
+      const D = { x: N[3].x + (N.si.x - N[3].x) * 0.28, y: N[3].y + 0.16 * (N[3].y - N[2].y) + 20 };
+      [4, 5, 6, 7, 8].forEach(k => drawLink(ctx, t, D, N[k], { arrow: true, nodeR: R, color: t.s2, dash: [6, 5], width: 1.5 }));
+      drawNodeCircle(ctx, t, D, 'DU', { r: R, fill: t.s2 });
+      halo(ctx, t, 'dummy plant, b = +25, $0 arcs', D.x, D.y + 30, t.s2, 13, true);
+    }
+    Object.keys(N).forEach(k => {
+      const isEnd = k === 'so' || k === 'si';
+      const isPlant = k === '1' || k === '2' || k === '3';
+      drawNodeCircle(ctx, t, N[k], isEnd ? k.toUpperCase() : k, { r: R, fill: isEnd ? t.ink2 : (isPlant ? t.s1 : t.s2) });
+      const dy = (k === '2' || k === '7' || k === 'so' || k === 'si') ? -30 : ((k === '4' || k === '6' || k === '1') ? -30 : 32);
+      halo(ctx, t, NAMES[k] + (isPlant ? ' +' + SUP[k] : (DEM[k] ? ' −' + DEM[k] : '')), N[k].x, N[k].y + dy, t.ink2, namePx, true);
+    });
+  }
+
+  function update() {
+    const { problems, delivered, cost } = evalPlan();
+    el('pr-del').textContent = delivered === null ? '—' : delivered;
+    el('pr-cost').textContent = '$' + cost;
+    const st = el('pr-status');
+    if (problems.length) {
+      st.className = 'status bad';
+      st.textContent = '✗ ' + problems[0];
+    } else if (delivered === 0) {
+      st.className = 'status info';
+      st.textContent = 'All flows are zero. Start shipping.';
+    } else if (delivered >= 260) {
+      st.className = 'status ok';
+      st.textContent = '✓ All 260 (thousand) supplied units arrive — yet 285 − 260 = 25 of demand stays uncovered. Could any routing do better?';
+    } else {
+      st.className = 'status info';
+      const unused = [1, 2, 3].map(p => SUP[p] - out(p)).reduce((a, b) => a + b, 0);
+      st.textContent = delivered + ' of 285 delivered (' + (285 - delivered) + ' short) · unused supply: ' + unused + ' · cost $' + cost + '.';
+    }
+    draw();
+  }
+
+  // inputs
+  el('pr-inputs').innerHTML = ARCS.map((a, j) =>
+    '<label>' + NAMES[a.f] + ' → ' + NAMES[a.t] + ' <input type="number" id="pr-x' + j + '" min="0" step="1" value="0"></label>').join('');
+  ARCS.forEach((a, j) => {
+    el('pr-x' + j).addEventListener('input', () => {
+      flows[j] = Math.max(0, +el('pr-x' + j).value || 0);
+      update();
+    });
+  });
+
+  el('pr-best').addEventListener('click', () => {
+    flows = BESTPLAN.slice();
+    ARCS.forEach((a, j) => { el('pr-x' + j).value = flows[j]; });
+    update();
+  });
+  el('pr-reset').addEventListener('click', () => {
+    flows = ARCS.map(() => 0);
+    ARCS.forEach((a, j) => { el('pr-x' + j).value = 0; });
+    update();
+  });
+  el('pr-dummy').addEventListener('click', () => {
+    showDummy = !showDummy;
+    el('pr-dummy').textContent = showDummy ? 'Hide the fix' : 'Reveal the fix ★';
+    draw();
+  });
+
+  function answer(which) {
+    const v = el('pr-verdict');
+    ['pr-qa', 'pr-qb', 'pr-qc'].forEach(id => el(id).classList.remove('active'));
+    el(which).classList.add('active');
+    if (which === 'pr-qb') {
+      v.className = 'status ok';
+      v.textContent = '✓ Right — total supply 45 + 120 + 95 = 260 against demand 80 + 78 + 47 + 55 + 25 = 285. The network is unbalanced; a dummy plant with b = +25 (zero-cost arcs) restores balance. That is slide 19’s punchline.';
+    } else if (which === 'pr-qa') {
+      v.className = 'status bad';
+      v.textContent = '✗ No routing creates drives. The three plants hold 260 in total while the five demand nodes ask for 285 — you are structurally 25 short.';
+    } else {
+      v.className = 'status bad';
+      v.textContent = '✗ The transport arcs are uncapacitated, (0, ∞, c) — they never bind. The real bottleneck is total supply 260 < total demand 285.';
+    }
+  }
+  el('pr-qa').addEventListener('click', () => answer('pr-qa'));
+  el('pr-qb').addEventListener('click', () => answer('pr-qb'));
+  el('pr-qc').addEventListener('click', () => answer('pr-qc'));
+
+  update();
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 4 — spanning-tree warm-up (slides 20-21)
+   ============================================================ */
+(() => {
+  el('tq-ncheck').addEventListener('click', () => {
+    const v = +el('tq-n').value;
+    const st = el('tq-nstatus');
+    if (el('tq-n').value === '') { st.className = 'status bad'; st.textContent = '✗ Type a number first.'; return; }
+    if (v === 4) { st.className = 'status ok'; st.textContent = '✓ n − 1 = 4 arcs: enough to connect 5 nodes, and one more would necessarily close a loop.'; }
+    else if (v === 5) { st.className = 'status bad'; st.textContent = '✗ Five arcs on five nodes must contain a cycle — you would be paying for a loop. Slide 20: a spanning tree has n − 1 arcs.'; }
+    else if (v === 10) { st.className = 'status bad'; st.textContent = '✗ That is every possible pair — a complete graph, not a tree. A tree keeps just enough arcs to stay connected.'; }
+    else { st.className = 'status bad'; st.textContent = '✗ Count again: connecting n nodes without loops takes exactly n − 1 arcs.'; }
+  });
+  el('tq-easy').addEventListener('click', () => {
+    const st = el('tq-estatus');
+    el('tq-easy').classList.add('active'); el('tq-hard').classList.remove('active');
+    st.className = 'status ok';
+    st.textContent = '✓ Easy — rare luck in combinatorial optimization: the greedy Prim pass on slide 21 solves MST exactly, no enumeration or bounding needed.';
+  });
+  el('tq-hard').addEventListener('click', () => {
+    const st = el('tq-estatus');
+    el('tq-hard').classList.add('active'); el('tq-easy').classList.remove('active');
+    st.className = 'status bad';
+    st.textContent = '✗ Understandable guess — most network design questions ARE hard. But MST is a famous exception: the greedy algorithm of slide 21 is provably exact.';
+  });
+  const q3 = (id, ok, msg) => el(id).addEventListener('click', () => {
+    ['tq-always', 'tq-ties', 'tq-heur'].forEach(x => el(x).classList.remove('active'));
+    el(id).classList.add('active');
+    const st = el('tq-astatus');
+    st.className = ok ? 'status ok' : 'status bad';
+    st.textContent = msg;
+  });
+  q3('tq-always', true, '✓ Always. Slide 21: ties for the closest node may be broken arbitrarily — every choice still ends in a minimum spanning tree.');
+  q3('tq-ties', false, '✗ Ties are harmless: break them any way you like and the final length is still minimal (you may just get a different optimal tree).');
+  q3('tq-heur', false, '✗ For most problems greedy is only a heuristic — but for MST it is exact. That is what makes this problem “easy”.');
+})();
+
+/* ============================================================
+   WIDGET 5 — Prim stepper, campus network (slides 22-26)
+   Edges: 1-2:1, 1-3:4, 1-4:6, 1-5:2, 2-3:3, 2-5:2, 3-4:5, 3-5:2, 4-5:4.
+   Slide iterations: (1,2) → (2,5) [tie with (1,5)] → (5,3) → (5,4); total 9.
+   ============================================================ */
+(() => {
+  const canvas = el('c-pm');
+  VIZ.hint(canvas, '🖱 click the arc Prim adds next');
+  const EDGES = [
+    { u: 1, v: 2, w: 1 }, { u: 1, v: 3, w: 4 }, { u: 1, v: 4, w: 6 }, { u: 1, v: 5, w: 2 },
+    { u: 2, v: 3, w: 3 }, { u: 2, v: 5, w: 2 }, { u: 3, v: 4, w: 5 }, { u: 3, v: 5, w: 2 },
+    { u: 4, v: 5, w: 4 },
+  ];
+  const SLIDEPICKS = ['1-2', '2-5', '5-3', '5-4'];
+  const POS = { 1: [0.47, 0.13], 2: [0.85, 0.25], 3: [0.63, 0.85], 4: [0.10, 0.76], 5: [0.42, 0.52] };
+  let C, tree, len, done;
+
+  function layout() {
+    const { ctx, w, h } = VIZ.setup(canvas);
+    const N = {};
+    Object.keys(POS).forEach(k => { N[k] = { x: POS[k][0] * w, y: POS[k][1] * h }; });
+    return { ctx, w, h, N };
+  }
+
+  function crossing() {
+    return EDGES.filter(e => (C.has(e.u) ? 1 : 0) + (C.has(e.v) ? 1 : 0) === 1);
+  }
+
+  function setC() {
+    el('pm-set').textContent = '{' + [...C].sort().join(',') + '}';
+    el('pm-len').textContent = len;
+  }
+
+  function draw() {
+    const { ctx, N } = layout();
+    const t = VIZ.theme();
+    EDGES.forEach(e => {
+      const inTree = tree.some(x => x === e);
+      drawLink(ctx, t, N[e.u], N[e.v], {
+        color: inTree ? t.s2 : t.axis, width: inTree ? 4.5 : 1.6,
+        label: e.w, labelBold: true, labelColor: inTree ? t.s2 : t.ink2,
+        labelOff: 12,
+        side: (e.u === 1 && e.v === 3) || (e.u === 2 && e.v === 5) ? -1 : 1,
+      });
+    });
+    Object.keys(N).forEach(k => {
+      const inC = C.has(+k);
+      drawNodeCircle(ctx, t, N[k], k, { r: 17, fill: inC ? t.s1 : t.surface, ring: inC });
+    });
+  }
+
+  function clickEdge(e) {
+    const st = el('pm-status');
+    if (done) return;
+    const inU = C.has(e.u), inV = C.has(e.v);
+    if (inU && inV) {
+      st.className = 'status bad';
+      st.textContent = '✗ Both ends of (' + e.u + ',' + e.v + ') are already in C — adding it would close a loop, and trees have none.';
+      return;
+    }
+    if (!inU && !inV) {
+      st.className = 'status bad';
+      st.textContent = '✗ Neither end of (' + e.u + ',' + e.v + ') touches C = {' + [...C].sort().join(',') + '}. Prim grows ONE connected set — the new arc must cross from C to an unconnected node.';
+      return;
+    }
+    const cross = crossing();
+    const wmin = Math.min(...cross.map(x => x.w));
+    if (e.w > wmin) {
+      const better = cross.filter(x => x.w === wmin).map(x => '(' + x.u + ',' + x.v + ')').join(' or ');
+      st.className = 'status bad';
+      st.textContent = '✗ (' + e.u + ',' + e.v + ') costs ' + e.w + ', but ' + better + ' reaches a new node for ' + wmin + '. Prim always takes the cheapest crossing arc.';
+      return;
+    }
+    // accept
+    const newNode = inU ? e.v : e.u;
+    tree.push(e); C.add(newNode); len += e.w;
+    el('pm-run').classList.remove('locked');
+    setC();
+    if (C.size === 5) {
+      done = true;
+      st.className = 'status ok';
+      st.textContent = '✓ Iteration 4 complete: ' + tree.map(x => '(' + x.u + ',' + x.v + ')').join(', ') +
+        ' — total length ' + len + ' blocks, matching slide 26.';
+    } else {
+      const tied = EDGES.filter(x => x !== e && x.w === e.w && ((C.has(x.u) ? 1 : 0) + (C.has(x.v) ? 1 : 0) === 1));
+      st.className = 'status ok';
+      st.textContent = '✓ Iteration ' + tree.length + ': node ' + newNode + ' joins via (' + e.u + ',' + e.v + '). C = {' +
+        [...C].sort().join(',') + '}.' +
+        (tree.length === 2 && newNode === 5 ? ' (Node 5 was 2 blocks from both node 1 and node 2 — slide 24 broke the tie with (2,5); either arc is fine.)' : '') +
+        ' Click the next arc.';
+    }
+    draw();
+  }
+
+  function autoRun() {
+    if (el('pm-run').classList.contains('locked')) {
+      const st = el('pm-status');
+      st.className = 'status bad';
+      st.textContent = '✗ Make at least one call yourself first — then the machine may finish.';
+      return;
+    }
+    while (!done && C.size < 5) {
+      const cross = crossing();
+      const wmin = Math.min(...cross.map(x => x.w));
+      const cands = cross.filter(x => x.w === wmin);
+      const pick = cands.find(x => SLIDEPICKS.includes(x.u + '-' + x.v) || SLIDEPICKS.includes(x.v + '-' + x.u)) || cands[0];
+      const newNode = C.has(pick.u) ? pick.v : pick.u;
+      tree.push(pick); C.add(newNode); len += pick.w;
+    }
+    done = true;
+    setC();
+    const st = el('pm-status');
+    st.className = 'status ok';
+    st.textContent = '✓ Prim finished: ' + tree.map(x => '(' + x.u + ',' + x.v + ')').join(', ') + ' — total length ' + len + ' blocks (slide 26).';
+    draw();
+  }
+
+  function reset() {
+    C = new Set([1]); tree = []; len = 0; done = false;
+    el('pm-run').classList.add('locked');
+    setC();
+    const st = el('pm-status');
+    st.className = 'status info';
+    st.textContent = 'Iteration 1 — C = {1}. Click the arc Prim adds first.';
+    draw();
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const { N } = layout();
+    let best = null, bd = 12;
+    EDGES.forEach(e => {
+      const d = distToSeg(px, py, N[e.u], N[e.v]);
+      if (d < bd) { bd = d; best = e; }
+    });
+    if (best) clickEdge(best);
+    else draw();
+  });
+
+  el('pm-run').addEventListener('click', autoRun);
+  el('pm-reset').addEventListener('click', reset);
+  reset();
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 6 — Georgia Power MST game (slides 27-29)
+   Edges from the slide-27 figure; optimal plan (slides 28-29) costs 24.
+   ============================================================ */
+(() => {
+  const canvas = el('c-ga');
+  VIZ.hint(canvas, '🖱 click links to add / remove');
+  const EDGES = [
+    { u: 'a', v: 'b', w: 3 }, { u: 'a', v: 'c', w: 10 }, { u: 'a', v: 'd', w: 2 },
+    { u: 'a', v: 'e', w: 4 }, { u: 'b', v: 'e', w: 7 }, { u: 'c', v: 'd', w: 12 },
+    { u: 'c', v: 'f', w: 15 }, { u: 'd', v: 'e', w: 6 }, { u: 'd', v: 'f', w: 4 },
+    { u: 'e', v: 'f', w: 5 }, { u: 'e', v: 'g', w: 2 }, { u: 'f', v: 'g', w: 3 },
+  ];
+  const OPT = ['a-b', 'a-c', 'a-d', 'a-e', 'e-g', 'f-g']; // slide 29, total 24
+  const POS = { a: [0.42, 0.10], b: [0.86, 0.10], c: [0.06, 0.46], d: [0.42, 0.46], e: [0.86, 0.46], f: [0.42, 0.85], g: [0.86, 0.85] };
+  let chosen = new Set(), revealed = false, attempts = [];
+
+  const key = e => e.u + '-' + e.v;
+
+  function layout() {
+    const { ctx, w, h } = VIZ.setup(canvas);
+    const N = {};
+    Object.keys(POS).forEach(k => { N[k] = { x: POS[k][0] * w, y: POS[k][1] * h }; });
+    return { ctx, w, h, N };
+  }
+
+  function components() {
+    const nodes = Object.keys(POS);
+    const seen = new Set(['a']);
+    const stack = ['a'];
+    while (stack.length) {
+      const x = stack.pop();
+      EDGES.forEach(e => {
+        if (!chosen.has(key(e))) return;
+        const other = e.u === x ? e.v : (e.v === x ? e.u : null);
+        if (other && !seen.has(other)) { seen.add(other); stack.push(other); }
+      });
+    }
+    return seen;
+  }
+
+  const planCost = () => EDGES.reduce((s, e) => s + (chosen.has(key(e)) ? e.w : 0), 0);
+  window.__gaScore = () => components().size === 7 ? planCost() : null;
+
+  function draw() {
+    const { ctx, N, h } = layout();
+    const t = VIZ.theme();
+    EDGES.forEach(e => {
+      if (revealed && OPT.includes(key(e))) {
+        drawLink(ctx, t, N[e.u], N[e.v], { color: t.s2, width: 7 });
+      }
+    });
+    EDGES.forEach(e => {
+      const on = chosen.has(key(e));
+      drawLink(ctx, t, N[e.u], N[e.v], {
+        color: on ? t.s5 : t.axis, width: on ? 3.5 : 1.5,
+        label: e.w, labelBold: true, labelColor: on ? t.s5 : t.ink2, labelOff: 12,
+        side: (key(e) === 'a-c' || key(e) === 'e-f' || key(e) === 'a-e') ? -1 : 1,
+      });
+    });
+    const reach = components();
+    Object.keys(N).forEach(k => {
+      drawNodeCircle(ctx, t, N[k], k, { r: 16, fill: reach.has(k) && chosen.size ? t.s1 : t.surface });
+    });
+    if (revealed) {
+      halo(ctx, t, 'Prim’s plan (green): total cost 24', N.c.x - 12, h * 0.66, t.s2, 14, true, 'left');
+    }
+  }
+
+  function update() {
+    const reach = components();
+    const cost = planCost();
+    el('ga-arcs').textContent = chosen.size;
+    el('ga-conn').textContent = reach.size + ' / 7';
+    el('ga-cost').textContent = cost;
+    const st = el('ga-status');
+    if (chosen.size === 0) { st.className = 'status info'; st.textContent = 'Click a link to start your plan.'; }
+    else if (reach.size < 7) {
+      st.className = 'status info';
+      st.textContent = reach.size + ' of 7 districts reachable so far — cost ' + cost + '. Every district must join the network.';
+    } else if (chosen.size > 6) {
+      st.className = 'status info';
+      st.textContent = 'All districts connected at cost ' + cost + ' — but ' + chosen.size + ' links on 7 nodes means a loop. Some link is pure waste.';
+    } else {
+      st.className = 'status ok';
+      st.textContent = '✓ A spanning tree! Cost ' + cost + '. Log it — can the class go lower?';
+    }
+    draw();
+  }
+
+  function log() {
+    const reach = components();
+    const cost = planCost();
+    const verdict = reach.size < 7 ? 'disconnected' : (chosen.size > 6 ? 'has a loop' : 'spanning tree');
+    attempts.push({ links: chosen.size, verdict, cost, ok: reach.size === 7 });
+    const valid = attempts.filter(a => a.ok);
+    const best = valid.length ? Math.min(...valid.map(a => a.cost)) : null;
+    el('ga-attwrap').style.display = '';
+    el('ga-att').querySelector('tbody').innerHTML = attempts.map((a, k) =>
+      '<tr class="' + (!a.ok ? 'infeasible' : (a.cost === best ? 'best' : '')) + '"><td>' + (k + 1) + '</td><td>' +
+      a.links + '</td><td>' + a.verdict + '</td><td>' + a.cost + '</td></tr>').join('');
+    const st = el('ga-status');
+    if (!attempts[attempts.length - 1].ok) {
+      st.className = 'status bad';
+      st.textContent = '✗ Logged, but the plan leaves districts unpowered — it does not count.';
+    } else {
+      st.className = 'status ok';
+      st.textContent = 'Attempt #' + attempts.length + ' logged at cost ' + cost + '. Best valid plan so far: ' + best + '.';
+    }
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const { N } = layout();
+    let best = null, bd = 12;
+    EDGES.forEach(e => {
+      const d = distToSeg(px, py, N[e.u], N[e.v]);
+      if (d < bd) { bd = d; best = e; }
+    });
+    if (!best) return;
+    const k = key(best);
+    if (chosen.has(k)) chosen.delete(k); else chosen.add(k);
+    update();
+  });
+
+  el('ga-log').addEventListener('click', log);
+  el('ga-clear').addEventListener('click', () => { chosen = new Set(); update(); });
+  el('ga-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('ga-reveal').textContent = revealed ? 'Hide Prim’s plan' : 'Reveal Prim’s plan ★';
+    draw();
+  });
+  update();
+  VIZ.register(canvas, draw);
+})();
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('assign', {
+  label: 'total cost', dir: 'min', digits: 0,
+  get: () => window.__assignScore(),
+});
+CLASSROOM.register('georgia', {
+  label: 'plan cost', dir: 'min', digits: 0,
+  get: () => window.__gaScore(),
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 2 — IP Modeling (Part 1) (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<style>
+  /* constraint checklist rows (diet, investments, oil sites) */
+  table.cons {
+    border-collapse: collapse;
+    width: 100%;
+    max-width: 680px;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.95rem;
+    margin-top: 8px;
+  }
+  table.cons th, table.cons td { padding: 5px 10px; border-bottom: 1px solid var(--grid); text-align: right; }
+  table.cons td:first-child, table.cons th:first-child { text-align: left; }
+  table.cons th { color: var(--ink-2); font-weight: 600; }
+  .val-ok { color: var(--good); font-weight: 700; }
+  .val-bad { color: var(--critical); font-weight: 700; }
+  .bar { display: inline-block; width: 110px; height: 8px; background: var(--grid); border-radius: 99px; overflow: hidden; vertical-align: middle; }
+  .bar i { display: block; height: 100%; background: var(--critical); }
+  .bar.met i { background: var(--good); }
+
+  /* investment cards + oil site chips */
+  button.inv {
+    text-align: left;
+    line-height: 1.3;
+    padding: 10px 14px;
+    border-radius: 10px;
+    flex: 1 1 190px;
+    min-width: 150px;
+  }
+  button.inv.on { border-color: var(--s1); background: var(--region-fill); }
+  button.inv .nm { font-weight: 700; }
+  button.inv .dt { font-size: 0.85rem; color: var(--ink-2); }
+  .sites { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+  button.site { width: 54px; padding: 8px 0; text-align: center; border-radius: 10px; font-weight: 700; }
+  button.site.on { background: var(--s1); border-color: var(--s1); color: #fff; }
+
+  /* formulation quizzes */
+  .quizq { margin: 14px 0 4px; }
+  .quizq .qp { font-weight: 600; margin: 0 0 6px; }
+  .qopts { display: flex; flex-wrap: wrap; gap: 8px; }
+  .qopts button { font-variant-numeric: tabular-nums; }
+  .qopts button.correct { border-color: var(--good); color: var(--good); font-weight: 700; }
+  .qopts button.wrong { border-color: var(--critical); color: var(--critical); }
+  .qstat { margin: 6px 0 0; font-size: 0.92rem; min-height: 1.4em; }
+
+  /* preference matrix (assignment game) */
+  table.pref { border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 10px; }
+  table.pref th, table.pref td { border: 1px solid var(--grid); text-align: center; padding: 10px 8px; min-width: 74px; }
+  table.pref th { color: var(--ink-2); font-weight: 600; font-size: 0.88rem; }
+  table.pref td.cell { cursor: pointer; font-weight: 700; font-size: 1.08rem; position: relative; }
+  table.pref td.cell:hover { border-color: var(--axis); }
+  table.pref td.sel { background: var(--region-fill); outline: 2px solid var(--s5); outline-offset: -2px; }
+  table.pref td.rt::after {
+    content: 'Σ'; position: absolute; top: 1px; right: 4px;
+    font-size: 0.68rem; font-weight: 700; color: var(--s2);
+  }
+  table.pref td.rm::before {
+    content: 'min'; position: absolute; bottom: 1px; left: 4px;
+    font-size: 0.6rem; font-weight: 700; color: var(--s1);
+  }
+  .pref-wrap { overflow-x: auto; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 2: IP Modeling (Part 1)</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#relax">1 · Rounding fails</a>
+    <a href="#diet">2 · Diet MIP race</a>
+    <a href="#invest">3 · Knapsack picks</a>
+    <a href="#oilsites">4 · Constraint logic</a>
+    <a href="#fairshare">5 · Fair assignment</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : GIAPETTO GOES INTEGER ================= -->
+<section class="widget" id="relax">
+  <h2>Can you just round the LP answer? <span class="chip">Slides 5–9</span></h2>
+  <p class="howto">
+    Giapetto again — max z = 19x₁ + 20x₂ with x₁ + 2x₂ ≤ 10 (finishing) and 5x₁ + 3x₂ ≤ 20
+    (carpentry) — but this week soldiers and trains must be built in <b>whole numbers</b>.
+    The IP's feasible "region" is just the lattice dots. <b>Click the integer point</b> you
+    believe is optimal, then compare it with the LP relaxation and its rounded-down cousin.
+  </p>
+  <div class="controls">
+    <span class="readout">your point: <b id="relax-pt">—</b></span>
+    <span class="readout">z = <b id="relax-z">—</b></span>
+    <span class="readout">best feasible z: <b id="relax-best">—</b></span>
+    <button id="relax-lp">Reveal LP relaxation ✦</button>
+    <button id="relax-round">Show round-down</button>
+    <button id="relax-ip" class="primary">Reveal IP optimum ★</button>
+  </div>
+  <canvas class="viz" id="c-relax"></canvas>
+  <p class="status info" id="relax-status">Click a lattice point to make your bid.</p>
+  <div class="note">
+    The LP relaxation drops the integrality restriction, so its region <em>contains</em> every
+    integer-feasible point — that is why, in a max problem, z<sub>LP</sub>* can never be below z*
+    (slide 8). Rounding the LP answer down keeps you feasible here, but is it optimal?
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      LP relaxation: (x₁, x₂) = (10/7, 30/7) ≈ (1.43, 4.29) with z<sub>LP</sub>* = 112.86 (slide 7).
+      Rounding down gives (1, 4) with z = 99 (slide 8) — feasible but <b>not</b> optimal.
+      The IP optimum sits at (0, 5) with z* = 100 (slide 9), and it is not even a neighbor of the
+      LP solution. Rounding can miss the true optimum — and in other instances it can even be infeasible.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : DIET MIP ================= -->
+<section class="widget" id="diet">
+  <h2>What's the cheapest legal diet? <span class="chip">Slides 10–11</span></h2>
+  <p class="howto">
+    Slide 10's updated diet problem: apples ($1.5) and oranges ($2) come in integer counts, milk
+    ($3/L) pours continuously — a genuine <b>mixed</b> integer program. Hit 500 calories, 6 g protein,
+    10 g sugar, and keep apples strictly above half the oranges (modeled as x₁ − 0.5x₂ ≥ 0.1 on
+    slide 11). <b>Tune the menu, log attempts, race for the minimum cost.</b>
+  </p>
+  <div class="controls">
+    <span class="group">
+      <label>apples</label>
+      <button id="diet-am">−</button><span class="readout"><b id="diet-av">0</b></span><button id="diet-ap">+</button>
+    </span>
+    <span class="group">
+      <label>oranges</label>
+      <button id="diet-om">−</button><span class="readout"><b id="diet-ov">0</b></span><button id="diet-op">+</button>
+    </span>
+    <span class="group">
+      <label>milk (L)</label>
+      <input type="range" id="diet-milk" min="0" max="4" step="0.05" value="0">
+      <span class="readout"><b id="diet-mv">0.00</b> L</span>
+    </span>
+  </div>
+  <div class="controls">
+    <span class="readout">daily cost: $<b id="diet-cost">0.00</b></span>
+    <button id="diet-log" class="primary">Log this menu</button>
+    <button id="diet-reset">Reset</button>
+  </div>
+  <table class="cons" id="diet-cons"></table>
+  <p class="status info" id="diet-status"></p>
+  <div style="overflow-x:auto"><table class="attempts" id="diet-att" style="display:none">
+    <thead><tr><th>#</th><th>apples</th><th>oranges</th><th>milk (L)</th><th>cost ($)</th><th>verdict</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <div class="note">
+    Milk may be 1.35 L, but 2.5 apples stay forbidden — that asymmetry is exactly what "mixed"
+    means (slide 4). The slides stop at the formulation and leave the solving for later weeks.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Cheapest menu (computed by enumerating the slide's model — the slides do not print it):
+      <b>2 apples, 1 orange, 1.2 L milk → $8.60</b>, with protein (6.0 g) and sugar (10.0 g) both
+      exactly tight. Note how the 0.1 in x₁ − 0.5x₂ ≥ 0.1 turns "strictly greater than half" into
+      a constraint a solver can hold on to — strict inequalities themselves are off-limits.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : INVESTMENT KNAPSACK ================= -->
+<section class="widget" id="invest">
+  <h2>Which investments make the cut? <span class="chip">Slides 13–16</span></h2>
+  <p class="howto">
+    $24,000 to place across four opportunities (slide 13) — a knapsack in disguise (slide 17).
+    <b>Toggle investments</b> and watch the budget. Then switch on slide 15's extra restrictions
+    and see the feasible set shrink. Finish with the two-question formulation quiz below:
+    which inequality encodes each restriction?
+  </p>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg active" id="inv-base">Base (slide 14)</button>
+      <button class="seg" id="inv-restr">+ Restrictions (slide 16)</button>
+    </span>
+    <span class="readout">spent: $<b id="inv-spent">0</b>k / $24k</span>
+    <span class="readout">present value: $<b id="inv-pv">0</b>k</span>
+    <span class="readout">best PV — base: $<b id="inv-bb">—</b>k · restricted: $<b id="inv-br">—</b>k</span>
+  </div>
+  <div class="controls" id="inv-cards"></div>
+  <table class="cons" id="inv-cons"></table>
+  <p class="status info" id="inv-status"></p>
+
+  <div class="quizq">
+    <p class="qp">Quiz 1 — "If investment 2 is made, investment 4 must also be made" is:</p>
+    <div class="qopts" id="invq1"></div>
+    <p class="qstat status info" id="invq1-stat"></p>
+  </div>
+  <div class="quizq">
+    <p class="qp">Quiz 2 — "Investments 1 and 3 cannot both be made" is:</p>
+    <div class="qopts" id="invq2"></div>
+    <p class="qstat status info" id="invq2-stat"></p>
+  </div>
+
+  <div class="note">
+    With binaries, one inequality carries a whole sentence of business logic — the trick is
+    getting the direction right. "At most two investments" is the friendly one: x₁+x₂+x₃+x₄ ≤ 2.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Base problem: only the all-four portfolio ($26k) busts the $24k budget, so the best is
+      investments <b>{1, 2, 3} → PV $34k</b> at $23k spent. With slide 16's restrictions
+      (x₁+x₂+x₃+x₄ ≤ 2, x₂ − x₄ ≤ 0, x₁ + x₃ ≤ 1) the best drops to <b>{1, 4} → PV $18k</b>.
+      Both optima are found by enumerating the 16 portfolios — the slides pose "how would we solve
+      this?" and leave the numbers to you. Extra constraints never help the objective: the feasible
+      set only shrinks.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 4 : OIL SITES CONSTRAINT LOGIC ================= -->
+<section class="widget" id="oilsites">
+  <h2>Can you say it in inequalities? <span class="chip">Slides 18–24</span></h2>
+  <p class="howto">
+    An oil company screens 10 sites but may explore at most 5 (slide 18). Each side condition
+    must become a <em>linear</em> constraint on binaries x₁…x₁₀. <b>First translate all four
+    restrictions</b> — beware the famous trap — <b>then toggle sites</b> to build a plan that
+    survives every constraint.
+  </p>
+
+  <div class="quizq">
+    <p class="qp">Q1 — "If site 2 is explored, then site 3 must also be explored":</p>
+    <div class="qopts" id="oilq1"></div>
+    <p class="qstat status info" id="oilq1-stat"></p>
+  </div>
+  <div class="quizq">
+    <p class="qp">Q2 — "Exploring sites 1 and 7 prevents you from exploring site 8":</p>
+    <div class="qopts" id="oilq2"></div>
+    <p class="qstat status info" id="oilq2-stat"></p>
+  </div>
+  <div class="quizq">
+    <p class="qp">Q3 — "At least 2 of sites 3, 4, 7, 9 should be explored":</p>
+    <div class="qopts" id="oilq3"></div>
+    <p class="qstat status info" id="oilq3-stat"></p>
+  </div>
+  <div class="quizq">
+    <p class="qp">Q4 (slide 22) — "If sites 5 and 6 are <em>both</em> explored, then site 10 must also be explored":</p>
+    <div class="qopts" id="oilq4"></div>
+    <p class="qstat status info" id="oilq4-stat"></p>
+  </div>
+  <p class="status info" id="oilq-score">0 / 4 restrictions translated.</p>
+
+  <p class="qp" style="margin:18px 0 0;font-weight:600">Now build an exploration plan (tap sites on/off):</p>
+  <div class="sites" id="oil-sites"></div>
+  <table class="cons" id="oil-cons"></table>
+  <p class="status info" id="oil-status"></p>
+  <div class="note">
+    The expected profits p₁…p₁₀ stay symbolic on the slides, so this board checks
+    <em>feasibility</em> only — no invented profit numbers. Slides 20–24 swap the 5-site cap for a
+    monetary budget Σbᵢxᵢ ≤ B, but bᵢ and B stay symbolic too, so the board keeps slide 19's
+    count budget x₁+…+x₁₀ ≤ 5 alongside slide 24's governmental constraint. Challenge: can you
+    stay feasible while using all 5 exploration slots?
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      One 5-site feasible plan: <b>{1, 3, 4, 7, 9}</b> — count 5 ≤ 5; site 2 unexplored so
+      x₂ − x₃ ≤ 0 holds; x₁+x₇+x₈ = 2 ≤ 2 (just barely legal); x₃+x₄+x₇+x₉ = 4 ≥ 2;
+      x₅+x₆−x₁₀ = 0 ≤ 1. And the trap: x₅x₆ − x₁₀ ≤ 0 says the right thing for binaries, but a
+      product of variables is <b>not linear</b> — slide 24 replaces it with x₅ + x₆ − x₁₀ ≤ 1.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 5 : FAIR ASSIGNMENT ================= -->
+<section class="widget" id="fairshare">
+  <h2>Max the total — or protect the worst-off? <span class="chip">Slides 25–33</span></h2>
+  <p class="howto">
+    Slide 26 assigns 8 courses to 8 faculty by preference p<sub>ij</sub>; here is a 4×4 board you
+    can actually play (instance chosen for the demo; the slide is general). <b>Click a cell</b> to
+    assign that faculty to that course — one course each, no sharing. First maximize the
+    <b>total</b> preference; then try to maximize the <b>minimum</b> preference (slide 32's
+    fairness twist) and watch who stops suffering.
+  </p>
+  <div class="controls">
+    <span class="readout">assigned: <b id="fs-n">0</b>/4</span>
+    <span class="readout">total preference: <b id="fs-tot">—</b></span>
+    <span class="readout">minimum preference: <b id="fs-min">—</b></span>
+  </div>
+  <div class="controls">
+    <button id="fs-rt">Reveal max-total Σ</button>
+    <button id="fs-rm">Reveal max-min ★</button>
+    <button id="fs-clear">Clear board</button>
+  </div>
+  <div class="pref-wrap"><table class="pref" id="fs-table"></table></div>
+  <p class="status info" id="fs-status">Empty board — everyone is unassigned.</p>
+  <div class="note">
+    Markers after reveal: <b>Σ</b> = the max-total assignment, <b>min</b> = the max-min assignment.
+    Slide 29's trick for a forbidden pairing (faculty 4 can't teach course 7) is x₄₇ = 0 — or set
+    p₄₇ = −M and let the objective do the banning. Slide 33 builds max-min with one extra variable:
+    max d subject to d ≤ Σ<sub>j</sub> p<sub>ij</sub>x<sub>ij</sub> for every faculty i.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Max-total: F1→C3, F2→C2, F3→C4, F4→C1 for a total of <b>29</b> — three faculty score a 9,
+      and faculty 4 is stuck with a <b>2</b>. Max-min: F1→C2, F2→C1, F3→C4, F4→C3 lifts the
+      worst-off to <b>6</b> while the total only drops to 28. Fairness cost one point here — it
+      can cost more. And slide 27's teaser: the assignment problem is the <em>easy</em> one — its
+      LP relaxation already lands on integer corners, while the innocent-looking knapsack has no
+      such luck.
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 2.
+  Figures follow the examples used in the Week 2 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+window.HOOKS = {};
+
+/* ============================================================
+   WIDGET 1 — Giapetto goes integer (slides 5-9)
+   max 19x1 + 20x2, x1+2x2<=10, 5x1+3x2<=20, x>=0 integer.
+   LP relax (10/7, 30/7) z=112.86; round-down (1,4) z=99; IP opt (0,5) z=100.
+   ============================================================ */
+(() => {
+  const canvas = el('c-relax');
+  VIZ.hint(canvas, '🖱 click a lattice point');
+  const view = { x0: -0.45, x1: 6.35, y0: -0.45, y1: 6.45 };
+  const LP = [10 / 7, 30 / 7];
+  const z = (a, b) => 19 * a + 20 * b;
+  const feas = (a, b) => a >= 0 && b >= 0 && a + 2 * b <= 10 && 5 * a + 3 * b <= 20;
+  let guess = null, best = null, showLP = false, showRound = false, showIP = false, lastPlot = null;
+
+  // clip a line a*x + b*y = c to the view box, return [[x,y],[x,y]] or null
+  function clipLine(a, b, c) {
+    const pts = [];
+    const { x0, x1, y0, y1 } = view;
+    if (Math.abs(b) > 1e-12) {
+      [[x0, (c - a * x0) / b], [x1, (c - a * x1) / b]].forEach(([x, y]) => {
+        if (y >= y0 - 1e-9 && y <= y1 + 1e-9) pts.push([x, y]);
+      });
+    }
+    if (Math.abs(a) > 1e-12) {
+      [[(c - b * y0) / a, y0], [(c - b * y1) / a, y1]].forEach(([x, y]) => {
+        if (x >= x0 - 1e-9 && x <= x1 + 1e-9) pts.push([x, y]);
+      });
+    }
+    return pts.length >= 2 ? [pts[0], pts[pts.length - 1]] : null;
+  }
+
+  function seg(p, t, a, b, c, color, dash) {
+    const s = clipLine(a, b, c);
+    if (!s) return;
+    const { ctx, X, Y } = p;
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    if (dash) ctx.setLineDash([6, 5]);
+    ctx.beginPath();
+    ctx.moveTo(X(s[0][0]), Y(s[0][1]));
+    ctx.lineTo(X(s[1][0]), Y(s[1][1]));
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function draw() {
+    const p = VIZ.plot(canvas, view);
+    const t = VIZ.theme();
+    lastPlot = p;
+    VIZ.axes(p, t, { xticks: [0, 1, 2, 3, 4, 5, 6], yticks: [0, 1, 2, 3, 4, 5, 6], xlabel: 'x₁ (soldiers)', ylabel: 'x₂ (trains)' });
+    const { ctx, X, Y } = p;
+
+    // LP feasible region: (0,0) (4,0) (10/7,30/7) (0,5)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(X(0), Y(0)); ctx.lineTo(X(4), Y(0)); ctx.lineTo(X(LP[0]), Y(LP[1])); ctx.lineTo(X(0), Y(5));
+    ctx.closePath();
+    ctx.fillStyle = t.region;
+    ctx.fill();
+    ctx.restore();
+
+    seg(p, t, 1, 2, 10, t.axis);
+    seg(p, t, 5, 3, 20, t.axis);
+    VIZ.label(p, 'x₁ + 2x₂ = 10', 4.55, 2.95, t.ink2, { size: 13 });
+    VIZ.label(p, '5x₁ + 3x₂ = 20', 0.55, 5.9, t.ink2, { size: 13 });
+
+    // integer lattice: IP's real feasible set
+    for (let a = 0; a <= 6; a++) {
+      for (let b = 0; b <= 6; b++) {
+        const ok = feas(a, b);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(X(a), Y(b), ok ? 4 : 2, 0, 2 * Math.PI);
+        ctx.fillStyle = ok ? t.ink2 : t.grid;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    if (showLP) {
+      seg(p, t, 19, 20, z(LP[0], LP[1]), t.s1, true);
+      VIZ.dot(p, LP[0], LP[1], t.s1, 7, true);
+      VIZ.label(p, '(10/7, 30/7)  z = 112.86', LP[0], LP[1], t.s1, { dx: 12, dy: -10, bold: true });
+    }
+    if (showRound) {
+      if (showLP) {
+        ctx.save();
+        ctx.strokeStyle = t.s1;
+        ctx.setLineDash([3, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(X(LP[0]), Y(LP[1]));
+        ctx.lineTo(X(1), Y(4));
+        ctx.stroke();
+        ctx.restore();
+      }
+      VIZ.dot(p, 1, 4, t.s1, 6);
+      VIZ.label(p, 'rounded down: (1, 4)  z = 99', 1, 4, t.s1, { dx: 12, dy: 20, size: 13, baseline: 'top' });
+    }
+    if (showIP) {
+      VIZ.star(p, 0, 5, t.s2, 11);
+      VIZ.label(p, 'IP optimum (0, 5)  z* = 100', 0, 5, t.s2, { dx: 14, dy: -8, bold: true });
+    }
+    if (guess) {
+      VIZ.dot(p, guess[0], guess[1], feas(guess[0], guess[1]) ? t.s5 : t.bad, 7, true);
+    }
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    if (!lastPlot) return;
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const a = Math.max(0, Math.min(6, Math.round(lastPlot.invX(px))));
+    const b = Math.max(0, Math.min(6, Math.round(lastPlot.invY(py))));
+    guess = [a, b];
+    const st = el('relax-status');
+    el('relax-pt').textContent = '(' + a + ', ' + b + ')';
+    if (feas(a, b)) {
+      const v = z(a, b);
+      el('relax-z').textContent = String(v);
+      if (best === null || v > best) best = v;
+      el('relax-best').textContent = String(best);
+      st.className = 'status ok';
+      st.textContent = '(' + a + ', ' + b + ') is feasible: z = 19·' + a + ' + 20·' + b + ' = ' + v + '. Can any lattice point beat it?';
+    } else {
+      el('relax-z').textContent = 'infeasible';
+      const bad = [];
+      if (a + 2 * b > 10) bad.push('finishing (x₁+2x₂ = ' + (a + 2 * b) + ' > 10)');
+      if (5 * a + 3 * b > 20) bad.push('carpentry (5x₁+3x₂ = ' + (5 * a + 3 * b) + ' > 20)');
+      st.className = 'status bad';
+      st.textContent = '(' + a + ', ' + b + ') breaks ' + bad.join(' and ') + '.';
+    }
+    draw();
+  });
+
+  el('relax-lp').addEventListener('click', () => {
+    showLP = !showLP;
+    el('relax-lp').textContent = showLP ? 'Hide LP relaxation' : 'Reveal LP relaxation ✦';
+    draw();
+  });
+  el('relax-round').addEventListener('click', () => {
+    showRound = !showRound;
+    el('relax-round').textContent = showRound ? 'Hide round-down' : 'Show round-down';
+    draw();
+  });
+  el('relax-ip').addEventListener('click', () => {
+    showIP = !showIP;
+    el('relax-ip').textContent = showIP ? 'Hide IP optimum' : 'Reveal IP optimum ★';
+    draw();
+  });
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 2 — diet MIP (slides 10-11)
+   min 1.5x1 + 2x2 + 3x3
+   70x1+90x2+400x3 >= 500; 0.5x1+0.2x2+4x3 >= 6; 2x1+3x2+2.5x3 >= 10;
+   x1-0.5x2 >= 0.1; x1,x2 integer >= 0; x3 >= 0.
+   Optimum (computed, not on slides): (2, 1, 1.2) -> $8.60.
+   ============================================================ */
+(() => {
+  let a = 0, b = 0, m = 0;
+  const attempts = [];
+  const cost = () => 1.5 * a + 2 * b + 3 * m;
+  const CONS = [
+    { name: 'calories ≥ 500', lhs: () => 70 * a + 90 * b + 400 * m, req: 500, d: 0 },
+    { name: 'protein ≥ 6 g', lhs: () => 0.5 * a + 0.2 * b + 4 * m, req: 6, d: 1 },
+    { name: 'sugar ≥ 10 g', lhs: () => 2 * a + 3 * b + 2.5 * m, req: 10, d: 1 },
+    { name: 'apples > oranges/2 (x₁ − 0.5x₂ ≥ 0.1)', lhs: () => a - 0.5 * b, req: 0.1, d: 1 },
+  ];
+  const feasible = () => CONS.every(c => c.lhs() >= c.req - 1e-9);
+
+  function render() {
+    el('diet-av').textContent = String(a);
+    el('diet-ov').textContent = String(b);
+    el('diet-mv').textContent = fmt(m, 2);
+    el('diet-cost').textContent = fmt(cost(), 2);
+    let html = '<thead><tr><th>requirement</th><th>you provide</th><th></th><th>status</th></tr></thead><tbody>';
+    CONS.forEach(c => {
+      const v = c.lhs();
+      const ok = v >= c.req - 1e-9;
+      const w = Math.max(0, Math.min(100, (v / c.req) * 100));
+      html += '<tr><td>' + c.name + '</td><td>' + fmt(v, c.d) + '</td>' +
+        '<td><span class="bar' + (ok ? ' met' : '') + '"><i style="width:' + fmt(w, 0) + '%"></i></span></td>' +
+        '<td class="' + (ok ? 'val-ok' : 'val-bad') + '">' + (ok ? 'met' : 'short') + '</td></tr>';
+    });
+    html += '</tbody>';
+    el('diet-cons').innerHTML = html;
+    const st = el('diet-status');
+    if (feasible()) {
+      st.className = 'status ok';
+      st.textContent = 'Feasible menu at $' + fmt(cost(), 2) + ' — log it, then squeeze the cost.';
+    } else {
+      st.className = 'status bad';
+      st.textContent = 'Some requirement is still short — this menu would not survive the constraints.';
+    }
+  }
+
+  function renderAttempts() {
+    const tb = el('diet-att').querySelector('tbody');
+    const feasCosts = attempts.filter(r => r.f).map(r => r.c);
+    const bestC = feasCosts.length ? Math.min(...feasCosts) : null;
+    tb.innerHTML = attempts.map(r =>
+      '<tr class="' + (!r.f ? 'infeasible' : (r.c === bestC ? 'best' : '')) + '"><td>' + r.n + '</td><td>' + r.a +
+      '</td><td>' + r.b + '</td><td>' + fmt(r.m, 2) + '</td><td>' + fmt(r.c, 2) + '</td><td>' +
+      (r.f ? 'feasible' : 'infeasible') + '</td></tr>').join('');
+    el('diet-att').style.display = attempts.length ? '' : 'none';
+  }
+
+  el('diet-ap').addEventListener('click', () => { a = Math.min(12, a + 1); render(); });
+  el('diet-am').addEventListener('click', () => { a = Math.max(0, a - 1); render(); });
+  el('diet-op').addEventListener('click', () => { b = Math.min(12, b + 1); render(); });
+  el('diet-om').addEventListener('click', () => { b = Math.max(0, b - 1); render(); });
+  el('diet-milk').addEventListener('input', () => { m = +el('diet-milk').value; render(); });
+  el('diet-log').addEventListener('click', () => {
+    attempts.push({ n: attempts.length + 1, a, b, m, c: cost(), f: feasible() });
+    renderAttempts();
+  });
+  el('diet-reset').addEventListener('click', () => {
+    a = 0; b = 0; m = 0;
+    el('diet-milk').value = '0';
+    render();
+  });
+  HOOKS.diet = () => (feasible() ? cost() : null);
+  render();
+})();
+
+/* ============================================================
+   WIDGET 3 — investment knapsack (slides 13-16)
+   max 13x1+11x2+10x3+5x4, 9x1+7x2+7x3+3x4 <= 24, x binary.
+   Restrictions (slide 16): sum <= 2, x2-x4 <= 0, x1+x3 <= 1.
+   ============================================================ */
+(() => {
+  const COST = [9, 7, 7, 3], PV = [13, 11, 10, 5];
+  let x = [0, 0, 0, 0], mode = 'base', bestBase = null, bestRestr = null, touched = false;
+
+  const spent = () => x.reduce((s, v, i) => s + v * COST[i], 0);
+  const pv = () => x.reduce((s, v, i) => s + v * PV[i], 0);
+
+  function consList() {
+    const c = [{ name: 'monetary: 9x₁+7x₂+7x₃+3x₄ ≤ 24', val: spent(), ok: spent() <= 24, show: '$' + spent() + 'k' }];
+    if (mode === 'restr') {
+      c.push({ name: 'amount: x₁+x₂+x₃+x₄ ≤ 2', val: x.reduce((s, v) => s + v, 0), ok: x.reduce((s, v) => s + v, 0) <= 2, show: String(x.reduce((s, v) => s + v, 0)) });
+      c.push({ name: 'dependency: x₂ − x₄ ≤ 0', val: x[1] - x[3], ok: x[1] - x[3] <= 0, show: String(x[1] - x[3]) });
+      c.push({ name: 'dependency: x₁ + x₃ ≤ 1', val: x[0] + x[2], ok: x[0] + x[2] <= 1, show: String(x[0] + x[2]) });
+    }
+    return c;
+  }
+  const feasible = () => consList().every(c => c.ok);
+
+  function render() {
+    el('inv-cards').innerHTML = COST.map((c, i) =>
+      '<button class="inv' + (x[i] ? ' on' : '') + '" data-i="' + i + '" aria-pressed="' + (x[i] ? 'true' : 'false') + '">' +
+      '<span class="nm">Investment ' + (i + 1) + (x[i] ? ' ✓' : '') + '</span><br>' +
+      '<span class="dt">costs $' + c + 'k · present value $' + PV[i] + 'k</span></button>').join('');
+    el('inv-cards').querySelectorAll('button.inv').forEach(btn =>
+      btn.addEventListener('click', () => { const i = +btn.dataset.i; x[i] = 1 - x[i]; touched = true; render(); }));
+
+    el('inv-spent').textContent = String(spent());
+    el('inv-pv').textContent = String(pv());
+    let html = '<thead><tr><th>constraint</th><th>now</th><th>status</th></tr></thead><tbody>';
+    consList().forEach(c => {
+      html += '<tr><td>' + c.name + '</td><td>' + c.show + '</td><td class="' + (c.ok ? 'val-ok' : 'val-bad') + '">' + (c.ok ? 'OK' : 'violated') + '</td></tr>';
+    });
+    html += '</tbody>';
+    el('inv-cons').innerHTML = html;
+
+    const st = el('inv-status');
+    if (feasible()) {
+      if (touched) {
+        if (mode === 'base') { if (bestBase === null || pv() > bestBase) bestBase = pv(); }
+        else if (bestRestr === null || pv() > bestRestr) bestRestr = pv();
+      }
+      st.className = touched ? 'status ok' : 'status info';
+      st.textContent = touched
+        ? 'Feasible portfolio: PV $' + pv() + 'k for $' + spent() + 'k. Better one out there?'
+        : 'Empty portfolio — toggle investments to start.';
+    } else {
+      st.className = 'status bad';
+      st.textContent = 'Infeasible portfolio — check the red rows above.';
+    }
+    el('inv-bb').textContent = bestBase === null ? '—' : String(bestBase);
+    el('inv-br').textContent = bestRestr === null ? '—' : String(bestRestr);
+  }
+
+  el('inv-base').addEventListener('click', () => {
+    mode = 'base';
+    el('inv-base').classList.add('active'); el('inv-restr').classList.remove('active');
+    render();
+  });
+  el('inv-restr').addEventListener('click', () => {
+    mode = 'restr';
+    el('inv-restr').classList.add('active'); el('inv-base').classList.remove('active');
+    render();
+  });
+  render();
+
+  /* --- formulation quizzes (slides 15-16) --- */
+  function quiz(hostId, statId, opts, onSolved) {
+    const host = el(hostId), stat = el(statId);
+    let solved = false;
+    host.innerHTML = opts.map((o, i) => '<button data-i="' + i + '">' + o.t + '</button>').join('');
+    host.querySelectorAll('button').forEach(btn => btn.addEventListener('click', () => {
+      const o = opts[+btn.dataset.i];
+      if (o.ok) {
+        host.querySelectorAll('button').forEach(q => q.classList.remove('wrong'));
+        btn.classList.add('correct');
+        stat.className = 'qstat status ok';
+        stat.textContent = '✓ ' + o.msg;
+        if (!solved) { solved = true; if (onSolved) onSolved(); }
+      } else {
+        btn.classList.add('wrong');
+        stat.className = 'qstat status bad';
+        stat.textContent = '✗ ' + o.msg;
+      }
+    }));
+  }
+
+  quiz('invq1', 'invq1-stat', [
+    { t: 'x₂ + x₄ ≤ 1', ok: false, msg: 'That forbids doing BOTH — mutual exclusion, not a prerequisite.' },
+    { t: 'x₂ − x₄ ≤ 0', ok: true, msg: 'If x₂ = 1 the inequality forces x₄ = 1; if x₂ = 0, x₄ stays free. Exactly slide 16.' },
+    { t: 'x₄ − x₂ ≤ 0', ok: false, msg: 'Backwards — this makes investment 2 a prerequisite for investment 4.' },
+    { t: 'x₂ + x₄ ≥ 1', ok: false, msg: 'That forces at least one of them in EVERY plan — even when we want neither.' },
+  ]);
+  quiz('invq2', 'invq2-stat', [
+    { t: 'x₁ − x₃ ≤ 0', ok: false, msg: 'That is a prerequisite (1 needs 3), not a conflict.' },
+    { t: 'x₁ + x₃ = 1', ok: false, msg: 'Equality forces EXACTLY one of them — but investing in neither must stay allowed.' },
+    { t: 'x₁ + x₃ ≤ 1', ok: true, msg: 'At most one of the pair — the conflict constraint on slide 16.' },
+    { t: 'x₁ + x₃ ≥ 1', ok: false, msg: 'That demands at least one of the two conflicting investments — the opposite of a ban.' },
+  ]);
+  window.__invQuiz = quiz; // reused by widget 4
+})();
+
+/* ============================================================
+   WIDGET 4 — oil sites: constraint logic + plan tester (slides 18-24)
+   sum(x) <= 5; x2-x3 <= 0; x1+x7+x8 <= 2; x3+x4+x7+x9 >= 2;
+   x5+x6-x10 <= 1 (the linearized governmental restriction, slide 24).
+   ============================================================ */
+(() => {
+  const quiz = window.__invQuiz;
+  let score = 0;
+  const bump = () => { score += 1; el('oilq-score').textContent = score + ' / 4 restrictions translated.'; };
+
+  quiz('oilq1', 'oilq1-stat', [
+    { t: 'x₂ − x₃ ≤ 0', ok: true, msg: 'Exploring 2 forces 3; skipping 2 leaves 3 free (slide 19).' },
+    { t: 'x₃ − x₂ ≤ 0', ok: false, msg: 'Backwards — this would make site 2 a prerequisite for site 3.' },
+    { t: 'x₂ + x₃ ≤ 1', ok: false, msg: 'That BANS exploring both together — the restriction wants them together.' },
+    { t: 'x₂ + x₃ = 2', ok: false, msg: 'That forces exploring both sites in every plan, no matter what.' },
+  ], bump);
+  quiz('oilq2', 'oilq2-stat', [
+    { t: 'x₁ + x₇ + x₈ ≤ 1', ok: false, msg: 'Too strong — it even bans exploring 1 and 7 together with 8 untouched.' },
+    { t: 'x₈ + x₁ + x₇ − 2 ≤ 0', ok: true, msg: 'All three together sum to 3 > 2 — forbidden; any two are fine (slide 19).' },
+    { t: 'x₁ + x₇ − x₈ ≤ 1', ok: false, msg: 'Careful: with 1 and 7 explored this FORCES x₈ ≥ 1 — the exact opposite.' },
+    { t: 'x₈ − x₁ − x₇ ≤ 0', ok: false, msg: 'That says exploring 8 requires 1 or 7 — a prerequisite, not a ban.' },
+  ], bump);
+  quiz('oilq3', 'oilq3-stat', [
+    { t: 'x₃ + x₄ + x₇ + x₉ ≤ 2', ok: false, msg: '"At most" — the restriction says at LEAST 2.' },
+    { t: 'x₃ + x₄ + x₇ + x₉ = 2', ok: false, msg: 'Exactly 2 would forbid exploring three of these promising sites.' },
+    { t: 'x₃ + x₄ + x₇ + x₉ ≥ 1', ok: false, msg: 'Too weak — one site is not enough, the rule demands two.' },
+    { t: 'x₃ + x₄ + x₇ + x₉ ≥ 2', ok: true, msg: 'A plain counting constraint — slide 19.' },
+  ], bump);
+  quiz('oilq4', 'oilq4-stat', [
+    { t: 'x₅x₆ − x₁₀ ≤ 0', ok: false, msg: 'The trap from slide 23! Logically perfect for binaries — but a PRODUCT of variables is not linear, so it is not allowed in an IP (slide 24).' },
+    { t: 'x₅ + x₆ − x₁₀ ≤ 0', ok: false, msg: 'Too strong — exploring just ONE of 5, 6 already forces site 10.' },
+    { t: 'x₅ + x₆ − x₁₀ − 1 ≤ 0', ok: true, msg: 'Only x₅ = x₆ = 1 pushes the left side to 2 − x₁₀, forcing x₁₀ = 1 — the linear fix on slide 24.' },
+    { t: 'x₁₀ − x₅ − x₆ ≤ 0', ok: false, msg: 'Wrong direction — that makes exploring 10 require 5 or 6.' },
+  ], bump);
+
+  /* --- plan tester --- */
+  let s = Array(10).fill(0);
+  const CONS = [
+    { name: 'budget: x₁+…+x₁₀ ≤ 5', f: () => s.reduce((u, v) => u + v, 0) <= 5, show: () => s.reduce((u, v) => u + v, 0) + ' explored' },
+    { name: 'x₂ − x₃ ≤ 0 (2 needs 3)', f: () => s[1] - s[2] <= 0, show: () => String(s[1] - s[2]) },
+    { name: 'x₈ + x₁ + x₇ − 2 ≤ 0 (1 & 7 block 8)', f: () => s[7] + s[0] + s[6] <= 2, show: () => String(s[7] + s[0] + s[6] - 2) },
+    { name: 'x₃ + x₄ + x₇ + x₉ ≥ 2 (two of the four)', f: () => s[2] + s[3] + s[6] + s[8] >= 2, show: () => String(s[2] + s[3] + s[6] + s[8]) },
+    { name: 'x₅ + x₆ − x₁₀ − 1 ≤ 0 (5 & 6 force 10)', f: () => s[4] + s[5] - s[9] <= 1, show: () => String(s[4] + s[5] - s[9] - 1) },
+  ];
+
+  function render() {
+    el('oil-sites').innerHTML = s.map((v, i) =>
+      '<button class="site' + (v ? ' on' : '') + '" data-i="' + i + '" aria-pressed="' + (v ? 'true' : 'false') + '">' + (i + 1) + '</button>').join('');
+    el('oil-sites').querySelectorAll('button.site').forEach(btn =>
+      btn.addEventListener('click', () => { const i = +btn.dataset.i; s[i] = 1 - s[i]; render(); }));
+    let html = '<thead><tr><th>constraint</th><th>value</th><th>status</th></tr></thead><tbody>';
+    let allOk = true;
+    CONS.forEach(c => {
+      const ok = c.f();
+      allOk = allOk && ok;
+      html += '<tr><td>' + c.name + '</td><td>' + c.show() + '</td><td class="' + (ok ? 'val-ok' : 'val-bad') + '">' + (ok ? 'OK' : 'violated') + '</td></tr>';
+    });
+    html += '</tbody>';
+    el('oil-cons').innerHTML = html;
+    const n = s.reduce((u, v) => u + v, 0);
+    const st = el('oil-status');
+    if (n === 0) {
+      st.className = 'status info';
+      st.textContent = 'Empty plan — tap sites to start. (Even doing nothing is infeasible here: at least 2 of sites 3, 4, 7, 9 must be explored.)';
+    } else if (allOk) {
+      st.className = 'status ok';
+      st.textContent = 'Feasible plan with ' + n + ' site(s) explored' + (n === 5 ? ' — all 5 slots used. 💪' : '. Can you use all 5 slots?');
+    } else {
+      st.className = 'status bad';
+      st.textContent = 'This plan violates the red constraint(s) above.';
+    }
+  }
+  render();
+})();
+
+/* ============================================================
+   WIDGET 5 — fair assignment game (slides 25-33)
+   4x4 demo instance (slides keep p_ij symbolic on an 8x8):
+   P = [[1,6,9,3],[6,9,4,3],[1,7,8,9],[2,4,7,5]]
+   max-total: F1-C3 F2-C2 F3-C4 F4-C1, total 29, min 2 (unique).
+   max-min:  F1-C2 F2-C1 F3-C4 F4-C3, min 6, total 28 (unique).
+   ============================================================ */
+(() => {
+  const P = [[1, 6, 9, 3], [6, 9, 4, 3], [1, 7, 8, 9], [2, 4, 7, 5]];
+  const RT = [2, 1, 3, 0];  // max-total assignment (faculty i -> course RT[i])
+  const RM = [1, 0, 3, 2];  // max-min assignment
+  let assign = [-1, -1, -1, -1], showRT = false, showRM = false;
+
+  function render() {
+    let html = '<thead><tr><th></th>' + [1, 2, 3, 4].map(j => '<th>Course ' + j + '</th>').join('') + '</tr></thead><tbody>';
+    for (let i = 0; i < 4; i++) {
+      html += '<tr><th>Faculty ' + (i + 1) + '</th>';
+      for (let j = 0; j < 4; j++) {
+        const cls = ['cell'];
+        if (assign[i] === j) cls.push('sel');
+        if (showRT && RT[i] === j) cls.push('rt');
+        if (showRM && RM[i] === j) cls.push('rm');
+        html += '<td class="' + cls.join(' ') + '" data-i="' + i + '" data-j="' + j + '">' + P[i][j] + '</td>';
+      }
+      html += '</tr>';
+    }
+    html += '</tbody>';
+    el('fs-table').innerHTML = html;
+    el('fs-table').querySelectorAll('td.cell').forEach(td => td.addEventListener('click', () => {
+      const i = +td.dataset.i, j = +td.dataset.j;
+      if (assign[i] === j) assign[i] = -1;
+      else {
+        for (let k = 0; k < 4; k++) if (assign[k] === j) assign[k] = -1;
+        assign[i] = j;
+      }
+      render();
+    }));
+
+    const n = assign.filter(v => v >= 0).length;
+    el('fs-n').textContent = String(n);
+    const st = el('fs-status');
+    if (n === 4) {
+      const prefs = assign.map((j, i) => P[i][j]);
+      const tot = prefs.reduce((u, v) => u + v, 0);
+      const mn = Math.min(...prefs);
+      const who = prefs.indexOf(mn) + 1;
+      el('fs-tot').textContent = String(tot);
+      el('fs-min').textContent = String(mn);
+      st.className = 'status ok';
+      st.textContent = 'Complete assignment: total = ' + tot + ', worst-off is Faculty ' + who + ' with a ' + mn + '.';
+    } else {
+      el('fs-tot').textContent = '—';
+      el('fs-min').textContent = '—';
+      st.className = 'status info';
+      st.textContent = n === 0 ? 'Empty board — everyone is unassigned.' : n + '/4 assigned — every faculty needs exactly one course.';
+    }
+  }
+
+  el('fs-rt').addEventListener('click', () => {
+    showRT = !showRT;
+    el('fs-rt').textContent = showRT ? 'Hide max-total Σ' : 'Reveal max-total Σ';
+    render();
+  });
+  el('fs-rm').addEventListener('click', () => {
+    showRM = !showRM;
+    el('fs-rm').textContent = showRM ? 'Hide max-min' : 'Reveal max-min ★';
+    render();
+  });
+  el('fs-clear').addEventListener('click', () => { assign = [-1, -1, -1, -1]; render(); });
+
+  HOOKS.fairshare = () => {
+    if (assign.some(v => v < 0)) return null;
+    return Math.min(...assign.map((j, i) => P[i][j]));
+  };
+  render();
+})();
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('diet', {
+  label: 'daily cost ($)', dir: 'min', digits: 2,
+  get: () => HOOKS.diet(),
+});
+CLASSROOM.register('fairshare', {
+  label: 'min preference', dir: 'max', digits: 0,
+  get: () => HOOKS.fairshare(),
+});
+</script>
+</body>
+</html>

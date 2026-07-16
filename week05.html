@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 5 — IP Modeling (Part 4) (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<style>
+  table.data, table.lanes, table.sched, table.truth {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.93rem;
+    margin-top: 10px;
+  }
+  table.data th, table.data td,
+  table.lanes th, table.lanes td,
+  table.sched th, table.sched td,
+  table.truth th, table.truth td {
+    border: 1px solid var(--grid);
+    padding: 5px 10px;
+    text-align: right;
+  }
+  table.data th, table.lanes th, table.sched th, table.truth th { color: var(--ink-2); font-weight: 600; }
+  table.data td:first-child, table.data th:first-child,
+  table.lanes td:first-child, table.lanes th:first-child,
+  table.sched td:first-child, table.sched th:first-child,
+  table.truth td:first-child, table.truth th:first-child { text-align: left; font-weight: 600; }
+  .tbl-wrap { overflow-x: auto; }
+  input.tons { width: 64px; font: inherit; text-align: center; }
+
+  .pool { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  button.cchip {
+    padding: 6px 10px;
+    border: 1px solid var(--grid);
+    border-radius: 8px;
+    background: var(--surface);
+  }
+  button.cchip.sel { outline: 3px solid var(--s5); }
+  button.cchip.inblock { padding: 3px 7px; font-size: 0.85rem; }
+  .blocks { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+  .blockcard {
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    padding: 8px;
+    cursor: pointer;
+    background: var(--surface);
+  }
+  .blockcard .bhead { color: var(--ink-2); font-size: 0.88rem; display: flex; justify-content: space-between; }
+  .blockcard .bar { height: 8px; border-radius: 4px; background: var(--grid); overflow: hidden; margin: 6px 0; }
+  .blockcard .bar i { display: block; height: 100%; background: var(--s1); }
+  .blockcard.over { border-color: var(--critical); }
+  .blockcard.over .bar i { background: var(--critical); }
+  .blockcard .bslot { display: flex; flex-wrap: wrap; gap: 4px; min-height: 26px; }
+
+  .roster { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  button.player {
+    flex: 1 1 150px;
+    min-width: 140px;
+    text-align: left;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: var(--surface);
+    line-height: 1.35;
+  }
+  button.player.picked { border-color: var(--s5); outline: 2px solid var(--s5); }
+  button.player .meta { color: var(--ink-2); font-size: 0.86rem; display: block; }
+
+  ul.checklist { list-style: none; padding: 0; margin: 10px 0 0; }
+  ul.checklist li { padding: 2px 0; font-size: 0.94rem; }
+  ul.checklist li.ok { color: var(--good); }
+  ul.checklist li.bad { color: var(--critical); }
+  ul.checklist li.idle { color: var(--muted); }
+
+  table.songs { border-collapse: collapse; margin-top: 10px; font-size: 0.93rem; }
+  table.songs th, table.songs td { border: 1px solid var(--grid); padding: 5px 10px; text-align: left; }
+  table.songs td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+  .seqrow { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  button.job {
+    flex: 1 1 140px;
+    min-width: 130px;
+    text-align: left;
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    padding: 8px 10px;
+    background: var(--surface);
+    line-height: 1.35;
+  }
+  button.job[disabled] { opacity: 0.4; cursor: not-allowed; }
+  button.job .meta { color: var(--ink-2); font-size: 0.86rem; display: block; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 5: IP Modeling (Part 4)</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#gravel">1 · Gravel &amp; trucks</a>
+    <a href="#blocks">2 · Ad blocks</a>
+    <a href="#lineup">3 · Bulls line-up</a>
+    <a href="#cassette">4 · Cassette split</a>
+    <a href="#product">5 · y₁₂ = x₁x₂ lab</a>
+    <a href="#sequence">6 · Job sequence</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : GRAVEL + TRUCK GAME (Ex17) ================= -->
+<section class="widget" id="gravel">
+  <h2>Haul the gravel, hire the trucks <span class="chip">Slides 3–4</span></h2>
+  <p class="howto">
+    Example 17: two gravel pits (North holds 18 t, South 14 t) must supply sites needing
+    10, 5 and 10 t. Cost per ton = hauling + purchase price; every started truck on a lane
+    adds a $5 fixed charge and carries at most 5 t. <b>Type the tons on each lane</b> — trucks
+    are hired automatically (the model's x<sub>ij</sub> ≥ y<sub>ij</sub>/5 at minimum cost) —
+    and hunt the cheapest feasible plan before the model on slide 4 is discussed.
+  </p>
+  <div class="tbl-wrap">
+    <table class="lanes" id="gv-table">
+      <thead><tr><th>Lane</th><th>$/ton (haul + price)</th><th>tons y<sub>ij</sub></th><th>trucks x<sub>ij</sub></th><th>lane cost ($)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="controls">
+    <span class="readout">North used: <b id="gv-n">0</b> / 18 t</span>
+    <span class="readout">South used: <b id="gv-s">0</b> / 14 t</span>
+    <span class="readout">delivered: <b id="gv-d">0 · 0 · 0</b> (need 10 · 5 · 10)</span>
+    <span class="readout">trucks: <b id="gv-tr">0</b></span>
+    <span class="readout">total cost: <b id="gv-cost">—</b></span>
+    <button class="primary" id="gv-log">Log this plan</button>
+  </div>
+  <p class="status info" id="gv-status">Fill the lanes — the status updates live.</p>
+  <div class="tbl-wrap"><table class="attempts" id="gv-attempts" style="display:none">
+    <thead><tr><th>#</th><th>N→1</th><th>N→2</th><th>N→3</th><th>S→1</th><th>S→2</th><th>S→3</th><th>trucks</th><th>cost ($)</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <div class="note">
+    Slide 4 prices the lanes at 13, 16, 15 $/t from the North pit (3+10, 6+10, 5+10) and
+    18, 15, 16 $/t from the South (6+12, 3+12, 4+12), plus 5·ΣΣx<sub>ij</sub> for the trucks.
+    The fixed charge is what makes this an <em>integer</em> program: cost jumps every 5 tons.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Cheapest plan: N→1 = 10 t (2 trucks), N→3 = 5 t (1), S→2 = 5 t (1), S→3 = 5 t (1) —
+      5 full trucks, total $385. Note how the optimum ships in multiples of 5: partially
+      filled trucks waste the fixed charge (e.g. sending 8 t on N→3 and only 2 t on S→3 still
+      hires 2 trucks on N→3, and the total rises to $387). Optimum computed by enumeration from the slide's data —
+      the slide itself stops at the formulation.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : COMMERCIAL BLOCK PACKING (Ex18) ================= -->
+<section class="widget" id="blocks">
+  <h2>How few 60-second blocks? <span class="chip">Slides 5–6</span></h2>
+  <p class="howto">
+    Example 18: commercials of 15, 16, 20, 25, 30, 35, 40 and 50 seconds must all fit into
+    60-second blocks — use as few blocks as possible. <b>Click a commercial, then click a block</b>
+    to place it (click a placed commercial to take it back). Find the minimum before the
+    IP on slide 6 appears.
+  </p>
+  <div class="pool" id="bp-pool"></div>
+  <div class="blocks" id="bp-blocks"></div>
+  <div class="controls" style="margin-top:12px">
+    <span class="readout">blocks used: <b id="bp-used">0</b></span>
+    <span class="readout">unassigned: <b id="bp-un">8</b></span>
+    <button id="bp-reset">Reset</button>
+  </div>
+  <p class="status info" id="bp-status">231 seconds of commercials in total — how few blocks can hold them?</p>
+  <div class="controls" style="margin-top:14px">
+    <span style="align-self:center">Slide 6 asks: what is <em>missing</em> from the first formulation (min Σy<sub>j</sub>, capacity rows only)?</span>
+  </div>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg" id="bp-qa">block order y₁ ≥ y₂ ≥ …</button>
+      <button class="seg" id="bp-qb">Σ<sub>j</sub> x<sub>ij</sub> = 1 for every commercial</button>
+      <button class="seg" id="bp-qc">x<sub>ij</sub> ≤ y<sub>j</sub> for every pair</button>
+    </span>
+  </div>
+  <p class="status info" id="bp-qstatus"></p>
+  <div class="note">
+    The capacity row 15x<sub>1j</sub>+16x<sub>2j</sub>+…+50x<sub>8j</sub> ≤ 60y<sub>j</sub> already links
+    assignments to block usage — a block that receives anything must be opened.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Minimum = <b>5 blocks</b>, e.g. {50}, {40, 16}, {35, 25}, {30, 20}, {15}. Why not 4?
+      Total airtime is 231 s and 4 blocks give 240 s — only 9 s of slack. But the 50-s spot fits
+      with nothing else (smallest partner is 15 s → 65 s &gt; 60), so its block alone wastes 10 s.
+      The missing constraint on slide 6 is Σ<sub>j</sub> x<sub>ij</sub> = 1: without it the IP happily
+      leaves every commercial unassigned and "uses" zero blocks. (Minimum count computed by
+      enumeration from the slide's data.)
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : BULLS STARTING FIVE (Ex20) ================= -->
+<section class="widget" id="lineup">
+  <h2>Pick Phil Jackson's starting five <span class="chip">Slides 9–10</span></h2>
+  <p class="howto">
+    Example 20: choose exactly 5 of the 8 Bulls, with at least one guard, one forward and one
+    center, average height at least 6-8, and two logic rules — Pippen and Kukoc never start
+    together; if Salley starts, Kukoc <em>and</em> Rodman must start. <b>Tap players</b> to build
+    the highest-rating legal line-up before the constraints on slide 10 are written out.
+  </p>
+  <div class="roster" id="lu-roster"></div>
+  <div class="controls">
+    <span class="readout">picked: <b id="lu-n">0</b> / 5</span>
+    <span class="readout">total rating: <b id="lu-r">0</b></span>
+    <span class="readout">avg height: <b id="lu-h">—</b></span>
+  </div>
+  <ul class="checklist" id="lu-checks"></ul>
+  <p class="status info" id="lu-status">Select 5 players.</p>
+  <div class="note">
+    Height enters the model in inches above 6-0: 3x₁+6x₂+8x₃+6x₄+10x₅+7x₆+11x₇+14x₈ ≥ 40,
+    because five players averaging 6-8 carry 5×8 = 40 spare inches. The Salley rule is
+    x₅ + x₆ ≥ 2x₇ — one binary inequality for a two-part promise.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Best legal line-up (computed by enumeration of all 56 five-subsets — the slide stops at
+      the model): <b>Harper, Pippen, Jordan, Rodman, Longley</b> — total rating 400 (average 80),
+      spare height 41 in ≥ 40. Only 7 of the 56 subsets are legal. Kukoc's 80 rating never helps:
+      playing him means benching Pippen (90), and the height rule keeps the rest locked in.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 4 : CASSETTE FEASIBILITY (Ex22) ================= -->
+<section class="widget" id="cassette">
+  <h2>Does a legal cassette exist? <span class="chip">Slides 13–14</span></h2>
+  <p class="howto">
+    Example 22: place Madonna's 8 songs on two cassette sides. Each side must run 14–16 minutes,
+    hold exactly two ballads, side 1 needs at least three hits, song 5 or 6 must be on side 1,
+    songs 2 &amp; 4 together on side 1 push song 5 to side 2, and song 1 on side 1 drags song 8
+    along. There is nothing to optimize — Min z = 0 — <b>just find any assignment</b> that passes
+    every check.
+  </p>
+  <div class="tbl-wrap">
+    <table class="songs" id="cs-table">
+      <thead><tr><th>Song</th><th>Type</th><th>Length</th><th>Side</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <ul class="checklist" id="cs-checks"></ul>
+  <p class="status info" id="cs-status">Assign all 8 songs to a side.</p>
+  <div class="note">
+    Feasibility problems are real IPs: the solver's answer is the certificate. Song 8 counts as
+    ballad <em>and</em> hit, song 7 as neither — watch how it moves wherever the minutes need it.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Yes — exactly <b>3</b> of the 256 assignments are legal (computed by enumeration; the slide
+      stops at the formulation). One of them: side 1 = {1, 2, 6, 8} (16 min), side 2 = {3, 4, 5, 7}
+      (14 min). The other two put {2, 3, 6, 8} or {2, 5, 6, 8} on side 1.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 5 : LINEARIZING A PRODUCT (Ex23) ================= -->
+<section class="widget" id="product">
+  <h2>Make y₁₂ behave like x₁x₂ <span class="chip">Slides 15–17</span></h2>
+  <p class="howto">
+    Example 23 replaces the product x₁x₂ (and x₁² = x₁ for binaries) by a new binary y₁₂, turning
+    min x₁ − x₁² + x₁x₂ + x₂ into min y₁₂ + x₂. <b>Toggle the candidate constraints</b> and watch
+    the truth table: which set forces y₁₂ to equal x₁x₂ in <em>all four</em> rows?
+  </p>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg" id="pr-le1">y₁₂ ≤ x₁</button>
+      <button class="seg" id="pr-le2">y₁₂ ≤ x₂</button>
+      <button class="seg" id="pr-ge">y₁₂ ≥ x₁ + x₂ − 1</button>
+    </span>
+    <span class="readout">always on: y₁₂ ∈ {0, 1}</span>
+  </div>
+  <div class="tbl-wrap">
+    <table class="truth" id="pr-table">
+      <thead><tr><th>Instance</th><th>x₁</th><th>x₂</th><th>x₁·x₂</th><th>allowed y₁₂</th><th>verdict</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <p class="status info" id="pr-status"></p>
+  <div class="note">
+    Slide 16's argument: y₁₂ ≤ x₁ and y₁₂ ≤ x₂ pin rows 1–3, but in row 4 a minimizing solver
+    would gladly set y₁₂ = 0 — the cheap lie. The cut y₁₂ ≥ x₁ + x₂ − 1 closes it.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      All three constraints together (slide 17) leave exactly one legal y₁₂ in every row —
+      the product is linearized no matter which way the objective pushes. With only
+      y₁₂ ≥ x₁ + x₂ − 1 the table still shows slack in rows 1–3: a <em>minimization</em> happens to
+      pick the right value there, but the upper bounds are what make y₁₂ = x₁x₂ an identity
+      rather than a lucky outcome.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 6 : ONE-MACHINE SEQUENCING (Ex27) ================= -->
+<section class="widget" id="sequence">
+  <h2>Sequence six jobs on one machine <span class="chip">Slides 29–32</span></h2>
+  <p class="howto">
+    Example 27: one machine, six jobs, precedence arrows 1→2, {1,2}→3, {2,4}→5, {4,5}→6.
+    Every job pays its hourly cost for each hour until it completes: total penalty = Σ c<sub>j</sub>X<sub>j</sub>.
+    <b>Click jobs in the order the machine should run them</b> — precedence is enforced — and
+    race the class to the cheapest legal sequence.
+  </p>
+  <div class="seqrow" id="sq-pool"></div>
+  <div class="controls">
+    <span class="readout">sequence: <b id="sq-seq">—</b></span>
+    <span class="readout">total penalty: <b id="sq-cost">$0</b></span>
+    <button id="sq-undo">Undo last</button>
+    <button id="sq-reset">Reset</button>
+    <button class="primary" id="sq-log">Log this sequence</button>
+    <button id="sq-reveal">Reveal optimal order ★</button>
+  </div>
+  <canvas class="viz short" id="c-sq"></canvas>
+  <p class="status info" id="sq-status">Jobs 1 and 4 have no predecessors — one of them must go first.</p>
+  <div class="tbl-wrap"><table class="sched" id="sq-table" style="display:none">
+    <thead><tr><th>Job</th><th>duration p<sub>j</sub> (h)</th><th>completes X<sub>j</sub> (h)</th><th>c<sub>j</sub> ($/h)</th><th>penalty c<sub>j</sub>·X<sub>j</sub> ($)</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <div class="tbl-wrap"><table class="attempts" id="sq-attempts" style="display:none">
+    <thead><tr><th>#</th><th>order</th><th>total penalty ($)</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <div class="note">
+    In the MIP (slides 31–32) the completion times X<sub>j</sub> are continuous; immediate
+    predecessors give X<sub>j</sub> − X<sub>k</sub> ≥ p<sub>j</sub>, and every <em>unrelated</em> pair needs an
+    either-or disjunction — activated with big-M and a binary Z<sub>jk</sub>:
+    X<sub>j</sub> − X<sub>k</sub> ≥ p<sub>j</sub> − MZ<sub>jk</sub> and X<sub>k</sub> − X<sub>j</sub> ≥ p<sub>k</sub> − M(1 − Z<sub>jk</sub>).
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Only 10 of the 720 orders respect the arrows. The cheapest is the natural order
+      <b>1, 2, 3, 4, 5, 6</b>: completions 5, 11, 18, 28, 36, 50 h and total penalty
+      6·5 + 6·11 + 4·18 + 2·28 + 1·36 + 5·50 = <b>$510</b>. The worst legal order
+      (4, 1, 2, 5, 6, 3) costs $680. (Computed by enumeration from the slide's table —
+      the slide stops at the formulation.)
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 5.
+  Figures follow the examples used in the Week 5 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+
+/* ============================================================
+   WIDGET 1 — gravel + trucks (slides 3-4, Example 17)
+   Unit costs (haul+price): N 13/16/15, S 18/15/16 $ per ton.
+   Supplies 18 / 14 t; demands 10 / 5 / 10 t; truck: $5 fixed, 5 t cap.
+   Optimal (enumerated): N1=10, N3=5, S2=5, S3=5 -> $385, 5 trucks.
+   ============================================================ */
+(() => {
+  const LANES = [
+    { key: 'n1', pit: 'North', site: 1, haul: 3, price: 10 },
+    { key: 'n2', pit: 'North', site: 2, haul: 6, price: 10 },
+    { key: 'n3', pit: 'North', site: 3, haul: 5, price: 10 },
+    { key: 's1', pit: 'South', site: 1, haul: 6, price: 12 },
+    { key: 's2', pit: 'South', site: 2, haul: 3, price: 12 },
+    { key: 's3', pit: 'South', site: 3, haul: 4, price: 12 },
+  ];
+  const SUPPLY = { North: 18, South: 14 };
+  const DEMAND = [10, 5, 10];
+  const TRUCK_FIX = 5, TRUCK_CAP = 5;
+  let attempts = [];
+  let current = { ok: false, cost: null };
+
+  const tbody = el('gv-table').querySelector('tbody');
+  tbody.innerHTML = LANES.map(l =>
+    '<tr><td>' + l.pit + ' → Site ' + l.site + '</td>' +
+    '<td>' + l.haul + ' + ' + l.price + ' = ' + (l.haul + l.price) + '</td>' +
+    '<td><input class="tons" type="number" min="0" step="1" value="0" id="gv-' + l.key + '"></td>' +
+    '<td id="gvt-' + l.key + '">0</td><td id="gvc-' + l.key + '">0</td></tr>'
+  ).join('');
+
+  const tons = () => LANES.map(l => Math.max(0, Math.floor(+el('gv-' + l.key).value || 0)));
+
+  function evaluate() {
+    const y = tons();
+    let cost = 0, trucks = 0;
+    const used = { North: 0, South: 0 };
+    const del = [0, 0, 0];
+    LANES.forEach((l, i) => {
+      const x = Math.ceil(y[i] / TRUCK_CAP);
+      const c = (l.haul + l.price) * y[i] + TRUCK_FIX * x;
+      el('gvt-' + l.key).textContent = x;
+      el('gvc-' + l.key).textContent = c;
+      cost += c; trucks += x;
+      used[l.pit] += y[i];
+      del[l.site - 1] += y[i];
+    });
+    el('gv-n').textContent = used.North;
+    el('gv-s').textContent = used.South;
+    el('gv-d').textContent = del.join(' · ');
+    el('gv-tr').textContent = trucks;
+    el('gv-cost').textContent = '$' + cost;
+
+    const bad = [];
+    if (used.North > SUPPLY.North) bad.push('North pit over its 18 t');
+    if (used.South > SUPPLY.South) bad.push('South pit over its 14 t');
+    DEMAND.forEach((d, j) => { if (del[j] < d) bad.push('Site ' + (j + 1) + ' short (' + del[j] + '/' + d + ' t)'); });
+    const st = el('gv-status');
+    const totalTons = y.reduce((a, b) => a + b, 0);
+    if (totalTons === 0) {
+      st.className = 'status info';
+      st.textContent = 'Fill the lanes — the status updates live.';
+      current = { ok: false, cost: null };
+    } else if (bad.length) {
+      st.className = 'status bad';
+      st.textContent = '✗ ' + bad.join(' · ');
+      current = { ok: false, cost: null };
+    } else {
+      st.className = 'status ok';
+      st.textContent = '✓ Feasible: ' + (del[0] + del[1] + del[2]) + ' t delivered with ' + trucks + ' trucks — total $' + cost + '. Cheaper plan possible?';
+      current = { ok: true, cost };
+    }
+    return { y, cost, trucks, ok: !bad.length };
+  }
+
+  function log() {
+    const r = evaluate();
+    if (!r.ok) return;
+    attempts.push(r);
+    const best = Math.min(...attempts.map(a => a.cost));
+    const tb = el('gv-attempts');
+    tb.style.display = '';
+    tb.querySelector('tbody').innerHTML = attempts.map((a, i) =>
+      '<tr class="' + (a.cost === best ? 'best' : '') + '"><td>' + (i + 1) + '</td>' +
+      a.y.map(v => '<td>' + v + '</td>').join('') +
+      '<td>' + a.trucks + '</td><td>' + a.cost + '</td></tr>'
+    ).join('');
+  }
+
+  LANES.forEach(l => {
+    const inp = el('gv-' + l.key);
+    inp.addEventListener('input', evaluate);
+    // The game plays in whole tons: on commit, snap the displayed value to the
+    // floored integer actually used in the computation so they never disagree.
+    inp.addEventListener('change', () => {
+      const v = Math.max(0, Math.floor(+inp.value || 0));
+      if (inp.value !== String(v)) inp.value = v;
+      evaluate();
+    });
+  });
+  el('gv-log').addEventListener('click', log);
+  window.gravelScore = () => (evaluate().ok ? current.cost : null);
+  evaluate();
+})();
+
+/* ============================================================
+   WIDGET 2 — 60-second block packing (slides 5-6, Example 18)
+   Commercials 15,16,20,25,30,35,40,50 s; total 231 s; min blocks = 5.
+   ============================================================ */
+(() => {
+  const ADS = [15, 16, 20, 25, 30, 35, 40, 50];
+  const CAP = 60, NB = 8;
+  let assign = Array(ADS.length).fill(-1);
+  let selected = -1;
+
+  const blocksDiv = el('bp-blocks');
+  blocksDiv.innerHTML = ADS.map((_, b) =>
+    '<div class="blockcard" id="bpb-' + b + '">' +
+    '<div class="bhead"><span>Block ' + (b + 1) + '</span><span id="bps-' + b + '">0/60</span></div>' +
+    '<div class="bar"><i id="bpf-' + b + '"></i></div>' +
+    '<div class="bslot" id="bpl-' + b + '"></div></div>'
+  ).join('');
+
+  function chip(i, inblock) {
+    return '<button class="cchip' + (selected === i ? ' sel' : '') + (inblock ? ' inblock' : '') +
+      '" data-i="' + i + '">#' + (i + 1) + ' · ' + ADS[i] + 's</button>';
+  }
+
+  function render() {
+    el('bp-pool').innerHTML = ADS.map((_, i) => assign[i] < 0 ? chip(i, false) : '').join('') ||
+      '<span style="color:var(--muted)">pool empty — every commercial is placed</span>';
+    let usedBlocks = 0, over = [];
+    for (let b = 0; b < NB; b++) {
+      const load = ADS.reduce((s, v, i) => s + (assign[i] === b ? v : 0), 0);
+      if (load > 0) usedBlocks++;
+      if (load > CAP) over.push(b + 1);
+      el('bps-' + b).textContent = load + '/60';
+      el('bpf-' + b).style.width = Math.min(100, load / CAP * 100) + '%';
+      el('bpb-' + b).classList.toggle('over', load > CAP);
+      el('bpl-' + b).innerHTML = ADS.map((_, i) => assign[i] === b ? chip(i, true) : '').join('');
+    }
+    const un = assign.filter(a => a < 0).length;
+    el('bp-used').textContent = usedBlocks;
+    el('bp-un').textContent = un;
+    const st = el('bp-status');
+    if (over.length) {
+      st.className = 'status bad';
+      st.textContent = '✗ Block ' + over.join(', ') + ' over 60 s — the capacity row 15x₁ⱼ+…+50x₈ⱼ ≤ 60yⱼ is violated.';
+    } else if (un > 0) {
+      st.className = 'status info';
+      st.textContent = un + ' commercial' + (un > 1 ? 's' : '') + ' still unassigned' +
+        (selected >= 0 ? ' — now click a block for #' + (selected + 1) + '.' : ' — click one, then click a block.');
+    } else {
+      st.className = 'status ok';
+      st.textContent = '✓ All 8 commercials scheduled in ' + usedBlocks + ' blocks. Can the class do it with fewer?';
+    }
+  }
+
+  document.addEventListener('click', ev => {
+    const c = ev.target.closest('button.cchip');
+    if (c && el('bp-pool').contains(c)) {
+      selected = (selected === +c.dataset.i) ? -1 : +c.dataset.i;
+      render(); return;
+    }
+    if (c) { assign[+c.dataset.i] = -1; selected = -1; render(); return; }
+    const bc = ev.target.closest('.blockcard');
+    if (bc && selected >= 0) {
+      assign[selected] = +bc.id.split('-')[1];
+      selected = -1; render();
+    }
+  });
+  el('bp-reset').addEventListener('click', () => { assign = Array(ADS.length).fill(-1); selected = -1; render(); });
+
+  const quiz = {
+    'bp-qa': { ok: false, msg: '✗ Symmetry breaking (y₁ ≥ y₂ ≥ …) only speeds the solver up — the model is already correct or broken without it.' },
+    'bp-qb': { ok: true, msg: '✓ Yes: Σⱼ xᵢⱼ = 1 for every commercial i. Without it, leaving all xᵢⱼ = 0 satisfies every capacity row and "uses" zero blocks.' },
+    'bp-qc': { ok: false, msg: '✗ Not needed here: the capacity row 15x₁ⱼ+…+50x₈ⱼ ≤ 60yⱼ already forces yⱼ = 1 whenever anything lands in block j.' },
+  };
+  Object.keys(quiz).forEach(id => el(id).addEventListener('click', () => {
+    Object.keys(quiz).forEach(k => el(k).classList.toggle('active', k === id));
+    const q = quiz[id];
+    el('bp-qstatus').className = 'status ' + (q.ok ? 'ok' : 'bad');
+    el('bp-qstatus').textContent = q.msg;
+  }));
+  render();
+})();
+
+/* ============================================================
+   WIDGET 3 — Bulls starting five (slides 9-10, Example 20)
+   Optimal (enumerated over 56 subsets): Harper, Pippen, Jordan,
+   Rodman, Longley -> 400 total rating, spare height 41 >= 40.
+   ============================================================ */
+(() => {
+  const P = [
+    { name: 'Steve Kerr', pos: 'G', r: 70, h: '6-3', over: 3 },
+    { name: 'Ron Harper', pos: 'F-G', r: 65, h: '6-6', over: 6 },
+    { name: 'Scottie Pippen', pos: 'F-G', r: 90, h: '6-8', over: 8 },
+    { name: 'Michael Jordan', pos: 'F', r: 100, h: '6-6', over: 6 },
+    { name: 'Toni Kukoc', pos: 'F', r: 80, h: '6-10', over: 10 },
+    { name: 'Dennis Rodman', pos: 'F', r: 85, h: '6-7', over: 7 },
+    { name: 'John Salley', pos: 'C-F', r: 65, h: '6-11', over: 11 },
+    { name: 'Luc Longley', pos: 'C', r: 60, h: '7-2', over: 14 },
+  ];
+  const GUARDS = [0, 1, 2], FORWARDS = [1, 2, 3, 4, 5, 6], CENTERS = [6, 7];
+  const sel = new Set();
+
+  el('lu-roster').innerHTML = P.map((p, i) =>
+    '<button class="player" id="lu-p' + i + '"><b>' + p.name + '</b>' +
+    '<span class="meta">' + p.pos + ' · rating ' + p.r + ' · ' + p.h + '</span></button>'
+  ).join('');
+
+  function update() {
+    P.forEach((_, i) => el('lu-p' + i).classList.toggle('picked', sel.has(i)));
+    const n = sel.size;
+    const rating = [...sel].reduce((s, i) => s + P[i].r, 0);
+    const spare = [...sel].reduce((s, i) => s + P[i].over, 0);
+    el('lu-n').textContent = n;
+    el('lu-r').textContent = rating;
+    // Spare inches are measured over 6-0; carry into feet when the average exceeds 12 in.
+    const avgIn = n ? spare / n : 0;
+    el('lu-h').textContent = n ? (6 + Math.floor(avgIn / 12)) + '-' + fmt(avgIn % 12, 1) : '—';
+
+    const has = list => list.some(i => sel.has(i));
+    const checks = [
+      { txt: 'exactly 5 starters (' + n + '/5)', ok: n === 5, idle: n === 0 },
+      { txt: 'at least one guard (Kerr / Harper / Pippen)', ok: has(GUARDS), idle: n === 0 },
+      { txt: 'at least one forward (Harper … Salley)', ok: has(FORWARDS), idle: n === 0 },
+      { txt: 'at least one center (Salley / Longley)', ok: has(CENTERS), idle: n === 0 },
+      { txt: 'Pippen and Kukoc not both (x₃ + x₅ ≤ 1)', ok: !(sel.has(2) && sel.has(4)), idle: n === 0 },
+      { txt: 'if Salley starts, Kukoc and Rodman start (x₅ + x₆ ≥ 2x₇)', ok: !sel.has(6) || (sel.has(4) && sel.has(5)), idle: n === 0 },
+      { txt: 'total spare height ≥ 40 in, i.e. average ≥ 6-8 for 5 starters (now ' + spare + ')', ok: spare >= 40, idle: n === 0 },
+    ];
+    el('lu-checks').innerHTML = checks.map(c =>
+      '<li class="' + (c.idle ? 'idle' : c.ok ? 'ok' : 'bad') + '">' + (c.idle ? '· ' : c.ok ? '✓ ' : '✗ ') + c.txt + '</li>'
+    ).join('');
+    const st = el('lu-status');
+    if (n === 0) { st.className = 'status info'; st.textContent = 'Select 5 players.'; }
+    else if (checks.every(c => c.ok)) {
+      st.className = 'status ok';
+      st.textContent = '✓ Legal line-up — total rating ' + rating + ' (average ' + fmt(rating / 5, 0) + '). Is a higher one possible?';
+    } else {
+      st.className = 'status bad';
+      st.textContent = '✗ ' + checks.filter(c => !c.ok).length + ' requirement(s) unmet — see the checklist.';
+    }
+  }
+
+  P.forEach((_, i) => el('lu-p' + i).addEventListener('click', () => {
+    if (sel.has(i)) sel.delete(i); else sel.add(i);
+    update();
+  }));
+  update();
+})();
+
+/* ============================================================
+   WIDGET 4 — cassette feasibility (slides 13-14, Example 22)
+   3 feasible side-1 sets (enumerated): {1,2,6,8}, {2,3,6,8}, {2,5,6,8}.
+   ============================================================ */
+(() => {
+  const S = [
+    { type: 'Ballad', len: 4 }, { type: 'Hit', len: 5 }, { type: 'Ballad', len: 3 },
+    { type: 'Hit', len: 2 }, { type: 'Ballad', len: 4 }, { type: 'Hit', len: 3 },
+    { type: '—', len: 5 }, { type: 'Ballad and hit', len: 4 },
+  ];
+  const BALLAD = [0, 2, 4, 7], HIT = [1, 3, 5, 7];
+  let side = Array(8).fill(0); // 0 = unassigned, 1, 2
+
+  el('cs-table').querySelector('tbody').innerHTML = S.map((s, i) =>
+    '<tr><td class="num">' + (i + 1) + '</td><td>' + s.type + '</td><td class="num">' + s.len + ' min</td>' +
+    '<td><span class="segwrap">' +
+    '<button class="seg" id="cs-' + i + '-1">Side 1</button>' +
+    '<button class="seg" id="cs-' + i + '-2">Side 2</button>' +
+    '</span></td></tr>'
+  ).join('');
+
+  function update() {
+    S.forEach((_, i) => {
+      el('cs-' + i + '-1').classList.toggle('active', side[i] === 1);
+      el('cs-' + i + '-2').classList.toggle('active', side[i] === 2);
+    });
+    const on = (i, sd) => side[i] === sd;
+    const len = sd => S.reduce((t, s, i) => t + (on(i, sd) ? s.len : 0), 0);
+    const l1 = len(1), l2 = len(2);
+    const nb1 = BALLAD.filter(i => on(i, 1)).length, nb2 = BALLAD.filter(i => on(i, 2)).length;
+    const nh1 = HIT.filter(i => on(i, 1)).length;
+    const all = side.every(s => s > 0);
+    const checks = [
+      { txt: 'all 8 songs assigned (xᵢ₁ + xᵢ₂ = 1)', ok: all },
+      { txt: 'side 1 runs 14–16 min (now ' + l1 + ')', ok: l1 >= 14 && l1 <= 16 },
+      { txt: 'side 2 runs 14–16 min (now ' + l2 + ')', ok: l2 >= 14 && l2 <= 16 },
+      { txt: 'exactly 2 ballads on side 1 (now ' + nb1 + ')', ok: nb1 === 2 },
+      { txt: 'exactly 2 ballads on side 2 (now ' + nb2 + ')', ok: nb2 === 2 },
+      { txt: 'at least 3 hits on side 1 (now ' + nh1 + ')', ok: nh1 >= 3 },
+      { txt: 'song 5 or song 6 on side 1', ok: on(4, 1) || on(5, 1) },
+      { txt: 'if songs 2 & 4 on side 1 → song 5 on side 2', ok: !(on(1, 1) && on(3, 1)) || on(4, 2) },
+      { txt: 'if song 1 on side 1 → song 8 on side 1 (x₈₁ ≥ x₁₁)', ok: !on(0, 1) || on(7, 1) },
+    ];
+    const anyAssigned = side.some(s => s > 0);
+    el('cs-checks').innerHTML = checks.map(c =>
+      '<li class="' + (anyAssigned ? (c.ok ? 'ok' : 'bad') : 'idle') + '">' +
+      (anyAssigned ? (c.ok ? '✓ ' : '✗ ') : '· ') + c.txt + '</li>'
+    ).join('');
+    const fails = checks.filter(c => !c.ok).length;
+    const st = el('cs-status');
+    if (!all) { st.className = 'status info'; st.textContent = 'Assign all 8 songs — ' + side.filter(s => s === 0).length + ' to go.'; }
+    else if (fails === 0) { st.className = 'status ok'; st.textContent = '✓ Feasible arrangement found — this cassette can be produced. z = 0, problem solved.'; }
+    else { st.className = 'status bad'; st.textContent = '✗ ' + fails + ' condition(s) violated. Keep swapping.'; }
+  }
+
+  S.forEach((_, i) => {
+    el('cs-' + i + '-1').addEventListener('click', () => { side[i] = side[i] === 1 ? 0 : 1; update(); });
+    el('cs-' + i + '-2').addEventListener('click', () => { side[i] = side[i] === 2 ? 0 : 2; update(); });
+  });
+  update();
+})();
+
+/* ============================================================
+   WIDGET 5 — linearizing y12 = x1*x2 (slides 15-17, Example 23)
+   ============================================================ */
+(() => {
+  const active = { le1: false, le2: false, ge: false };
+  const ROWS = [[0, 0], [1, 0], [0, 1], [1, 1]];
+
+  function update() {
+    el('pr-le1').classList.toggle('active', active.le1);
+    el('pr-le2').classList.toggle('active', active.le2);
+    el('pr-ge').classList.toggle('active', active.ge);
+    let forcedAll = true;
+    el('pr-table').querySelector('tbody').innerHTML = ROWS.map(([x1, x2], k) => {
+      const target = x1 * x2;
+      const allowed = [0, 1].filter(y =>
+        (!active.le1 || y <= x1) && (!active.le2 || y <= x2) && (!active.ge || y >= x1 + x2 - 1));
+      let verdict, cls;
+      if (allowed.length === 1 && allowed[0] === target) { verdict = 'forced to ' + target + ' ✓'; cls = 'ok'; }
+      else if (allowed.length === 0) { verdict = 'infeasible!'; cls = 'bad'; forcedAll = false; }
+      else if (allowed.includes(target)) { verdict = '{' + allowed.join(', ') + '} allowed — a solver may pick ' + allowed.find(v => v !== target); cls = 'bad'; forcedAll = false; }
+      else { verdict = 'forces the wrong value ' + allowed[0]; cls = 'bad'; forcedAll = false; }
+      return '<tr><td>' + (k + 1) + '</td><td>' + x1 + '</td><td>' + x2 + '</td><td>' + target + '</td>' +
+        '<td>{' + allowed.join(', ') + '}</td><td class="status ' + cls + '" style="text-align:left">' + verdict + '</td></tr>';
+    }).join('');
+    const st = el('pr-status');
+    if (forcedAll) { st.className = 'status ok'; st.textContent = '✓ Every row pins y₁₂ = x₁·x₂ — the product is linear now. This is slide 17’s final model.'; }
+    else { st.className = 'status info'; st.textContent = 'Some rows still leave y₁₂ a choice (or kill it). Toggle constraints until all four rows are forced.'; }
+  }
+
+  ['le1', 'le2', 'ge'].forEach(k => el('pr-' + k).addEventListener('click', () => { active[k] = !active[k]; update(); }));
+  update();
+})();
+
+/* ============================================================
+   WIDGET 6 — one-machine sequencing (slides 29-32, Example 27)
+   p = 5,6,7,10,8,14; c = 6,6,4,2,1,5; arcs 1->2, {1,2}->3, {2,4}->5, {4,5}->6.
+   Optimal (enumerated over 10 legal orders): 1,2,3,4,5,6 -> $510; worst $680.
+   ============================================================ */
+(() => {
+  const JOBS = [
+    { id: 1, p: 5, c: 6, pre: [] },
+    { id: 2, p: 6, c: 6, pre: [1] },
+    { id: 3, p: 7, c: 4, pre: [1, 2] },
+    { id: 4, p: 10, c: 2, pre: [] },
+    { id: 5, p: 8, c: 1, pre: [2, 4] },
+    { id: 6, p: 14, c: 5, pre: [4, 5] },
+  ];
+  const OPT = [1, 2, 3, 4, 5, 6]; // enumerated optimum, $510
+  const canvas = el('c-sq');
+  let seq = [], attempts = [], revealed = false;
+
+  el('sq-pool').innerHTML = JOBS.map(j =>
+    '<button class="job" id="sq-j' + j.id + '"><b>Job ' + j.id + '</b>' +
+    '<span class="meta">' + j.p + ' h · $' + j.c + '/h · needs ' + (j.pre.length ? j.pre.join(', ') : '—') + '</span></button>'
+  ).join('');
+
+  const costOf = order => {
+    let t = 0, cost = 0;
+    order.forEach(id => { const j = JOBS[id - 1]; t += j.p; cost += j.c * t; });
+    return cost;
+  };
+
+  function currentCost() {
+    return seq.length === JOBS.length ? costOf(seq) : null;
+  }
+
+  function update() {
+    JOBS.forEach(j => { el('sq-j' + j.id).disabled = seq.includes(j.id); });
+    el('sq-seq').textContent = seq.length ? seq.join(' → ') : '—';
+    let t = 0, cost = 0;
+    const rows = seq.map(id => {
+      const j = JOBS[id - 1];
+      t += j.p; cost += j.c * t;
+      return '<tr><td>Job ' + id + '</td><td>' + j.p + '</td><td>' + t + '</td><td>' + j.c + '</td><td>' + (j.c * t) + '</td></tr>';
+    });
+    el('sq-cost').textContent = '$' + cost;
+    const tb = el('sq-table');
+    tb.style.display = seq.length ? '' : 'none';
+    tb.querySelector('tbody').innerHTML = rows.join('') +
+      (seq.length ? '<tr><td><b>total</b></td><td>' + t + '</td><td></td><td></td><td><b>' + cost + '</b></td></tr>' : '');
+    const st = el('sq-status');
+    if (seq.length === 0) {
+      st.className = 'status info';
+      st.textContent = 'Jobs 1 and 4 have no predecessors — one of them must go first.';
+    } else if (seq.length === JOBS.length) {
+      st.className = 'status ok';
+      st.textContent = '✓ All 6 jobs done at hour ' + t + ' — total penalty $' + cost + '. Log it, then try to beat it.';
+    } else {
+      st.className = 'status info';
+      st.textContent = 'Machine busy until hour ' + t + ' — running penalty $' + cost + '. Pick the next job.';
+    }
+    draw();
+  }
+
+  function tryAdd(id) {
+    const j = JOBS[id - 1];
+    const missing = j.pre.filter(p => !seq.includes(p));
+    if (missing.length) {
+      const st = el('sq-status');
+      st.className = 'status bad';
+      st.textContent = '✗ Job ' + id + ' cannot start: immediate predecessor' + (missing.length > 1 ? 's' : '') + ' ' +
+        missing.join(', ') + ' unfinished (Xⱼ − Xₖ ≥ pⱼ would be violated).';
+      return;
+    }
+    seq.push(id);
+    update();
+  }
+
+  function log() {
+    const cost = currentCost();
+    if (cost === null) {
+      const st = el('sq-status');
+      st.className = 'status bad';
+      st.textContent = '✗ Sequence all 6 jobs before logging.';
+      return;
+    }
+    attempts.push({ order: seq.join(' → '), cost });
+    const best = Math.min(...attempts.map(a => a.cost));
+    const tb = el('sq-attempts');
+    tb.style.display = '';
+    tb.querySelector('tbody').innerHTML = attempts.map((a, i) =>
+      '<tr class="' + (a.cost === best ? 'best' : '') + '"><td>' + (i + 1) + '</td><td>' + a.order + '</td><td>' + a.cost + '</td></tr>'
+    ).join('');
+  }
+
+  function draw() {
+    const view = { x0: -9, x1: 52, y0: 0, y1: 6.6, padL: 14 };
+    const p = VIZ.plot(canvas, view);
+    const tth = VIZ.theme();
+    VIZ.axes(p, tth, { xticks: [0, 10, 20, 30, 40, 50], yticks: [], xlabel: 'hours' });
+    const { ctx, X, Y } = p;
+    JOBS.forEach((j, k) => {
+      const yC = 6 - k - 0.5 + 0.3;
+      VIZ.label(p, 'Job ' + j.id, -8.5, 6 - k - 0.5, tth.ink2, { size: 13, baseline: 'middle' });
+      if (revealed) {
+        // ghost bars of the enumerated optimum (natural order)
+        let t0 = 0;
+        for (const id of OPT) { const jj = JOBS[id - 1]; const t1 = t0 + jj.p; if (id === j.id) {
+          ctx.save();
+          ctx.strokeStyle = tth.s2; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+          ctx.strokeRect(X(t0), Y(yC), X(t1) - X(t0), Y(yC - 0.6) - Y(yC));
+          ctx.restore();
+        } t0 += jj.p; }
+      }
+    });
+    let t = 0;
+    seq.forEach((id, pos) => {
+      const j = JOBS[id - 1];
+      const k = id - 1;
+      const yTop = 6 - k - 0.5 + 0.3;
+      const x0 = t, x1 = t + j.p;
+      ctx.save();
+      ctx.fillStyle = (pos === seq.length - 1) ? tth.s5 : tth.s1;
+      ctx.globalAlpha = 0.85;
+      ctx.fillRect(X(x0), Y(yTop), X(x1) - X(x0), Y(yTop - 0.6) - Y(yTop));
+      ctx.restore();
+      if (x1 > 45) VIZ.label(p, 'X=' + x1, x1, yTop, tth.ink2, { dx: -2, size: 12, baseline: 'bottom', align: 'right' });
+      else VIZ.label(p, 'X=' + x1, x1, yTop - 0.3, tth.ink2, { dx: 4, size: 12, baseline: 'middle' });
+      t = x1;
+    });
+    if (revealed) {
+      VIZ.label(p, 'dashed = optimal order 1→6, $510', 0, 6.45, tth.s2, { size: 13, bold: true });
+    }
+  }
+
+  JOBS.forEach(j => el('sq-j' + j.id).addEventListener('click', () => tryAdd(j.id)));
+  el('sq-undo').addEventListener('click', () => { seq.pop(); update(); });
+  el('sq-reset').addEventListener('click', () => { seq = []; update(); });
+  el('sq-log').addEventListener('click', log);
+  el('sq-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('sq-reveal').textContent = revealed ? 'Hide optimal order' : 'Reveal optimal order ★';
+    draw();
+  });
+  window.seqScore = currentCost;
+  VIZ.register(canvas, draw);
+  update();
+})();
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('gravel', {
+  label: 'total cost ($)', dir: 'min', digits: 0,
+  get: () => window.gravelScore(),
+});
+CLASSROOM.register('sequence', {
+  label: 'total penalty ($)', dir: 'min', digits: 0,
+  get: () => window.seqScore(),
+});
+</script>
+</body>
+</html>

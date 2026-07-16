@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 10 — Lagrangian Relaxation &amp; Solution Methods (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<style>
+  /* iteration log + distance matrix tables */
+  table.iters {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9rem;
+    margin-top: 10px;
+    white-space: nowrap;
+  }
+  table.iters th, table.iters td { border: 1px solid var(--grid); padding: 4px 10px; text-align: center; }
+  table.iters th { color: var(--ink-2); }
+  table.iters tr.cur td { background: var(--region-fill); font-weight: 600; }
+  .tbl-wrap { overflow-x: auto; }
+
+  table.dmat {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.86rem;
+    margin-top: 8px;
+  }
+  table.dmat th, table.dmat td { border: 1px solid var(--grid); padding: 3px 9px; text-align: right; min-width: 38px; }
+  table.dmat th { color: var(--ink-2); background: var(--page); }
+
+  /* current-Lagrangian card (stepper) */
+  .lrcard { border: 1px solid var(--grid); border-radius: 10px; padding: 12px 16px; background: var(--page); }
+  .lrcard .tag { font-size: 0.8rem; font-weight: 700; color: var(--s1); }
+  .lrcard .obj { font-weight: 600; font-size: 1.02rem; margin: 6px 0; font-variant-numeric: tabular-nums; }
+  .lrcard .diag { margin: 3px 0; font-size: 0.93rem; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .lrcard .diag b.viol { color: var(--critical); }
+  .lrcard .diag b.slack { color: var(--good); }
+  .lrcard .diag b.tight { color: var(--ink-2); }
+  .lrcard .pre { margin-top: 8px; font-size: 0.9rem; color: var(--s1); font-weight: 600; }
+
+  .probcard { border-left: 3px solid var(--s1); padding: 4px 12px; margin: 6px 0 12px; color: var(--ink-2); font-size: 0.95rem; }
+
+  /* knapsack item cards */
+  .items { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0 4px; }
+  button.item { border: 1.5px solid var(--grid); border-radius: 10px; padding: 8px 14px; background: var(--surface); text-align: left; line-height: 1.4; }
+  button.item .nm { font-weight: 700; }
+  button.item .meta { font-size: 0.85rem; color: var(--ink-2); display: block; }
+  button.item.sel { border-color: var(--s5); box-shadow: inset 0 0 0 2px var(--s5); }
+  button.item.opt { outline: 2px dashed var(--s2); outline-offset: 2px; }
+  .capbar { flex: 1 1 200px; min-width: 160px; height: 16px; border: 1px solid var(--grid); border-radius: 999px; overflow: hidden; background: var(--page); }
+  .capbar div { height: 100%; width: 0%; background: var(--s1); }
+  .capbar.over div { background: var(--critical); }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 10: Lagrangian Relaxation &amp; Solution Methods</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#dial">1 · Dial the multiplier</a>
+    <a href="#stepper">2 · You set the prices</a>
+    <a href="#knap">3 · Beat the greedy knapsack</a>
+    <a href="#tsp">4 · Route 8 cities</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : LAMBDA DIAL (LR EXAMPLE 1) ================= -->
+<section class="widget" id="dial">
+  <h2>Can one price beat the lazy bound? <span class="chip">Slides 4–7</span></h2>
+  <p class="howto">
+    Slide 4's knapsack: max 8x₁ + 9x₂ + 5x₃ + 4x₄ with 16x₁ + 20x₂ + 12x₃ + 10x₄ ≤ 42, x binary.
+    Dropping the constraint bounds the optimum by 26 (slide 5). Instead, move the constraint into the
+    objective with price λ ≥ 0 and solve the trivial relaxation LR<sub>λ</sub>.
+    <b>Slide λ (or drag on the chart)</b> and hunt the λ that gives the <em>lowest</em> upper bound.
+  </p>
+  <div class="controls">
+    <span class="group"><label for="dial-l">λ</label>
+      <input type="range" id="dial-l" min="0" max="1" step="0.001" value="0">
+    </span>
+    <span class="readout">λ = <b id="dial-lv">0.000</b></span>
+    <span class="readout">bound L(λ) = <b id="dial-L">26.00</b></span>
+    <span class="readout">your lowest: <b id="dial-best">—</b></span>
+    <button id="dial-reveal" class="primary">Reveal the whole curve ★</button>
+  </div>
+  <p class="howto" id="dial-lr" style="margin:4px 0 10px;font-variant-numeric:tabular-nums"></p>
+  <canvas class="viz" id="c-dial"></canvas>
+  <p class="status info" id="dial-status">At λ = 0 the penalty is off — the bound is 26, exactly slide 5's ignore-the-constraint value.</p>
+  <div class="note">
+    L(λ) = 42λ + Σ max(0, cᵢ − λaᵢ): each item stays in only while its objective coefficient is positive,
+    so the relaxation is solvable at sight for any λ — that is the whole point of Lagrangian relaxation (slide 3).
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The curve is piecewise linear and dips to its minimum at λ★ = 5/12 ≈ 0.42, where L = 19.5 (slide 7):
+      no knapsack solution can be worth more than 19.5 — far sharper than 26. Overshooting hurts:
+      at λ = 1 every coefficient goes negative, all items drop out, and the bound balloons to 42 (slide 7).
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : MULTIPLIER ADJUSTMENT STEPPER (LR EXAMPLE 2) ================= -->
+<section class="widget" id="stepper">
+  <h2>You set the prices: multiplier adjustment, live <span class="chip">Slides 9–17</span></h2>
+  <p class="howto">
+    Slide 10's problem has two relaxed constraints, so two multipliers. Slide 9's adjustment rule:
+    start at λ = 0 with step k; after solving LR<sub>λ</sub>, <b>raise</b> the λ of every constraint the
+    solution violates by k, <b>lower</b> it on positive slack, and halve k when the best bound stalls.
+    Read the card, then <b>predict the update for λ₁ and λ₂</b> and commit — the page follows the
+    slides' exact iterations.
+  </p>
+  <div class="probcard">max 4x₁ + 5x₂ + 6x₃ + 7x₄ &nbsp; s.t. &nbsp; c₁: 2x₁ + 2x₂ + 3x₃ + 4x₄ ≤ 7, &nbsp; c₂: x₁ − x₂ + x₃ − x₄ ≤ 0, &nbsp; x ∈ {0,1}⁴</div>
+  <div class="controls">
+    <span class="group"><label>λ₁:</label>
+      <span class="segwrap">
+        <button class="seg" data-l="1" data-a="up">↑ +k</button>
+        <button class="seg" data-l="1" data-a="keep">keep</button>
+        <button class="seg" data-l="1" data-a="down">↓ −k</button>
+      </span>
+    </span>
+    <span class="group"><label>λ₂:</label>
+      <span class="segwrap">
+        <button class="seg" data-l="2" data-a="up">↑ +k</button>
+        <button class="seg" data-l="2" data-a="keep">keep</button>
+        <button class="seg" data-l="2" data-a="down">↓ −k</button>
+      </span>
+    </span>
+    <button id="st-commit" class="primary">Commit update</button>
+    <button id="st-auto" class="locked">Let the rule decide</button>
+    <button id="st-ff" class="locked">Fast-forward to λ★</button>
+    <button id="st-reset">Reset</button>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:stretch">
+    <div style="flex:1 1 360px;min-width:300px">
+      <div class="lrcard" id="st-card"></div>
+    </div>
+    <canvas class="viz short" id="c-st" style="flex:1 1 360px;min-width:300px;height:330px"></canvas>
+  </div>
+  <div class="tbl-wrap"><table class="iters" id="st-log"></table></div>
+  <p class="status info" id="st-status">Iteration 0: both prices are zero, so LR is the original objective over free binaries. Diagnose c₁ and c₂, then commit your update (k = 0.5).</p>
+  <div class="note">
+    The bound falls 22 → 20 → 18 → 16 while the relaxed solution keeps violating c₁; then it bounces,
+    the step shrinks, and λ₂ finally wakes up.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Iteration 4 (λ₁ = 2) yields x = (0,1,0,0) — feasible for the original problem, so z = 5 becomes a
+      lower bound (slide 15). The multipliers converge to λ★ = (1.83, 0.33) with bound 14.67 (slide 16),
+      while implicit enumeration finds the true optimum x₃ = x₄ = 1 with z = 13 (slide 17):
+      Lagrangian relaxation closed most of the 22 → 13 gap, but a duality gap of 1.67 remains.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : KNAPSACK VS GREEDY ================= -->
+<section class="widget" id="knap">
+  <h2>Pack it better than the greedy heuristic <span class="chip">Slides 18–20</span></h2>
+  <p class="howto">
+    Slide 18 asks how heuristics, Excel Solver and solvers like CBC compare — slide 19's knapsack is the
+    test bed: max 13x₁ + 25x₂ + 19x₃ + 18x₄ + 27x₅ with 3x₁ + 3x₂ + 4x₃ + 4x₄ + 5x₅ ≤ 10.
+    <b>Tap items in and out</b> (weight budget 10), then <b>log your pack</b>. When the class has
+    committed, race the value-per-weight greedy heuristic.
+  </p>
+  <div class="items" id="kn-items"></div>
+  <div class="controls">
+    <span class="readout">weight: <b id="kn-w">0</b> / 10</span>
+    <span class="capbar" id="kn-bar"><div></div></span>
+    <span class="readout">value: <b id="kn-val">0</b></span>
+    <span class="readout">your best: <b id="kn-best">—</b></span>
+  </div>
+  <div class="controls">
+    <button id="kn-log" class="primary">Log attempt</button>
+    <button id="kn-greedy" class="locked">Run greedy heuristic</button>
+    <button id="kn-reveal" class="locked">Reveal optimum ★</button>
+    <button id="kn-clear">Clear pack</button>
+  </div>
+  <table class="attempts" id="kn-att" style="display:none">
+    <thead><tr><th>#</th><th>pack</th><th>weight</th><th>value</th><th>who</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <p class="status info" id="kn-status">Assemble a pack — the greedy button unlocks after your first logged attempt.</p>
+  <div class="note">
+    Greedy sorts by value/weight and packs whatever still fits — fast, no guarantee. Exact methods
+    (branch &amp; bound in Solver or CBC) certify optimality but cost more time and setup: that is slide 18's trade-off.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Greedy takes x₂ (ratio 8.33) then x₅ (5.40) and nothing else fits: value 52. The optimum swaps
+      x₅ out for x₁ + x₃: pack {x₁, x₂, x₃}, weight exactly 10, value 57 — slide 20's table reads
+      greedy 52 vs 57* from both Excel Solver and CBC.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 4 : 8-CITY TSP ================= -->
+<section class="widget" id="tsp">
+  <h2>Route 8 cities — then race the heuristics <span class="chip">Slides 23–25</span></h2>
+  <p class="howto">
+    Slide 24 gives an 8-city symmetric distance matrix for the TSP of slide 23. <b>Tap cities in the
+    order you would visit them</b> — the tour closes itself after the 8th pick. City positions on the
+    canvas are schematic (the slide defines the instance only through its matrix); every length shown
+    is read from the matrix below. Build a tour first; the heuristic buttons unlock afterwards.
+  </p>
+  <div class="controls">
+    <span class="readout">picked: <b id="tsp-k">0</b> / 8</span>
+    <span class="readout">length so far: <b id="tsp-len">—</b></span>
+    <span class="readout">your best: <b id="tsp-best">—</b></span>
+    <button id="tsp-undo">Undo</button>
+    <button id="tsp-clear">Clear</button>
+  </div>
+  <div class="controls">
+    <button id="tsp-nn" class="locked">Run NN heuristic from city 1</button>
+    <button id="tsp-greedy" class="locked">Run greedy (cheapest edge)</button>
+    <button id="tsp-opt" class="locked">Reveal optimal tour ★</button>
+  </div>
+  <canvas class="viz" id="c-tsp"></canvas>
+  <p class="status info" id="tsp-status">Tap a starting city.</p>
+  <div class="tbl-wrap"><table class="dmat" id="tsp-mat"></table></div>
+  <table class="attempts" id="tsp-att" style="display:none">
+    <thead><tr><th>#</th><th>tour</th><th>length</th><th>who</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <div class="note">
+    Nearest neighbour always grabs the closest unvisited city; greedy picks the globally cheapest edges
+    that still allow a single tour (no city with three edges, no early subtour). Slide 25 scores them
+    against Excel Solver — which reports only “???” on the slide 23 formulation — and CBC.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Slide 25: NN from city 1 walks 1→8→7→4→3→5→2→6→1 for 1583; greedy edges reach 1530;
+      CBC proves the optimum 1487* — one optimal tour is 1→6→4→3→5→7→2→8→1. Excel Solver, given
+      the same MTZ model, could not certify an answer (“???”).
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 10.
+  Figures follow the examples used in the Week 10 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+const tf = v => String(parseFloat(Number(v).toFixed(2)));   // trim trailing zeros
+const SUB = ['₁', '₂', '₃', '₄', '₅', '₆', '₇', '₈'];
+
+// pretty "c1x₁ + c2x₂ + … + const" with proper signs (zeros kept, as on the slides)
+function objString(co, cst) {
+  let s = 'max ';
+  co.forEach((c, i) => {
+    const mag = tf(Math.abs(c));
+    if (i === 0) s += (c < 0 ? '−' : '') + mag + 'x' + SUB[i];
+    else s += (c < 0 ? ' − ' : ' + ') + mag + 'x' + SUB[i];
+  });
+  if (Math.abs(cst) > 1e-12) s += (cst < 0 ? ' − ' : ' + ') + tf(Math.abs(cst));
+  return s;
+}
+
+/* ============================================================
+   WIDGET 1 — dial the multiplier (slides 4-7)
+   max 8x1+9x2+5x3+4x4, 16x1+20x2+12x3+10x4 <= 42, x binary.
+   L(0)=26 (slide 5), L(1)=42 (slide 7), min L=19.5 at lambda=5/12 (slide 7).
+   ============================================================ */
+(() => {
+  const canvas = el('c-dial');
+  VIZ.hint(canvas, '🖱 drag to set λ');
+  const C = [8, 9, 5, 4], A = [16, 20, 12, 10], B = 42;
+  const LSTAR = 5 / 12;
+  const view = { x0: -0.02, x1: 1.02, y0: 16, y1: 44 };
+  let lam = 0, best = null, revealed = false, dragging = false, lastPlot = null;
+  const trail = [];
+
+  const coeffs = l => C.map((c, i) => c - l * A[i]);
+  const Lfn = l => B * l + coeffs(l).reduce((s, c) => s + Math.max(0, c), 0);
+  const xOf = l => coeffs(l).map(c => (c > 1e-9 ? 1 : 0));
+
+  function draw() {
+    const p = VIZ.plot(canvas, view);
+    const t = VIZ.theme();
+    lastPlot = p;
+    VIZ.axes(p, t, { xticks: [0, 0.2, 0.4, 0.6, 0.8, 1], yticks: [20, 25, 30, 35, 40],
+                     xlabel: 'λ', ylabel: 'L(λ) — upper bound', yAxisAt: 16 });
+    const { ctx, X, Y } = p;
+
+    // reference: the bound with the constraint simply dropped (slide 5)
+    ctx.save();
+    ctx.strokeStyle = t.ink2; ctx.lineWidth = 1.5; ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.moveTo(X(view.x0), Y(26)); ctx.lineTo(X(view.x1), Y(26)); ctx.stroke();
+    ctx.restore();
+    VIZ.label(p, 'drop-the-constraint bound = 26 (slide 5)', 0.44, 26, t.ink2, { dy: -5, size: 13 });
+
+    if (revealed) {
+      VIZ.curve(p, Lfn, t.s1, 2.5);
+      VIZ.star(p, LSTAR, 19.5, t.s2, 11);
+      VIZ.label(p, 'λ★ = 5/12 ≈ 0.42 → L = 19.5', LSTAR, 19.5, t.s2, { dx: 12, dy: 20, bold: true, baseline: 'top' });
+    }
+
+    // visited trail
+    ctx.save();
+    ctx.globalAlpha = 0.4;
+    trail.forEach(q => {
+      ctx.beginPath();
+      ctx.arc(X(q[0]), Y(q[1]), 2.5, 0, 2 * Math.PI);
+      ctx.fillStyle = t.s5; ctx.fill();
+    });
+    ctx.restore();
+
+    VIZ.dot(p, lam, Lfn(lam), t.s5, 7, true);
+  }
+
+  function update(fromSlider) {
+    lam = Math.min(1, Math.max(0, lam));
+    if (!fromSlider) el('dial-l').value = lam;
+    const L = Lfn(lam), x = xOf(lam), co = coeffs(lam);
+    if (best === null || L < best) best = L;
+    if (trail.length === 0 || Math.abs(trail[trail.length - 1][0] - lam) > 1e-4) trail.push([lam, L]);
+    if (trail.length > 600) trail.splice(0, trail.length - 600);
+    el('dial-lv').textContent = fmt(lam, 3);
+    el('dial-L').textContent = fmt(L, 2);
+    el('dial-best').textContent = fmt(best, 2);
+    el('dial-lr').innerHTML = 'LR<sub>λ</sub>: &nbsp;' + objString(co, B * lam) +
+      ' &nbsp;→&nbsp; take x = (' + x.join(', ') + ') &nbsp;→&nbsp; L(λ) = ' + fmt(L, 2);
+    const st = el('dial-status');
+    if (lam < 1e-9) {
+      st.className = 'status info';
+      st.textContent = 'At λ = 0 the penalty is off — the bound is 26, exactly slide 5’s ignore-the-constraint value.';
+    } else if (L <= 19.55) {
+      st.className = 'status ok';
+      st.textContent = 'L(λ) = ' + fmt(L, 2) + ' — it barely gets lower than this. You have found the sharpest Lagrangian bound.';
+    } else if (lam >= 0.995) {
+      st.className = 'status info';
+      st.textContent = 'L(1) = 42: every coefficient went negative, all items dropped out — the penalty λ is far too big (slide 7).';
+    } else {
+      st.className = 'status info';
+      st.textContent = 'L(λ) = ' + fmt(L, 2) + (L < 26 ? ' — better than 26. Can you push it lower?' : ' — worse than the lazy bound 26. Try a smaller λ.');
+    }
+    draw();
+  }
+
+  el('dial-l').addEventListener('input', () => { lam = +el('dial-l').value; update(true); });
+  function setFromPointer(ev) {
+    const { px } = VIZ.pointer(canvas, ev);
+    lam = Math.round(lastPlot.invX(px) * 1000) / 1000;
+    update(false);
+  }
+  canvas.addEventListener('pointerdown', ev => { dragging = true; canvas.setPointerCapture(ev.pointerId); setFromPointer(ev); });
+  canvas.addEventListener('pointermove', ev => { if (dragging) setFromPointer(ev); });
+  canvas.addEventListener('pointerup', () => dragging = false);
+  el('dial-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('dial-reveal').textContent = revealed ? 'Hide the curve' : 'Reveal the whole curve ★';
+    draw();
+  });
+  VIZ.register(canvas, draw);
+  update(false);
+})();
+
+/* ============================================================
+   WIDGET 2 — multiplier adjustment stepper (slides 9-17)
+   max 4x1+5x2+6x3+7x4; c1: 2x1+2x2+3x3+4x4<=7; c2: x1-x2+x3-x4<=0.
+   Scripted iterations follow slides 11-16 exactly:
+   bounds 22,20,18,16,15,(16),15 ; LB 5 ; lambda*=(1.83,0.33) -> 14.67 ; IP opt 13.
+   ============================================================ */
+(() => {
+  const canvas = el('c-st');
+  const CO = [4, 5, 6, 7], A1 = [2, 2, 3, 4], B1 = 7, A2 = [1, -1, 1, -1], B2 = 0;
+  // one entry per solved LR: the state shown, plus the CORRECT update out of it
+  const S = [
+    { l1: 0,    l2: 0, k: 0.5,  co: [4, 5, 6, 7],        cst: 0,     x: [1, 1, 1, 1], ub: 22,
+      a1: 'up',   a2: 'keep', pre: null, remark: 'c₁ violated (11 > 7)' },
+    { l1: 0.5,  l2: 0, k: 0.5,  co: [3, 4, 4.5, 5],      cst: 3.5,   x: [1, 1, 1, 1], ub: 20,
+      a1: 'up',   a2: 'keep', pre: null, remark: 'c₁ violated (11 > 7)' },
+    { l1: 1,    l2: 0, k: 0.5,  co: [2, 3, 3, 3],        cst: 7,     x: [1, 1, 1, 1], ub: 18,
+      a1: 'up',   a2: 'keep', pre: null, remark: 'c₁ violated (11 > 7)' },
+    { l1: 1.5,  l2: 0, k: 0.5,  co: [1, 2, 1.5, 1],      cst: 10.5,  x: [1, 1, 1, 1], ub: 16,
+      a1: 'up',   a2: 'keep', pre: null, remark: 'c₁ violated (11 > 7)' },
+    { l1: 2,    l2: 0, k: 0.5,  co: [0, 1, 0, -1],       cst: 14,    x: [0, 1, 0, 0], ub: 15,
+      a1: 'down', a2: 'keep', alt2: 'down', pre: null, remark: 'x feasible in P → LB z = 5' },
+    { l1: 1.5,  l2: 0, k: 0.25, co: [1, 2, 1.5, 1],      cst: 10.5,  x: [1, 1, 1, 1], ub: 16,
+      a1: 'up',   a2: 'keep', pre: 'Best bound stuck at 15 while we bounce ⇒ slide 9’s rule: halve the step, k = 0.25.',
+      remark: 'bounce — step halved to 0.25' },
+    { l1: 1.75, l2: 0, k: 0.25, co: [0.5, 1.5, 0.75, 0], cst: 12.25, x: [1, 1, 1, 0], ub: 15,
+      a1: 'keep', a2: 'up', pre: null, remark: 'c₁ tight (7 = 7), c₂ violated (1 > 0)' },
+  ];
+  let cur = 0, choice = { 1: null, 2: null }, manualDone = false, finished = false, revealed = false;
+
+  const lhs1 = x => A1.reduce((s, a, i) => s + a * x[i], 0);
+  const lhs2 = x => A2.reduce((s, a, i) => s + a * x[i], 0);
+  const diag = (lhs, rhs) => lhs > rhs + 1e-9 ? 'violated' : (lhs < rhs - 1e-9 ? 'slack' : 'tight');
+
+  function card() {
+    const host = el('st-card');
+    if (cur >= S.length) {
+      host.innerHTML = '<div class="tag">AFTER ITERATION 6</div>' +
+        '<div class="obj">λ = (1.75, 0.25), k = 0.25</div>' +
+        '<div class="diag">λ₂ has finally moved (slide 16). The slides fast-forward from here: ' +
+        'the step keeps shrinking until updates stop mattering.</div>' +
+        '<div class="pre">Hit “Fast-forward to λ★” to see where the prices settle.</div>';
+      return;
+    }
+    const s = S[cur];
+    const d1 = diag(lhs1(s.x), B1), d2 = diag(lhs2(s.x), B2);
+    let html = '<div class="tag">ITERATION ' + cur + '</div>' +
+      '<div class="obj">λ₁ = ' + tf(s.l1) + ', λ₂ = ' + tf(s.l2) + ', step k = ' + tf(s.k) + '</div>' +
+      '<div class="obj">' + objString(s.co, s.cst) + '</div>' +
+      '<div class="diag">LR optimum: x = (' + s.x.join(', ') + ') → <b>bound ' + tf(s.ub) + '</b></div>' +
+      '<div class="diag">c₁: 2x₁+2x₂+3x₃+4x₄ = ' + lhs1(s.x) + ' vs 7 → <b class="' + (d1 === 'violated' ? 'viol' : d1) + '">' + d1 + '</b></div>' +
+      '<div class="diag">c₂: x₁−x₂+x₃−x₄ = ' + lhs2(s.x) + ' vs 0 → <b class="' + (d2 === 'violated' ? 'viol' : d2) + '">' + d2 + '</b></div>';
+    if (cur === 4) html += '<div class="diag">This x satisfies BOTH original constraints: z = 5·1 = 5 is a valid lower bound (slide 15).</div>';
+    if (s.pre) html += '<div class="pre">' + s.pre + '</div>';
+    host.innerHTML = html;
+  }
+
+  function log() {
+    const tbl = el('st-log');
+    let html = '<thead><tr><th>it</th><th>λ₁</th><th>λ₂</th><th>k</th><th>relaxed objective</th><th>x</th><th>bound</th><th>remark</th></tr></thead><tbody>';
+    for (let i = 0; i <= Math.min(cur, S.length - 1); i++) {
+      const s = S[i];
+      html += '<tr' + (i === cur ? ' class="cur"' : '') + '><td>' + i + '</td><td>' + tf(s.l1) + '</td><td>' + tf(s.l2) +
+        '</td><td>' + tf(s.k) + '</td><td style="text-align:left">' + objString(s.co, s.cst) + '</td><td>(' + s.x.join(', ') +
+        ')</td><td>' + tf(s.ub) + '</td><td style="text-align:left">' + s.remark + '</td></tr>';
+    }
+    if (cur >= S.length) {
+      html += '<tr class="cur"><td>7</td><td>1.75</td><td>0.25</td><td>0.25</td><td style="text-align:left">…</td><td>…</td><td>…</td><td style="text-align:left">slides fast-forward to λ★ (slide 16)</td></tr>';
+    }
+    tbl.innerHTML = html + '</tbody>';
+  }
+
+  function chart() {
+    const p = VIZ.plot(canvas, { x0: -0.5, x1: 6.9, y0: 0, y1: 24 });
+    const t = VIZ.theme();
+    VIZ.axes(p, t, { xticks: [0, 1, 2, 3, 4, 5, 6], yticks: [0, 5, 10, 15, 20], xlabel: 'iteration', ylabel: 'bound' });
+    const { ctx, X, Y } = p;
+    const upto = Math.min(cur, S.length - 1);
+    // UB path
+    ctx.save();
+    ctx.strokeStyle = t.s1; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i <= upto; i++) (i === 0 ? ctx.moveTo(X(i), Y(S[i].ub)) : ctx.lineTo(X(i), Y(S[i].ub)));
+    ctx.stroke();
+    ctx.restore();
+    for (let i = 0; i <= upto; i++) {
+      VIZ.dot(p, i, S[i].ub, i === 4 ? t.good : t.s1, 5);
+      VIZ.label(p, tf(S[i].ub), i, S[i].ub, t.ink2, { dy: -9, size: 12, align: 'center' });
+    }
+    if (upto >= 4) {
+      ctx.save();
+      ctx.strokeStyle = t.good; ctx.lineWidth = 1.5; ctx.setLineDash([6, 5]);
+      ctx.beginPath(); ctx.moveTo(X(4), Y(5)); ctx.lineTo(X(6.9), Y(5)); ctx.stroke();
+      ctx.restore();
+      VIZ.label(p, 'LB = 5 (feasible x)', 4.1, 5, t.good, { dy: -5, size: 12 });
+    }
+    if (revealed) {
+      ctx.save();
+      ctx.strokeStyle = t.s2; ctx.lineWidth = 2; ctx.setLineDash([7, 5]);
+      ctx.beginPath(); ctx.moveTo(X(-0.5), Y(44 / 3)); ctx.lineTo(X(6.9), Y(44 / 3)); ctx.stroke();
+      ctx.setLineDash([2, 4]); ctx.strokeStyle = t.ink2; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(X(-0.5), Y(13)); ctx.lineTo(X(6.9), Y(13)); ctx.stroke();
+      ctx.restore();
+      VIZ.label(p, 'λ★ bound = 14.67', 6.75, 44 / 3, t.s2, { dy: 6, size: 12, bold: true, align: 'right', baseline: 'top' });
+      VIZ.label(p, 'IP optimum 13 (slide 17)', 0.0, 13, t.ink2, { dy: 15, size: 13, baseline: 'top' });
+    }
+  }
+
+  function clearChoice() {
+    choice = { 1: null, 2: null };
+    document.querySelectorAll('#stepper .seg[data-l]').forEach(b => b.classList.remove('active'));
+  }
+
+  function hintFor(which, expected, got, s) {
+    const nm = which === 1 ? 'c₁' : 'c₂';
+    const ln = which === 1 ? 'λ₁' : 'λ₂';
+    if (expected === 'up') return nm + ' is violated by this x — raise ' + ln + ' by k to punish it harder.';
+    if (expected === 'down') return nm + ' has positive slack — the price is too high; cut ' + ln + ' by k.';
+    // expected keep
+    if (which === 2 && s.l2 === 0 && diag(lhs2(s.x), B2) === 'slack')
+      return 'c₂ has slack so the rule says lower λ₂ — but λ₂ is already 0 and multipliers stay ≥ 0, so it keeps.';
+    return nm + ' is met exactly (tight) — no signal, leave ' + ln + ' alone.';
+  }
+
+  function applyUpdate(via) {
+    const s = S[cur];
+    const st = el('st-status');
+    const nextIsTerminal = cur === S.length - 1;
+    cur++;
+    clearChoice();
+    card(); log(); chart();
+    if (nextIsTerminal) {
+      finished = true;
+      st.className = 'status ok';
+      st.textContent = '✓ λ₂ finally moves: λ = (1.75, 0.25) — slide 16. From here the slides fast-forward: use “Fast-forward to λ★”.';
+    } else {
+      const n = S[cur];
+      st.className = 'status ok';
+      st.textContent = (via === 'auto' ? 'Rule applied: ' : '✓ Correct: ') + 'λ = (' + tf(n.l1) + ', ' + tf(n.l2) + '), k = ' + tf(n.k) +
+        ' → new LR bound ' + tf(n.ub) + (n.ub < s.ub ? ' — sharper.' : (n.ub > s.ub ? ' — worse! (bounce)' : ' — unchanged.'));
+    }
+  }
+
+  function commit() {
+    if (finished || cur >= S.length) return;
+    const st = el('st-status');
+    if (!choice[1] || !choice[2]) {
+      st.className = 'status info';
+      st.textContent = 'Pick an update (↑ / keep / ↓) for BOTH multipliers, then commit.';
+      return;
+    }
+    const s = S[cur];
+    const ok1 = choice[1] === s.a1;
+    const ok2 = choice[2] === s.a2 || (s.alt2 && choice[2] === s.alt2);
+    if (ok1 && ok2) {
+      if (!manualDone) {
+        manualDone = true;
+        el('st-auto').classList.remove('locked');
+        el('st-ff').classList.remove('locked');
+      }
+      const clampNote = s.alt2 && choice[2] === s.alt2;
+      applyUpdate('manual');
+      if (clampNote) st.textContent += ' (λ₂ would drop by k but is already 0 — multipliers stay ≥ 0.)';
+    } else {
+      const hints = [];
+      if (!ok1) hints.push(hintFor(1, s.a1, choice[1], s));
+      if (!ok2) hints.push(hintFor(2, s.a2, choice[2], s));
+      st.className = 'status bad';
+      st.textContent = '✗ Not the slide 9 rule. ' + hints.join(' ');
+    }
+  }
+
+  document.querySelectorAll('#stepper .seg[data-l]').forEach(b => {
+    b.addEventListener('click', () => {
+      if (finished || cur >= S.length) return;
+      const g = b.dataset.l;
+      document.querySelectorAll('#stepper .seg[data-l="' + g + '"]').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      choice[g] = b.dataset.a;
+    });
+  });
+
+  el('st-commit').addEventListener('click', commit);
+  el('st-auto').addEventListener('click', () => {
+    const st = el('st-status');
+    if (el('st-auto').classList.contains('locked')) {
+      st.className = 'status info';
+      st.textContent = 'Take (at least) one step yourself first — then the rule can drive.';
+      return;
+    }
+    if (finished || cur >= S.length) return;
+    applyUpdate('auto');
+  });
+  el('st-ff').addEventListener('click', () => {
+    const st = el('st-status');
+    if (el('st-ff').classList.contains('locked')) {
+      st.className = 'status info';
+      st.textContent = 'Take (at least) one step yourself first.';
+      return;
+    }
+    revealed = !revealed;
+    el('st-ff').textContent = revealed ? 'Hide λ★' : 'Fast-forward to λ★';
+    chart();
+    if (revealed) {
+      st.className = 'status ok';
+      st.textContent = 'Multipliers settle at λ★ = (1.83, 0.33) with bound 14.67 (slide 16); implicit enumeration gives the true optimum 13 (slide 17). LR squeezed 22 → 14.67, and a gap of 1.67 remains.';
+    }
+  });
+  el('st-reset').addEventListener('click', () => {
+    cur = 0; finished = false; revealed = false; manualDone = false;
+    el('st-auto').classList.add('locked');
+    el('st-ff').classList.add('locked');
+    el('st-ff').textContent = 'Fast-forward to λ★';
+    clearChoice();
+    card(); log(); chart();
+    const st = el('st-status');
+    st.className = 'status info';
+    st.textContent = 'Iteration 0: both prices are zero, so LR is the original objective over free binaries. Diagnose c₁ and c₂, then commit your update (k = 0.5).';
+  });
+
+  card(); log();
+  VIZ.register(canvas, chart);
+})();
+
+/* ============================================================
+   WIDGET 3 — knapsack vs greedy (slides 18-20)
+   max 13x1+25x2+19x3+18x4+27x5, 3x1+3x2+4x3+4x4+5x5 <= 10.
+   Greedy = 52 (x2,x5); optimum = 57 (x1,x2,x3) — slide 20.
+   ============================================================ */
+(() => {
+  const V = [13, 25, 19, 18, 27], W = [3, 3, 4, 4, 5], CAP = 10;
+  const OPT = [0, 1, 2]; // x1+x2+x3 -> 57
+  let sel = [false, false, false, false, false];
+  let busy = false, bestVal = null, attempts = 0, unlocked = false, optShown = false;
+
+  const weight = () => W.reduce((s, w, i) => s + (sel[i] ? w : 0), 0);
+  const value = () => V.reduce((s, v, i) => s + (sel[i] ? v : 0), 0);
+  const packStr = () => sel.some(Boolean) ? sel.map((s, i) => s ? 'x' + SUB[i] : null).filter(Boolean).join(' + ') : '∅';
+
+  // build item cards
+  const host = el('kn-items');
+  V.forEach((v, i) => {
+    const b = document.createElement('button');
+    b.className = 'item';
+    b.id = 'kn-i' + i;
+    b.innerHTML = '<span class="nm">x' + SUB[i] + '</span><span class="meta">value ' + v + ' · weight ' + W[i] +
+      '</span><span class="meta">ratio ' + fmt(v / W[i], 2) + '</span>';
+    b.addEventListener('click', () => {
+      if (busy) return;
+      sel[i] = !sel[i];
+      update('Pack updated — log it when you are happy.');
+    });
+    host.appendChild(b);
+  });
+
+  function update(msg, cls) {
+    const w = weight(), v = value();
+    sel.forEach((s, i) => el('kn-i' + i).classList.toggle('sel', s));
+    el('kn-w').textContent = w;
+    el('kn-val').textContent = v;
+    el('kn-bar').classList.toggle('over', w > CAP);
+    el('kn-bar').firstElementChild.style.width = Math.min(100, w / CAP * 100) + '%';
+    const st = el('kn-status');
+    if (w > CAP) {
+      st.className = 'status bad';
+      st.textContent = 'Over capacity: ' + w + ' > 10 — drop something.';
+    } else if (msg) {
+      st.className = 'status ' + (cls || 'info');
+      st.textContent = msg;
+    }
+  }
+
+  function logAttempt(who) {
+    const w = weight(), v = value(), feas = w <= CAP;
+    attempts++;
+    const tbl = el('kn-att');
+    tbl.style.display = '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + attempts + '</td><td>' + packStr() + '</td><td>' + w + '</td><td>' + v + '</td><td>' + who + '</td>';
+    if (!feas) tr.className = 'infeasible';
+    tbl.tBodies[0].appendChild(tr);
+    if (feas && (bestVal === null || v > bestVal)) bestVal = v;
+    el('kn-best').textContent = bestVal === null ? '—' : bestVal;
+    // re-mark best rows
+    Array.from(tbl.tBodies[0].rows).forEach(r => {
+      if (r.className !== 'infeasible') r.className = (+r.cells[3].textContent === bestVal) ? 'best' : '';
+    });
+    return feas;
+  }
+
+  el('kn-log').addEventListener('click', () => {
+    if (busy) return;
+    if (!sel.some(Boolean)) { update('Pick at least one item before logging.'); return; }
+    const feas = logAttempt('you');
+    if (feas && !unlocked) {
+      unlocked = true;
+      el('kn-greedy').classList.remove('locked');
+      el('kn-reveal').classList.remove('locked');
+      update('Logged. Greedy and reveal are unlocked — but can the class beat your ' + value() + ' first?', 'ok');
+    } else {
+      update(feas ? 'Logged: value ' + value() + '.' : 'Logged as infeasible.', feas ? 'ok' : 'bad');
+    }
+  });
+
+  el('kn-clear').addEventListener('click', () => {
+    if (busy) return;
+    sel = [false, false, false, false, false];
+    update('Cleared.');
+  });
+
+  el('kn-greedy').addEventListener('click', () => {
+    const st = el('kn-status');
+    if (el('kn-greedy').classList.contains('locked')) {
+      st.className = 'status info';
+      st.textContent = 'Log one attempt of your own first.';
+      return;
+    }
+    if (busy) return;
+    busy = true;
+    sel = [false, false, false, false, false];
+    update();
+    const order = [1, 4, 2, 3, 0]; // by ratio: 8.33, 5.40, 4.75, 4.50, 4.33
+    const script = [];
+    let w = 0;
+    order.forEach(i => {
+      if (w + W[i] <= CAP) { w += W[i]; script.push({ i, take: true, w }); }
+      else script.push({ i, take: false, w });
+    });
+    let k = 0;
+    const tick = () => {
+      if (k >= script.length) {
+        busy = false;
+        logAttempt('greedy');
+        update('Greedy heuristic: pack {x₂, x₅}, weight 8, value 52 — the 52 on slide 20. Exact methods do better…', 'ok');
+        return;
+      }
+      const step = script[k];
+      if (step.take) {
+        sel[step.i] = true;
+        update('Greedy (by ratio): take x' + SUB[step.i] + ' (ratio ' + fmt(V[step.i] / W[step.i], 2) + ') → weight ' + step.w + '/10.');
+      } else {
+        update('Greedy: x' + SUB[step.i] + ' does not fit (weight ' + W[step.i] + ' > ' + (CAP - step.w) + ' left) — skip.');
+      }
+      k++;
+      setTimeout(tick, 850);
+    };
+    st.className = 'status info';
+    st.textContent = 'Greedy sorts by value/weight: x₂ (8.33) ≻ x₅ (5.40) ≻ x₃ (4.75) ≻ x₄ (4.50) ≻ x₁ (4.33)…';
+    setTimeout(tick, 850);
+  });
+
+  el('kn-reveal').addEventListener('click', () => {
+    const st = el('kn-status');
+    if (el('kn-reveal').classList.contains('locked')) {
+      st.className = 'status info';
+      st.textContent = 'Log one attempt of your own first.';
+      return;
+    }
+    optShown = !optShown;
+    el('kn-reveal').textContent = optShown ? 'Hide optimum' : 'Reveal optimum ★';
+    OPT.forEach(i => el('kn-i' + i).classList.toggle('opt', optShown));
+    if (optShown) {
+      st.className = 'status ok';
+      st.textContent = 'Dashed = optimal pack {x₁, x₂, x₃}: weight exactly 10, value 57 — the 57* found by Excel Solver and CBC on slide 20.';
+    } else {
+      st.className = 'status info';
+      st.textContent = 'Optimum hidden again.';
+    }
+  });
+
+  window.knapScore = () => (!busy && weight() <= CAP && sel.some(Boolean)) ? value() : null;
+  update();
+})();
+
+/* ============================================================
+   WIDGET 4 — 8-city TSP (slides 23-25)
+   Distance matrix from slide 24. NN(1)=1583, greedy=1530, CBC optimum=1487 (slide 25).
+   City positions are schematic; all lengths come from the matrix.
+   ============================================================ */
+(() => {
+  const canvas = el('c-tsp');
+  VIZ.hint(canvas, '🖱 tap cities in visit order');
+  const D = [
+    [0, 259, 277, 206, 224, 194, 222, 165],
+    [259, 0, 265, 249, 284, 256, 218, 245],
+    [277, 265, 0, 151, 195, 241, 172, 273],
+    [206, 249, 151, 0, 252, 153, 156, 183],
+    [224, 284, 195, 252, 0, 292, 166, 261],
+    [194, 256, 241, 153, 292, 0, 238, 211],
+    [222, 218, 172, 156, 166, 238, 0, 182],
+    [165, 245, 273, 183, 261, 211, 182, 0],
+  ];
+  const N = 8;
+  const NN_SEQ = [0, 7, 6, 3, 2, 4, 1, 5];       // 1-8-7-4-3-5-2-6(-1) = 1583
+  const GREEDY_SEQ = [0, 7, 1, 4, 6, 2, 3, 5];   // greedy edges as a cycle: 1530
+  const OPT_SEQ = [0, 5, 3, 2, 4, 6, 1, 7];      // 1-6-4-3-5-7-2-8(-1) = 1487
+  let tour = [], done = false, busy = false, bestLen = null, attempts = 0, unlocked = false;
+  let overlay = null; // {seq (array of node indices so far), color key, closed}
+  let optShown = false;
+
+  const segLen = seq => seq.reduce((s, n, i) => i ? s + D[seq[i - 1]][n] : 0, 0);
+  const cycLen = seq => segLen(seq) + D[seq[seq.length - 1]][seq[0]];
+  const tourStr = seq => seq.map(n => n + 1).join('→') + '→' + (seq[0] + 1);
+
+  function nodePos(w, h) {
+    const cx = w / 2, cy = h / 2 + 4;
+    const R = Math.min(w, h) / 2 - 36;
+    return Array.from({ length: N }, (_, i) => {
+      const a = -Math.PI / 2 + i * Math.PI / 4;
+      return { x: cx + R * Math.cos(a), y: cy + R * Math.sin(a) };
+    });
+  }
+
+  function draw() {
+    const { ctx, w, h } = VIZ.setup(canvas);
+    const t = VIZ.theme();
+    const P = nodePos(w, h);
+    const fscale = parseFloat(VIZ.cssv('--viz-font-scale')) || 1;
+    const txt = (str, x, y, color, size, bold) => {
+      ctx.font = (bold ? '600 ' : '') + Math.round(size * fscale) + 'px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3; ctx.strokeStyle = t.surface; ctx.strokeText(str, x, y);
+      ctx.fillStyle = color; ctx.fillText(str, x, y);
+    };
+    const path = (seq, color, width, dash, closed) => {
+      if (seq.length < 2) return;
+      ctx.save();
+      ctx.strokeStyle = color; ctx.lineWidth = width;
+      if (dash) ctx.setLineDash(dash);
+      ctx.beginPath();
+      seq.forEach((n, i) => i ? ctx.lineTo(P[n].x, P[n].y) : ctx.moveTo(P[n].x, P[n].y));
+      if (closed) ctx.lineTo(P[seq[0]].x, P[seq[0]].y);
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    if (optShown) path(OPT_SEQ, t.s2, 3, [8, 6], true);
+    if (overlay) path(overlay.seq, t.s1, 2, null, overlay.closed);
+    path(tour, t.s5, 2.5, null, done);
+
+    // user edge labels (distances from the slide-24 matrix)
+    const edges = [];
+    for (let i = 1; i < tour.length; i++) edges.push([tour[i - 1], tour[i]]);
+    if (done) edges.push([tour[tour.length - 1], tour[0]]);
+    edges.forEach(([a, b]) => {
+      txt(String(D[a][b]), (P[a].x + P[b].x) / 2, (P[a].y + P[b].y) / 2, t.ink2, 12);
+    });
+
+    // nodes
+    P.forEach((q, i) => {
+      const inTour = tour.includes(i);
+      ctx.beginPath();
+      ctx.arc(q.x, q.y, 15, 0, 2 * Math.PI);
+      ctx.fillStyle = t.surface; ctx.fill();
+      ctx.lineWidth = inTour ? 3 : 2;
+      ctx.strokeStyle = inTour ? t.s5 : t.axis;
+      ctx.stroke();
+      if (tour.length && tour[0] === i) {
+        ctx.beginPath();
+        ctx.arc(q.x, q.y, 20, 0, 2 * Math.PI);
+        ctx.strokeStyle = t.s5; ctx.lineWidth = 1.5; ctx.stroke();
+      }
+      txt(String(i + 1), q.x, q.y, inTour ? t.s5 : t.ink, 14, true);
+    });
+  }
+
+  function readouts() {
+    el('tsp-k').textContent = tour.length;
+    el('tsp-len').textContent = tour.length < 2 ? '—' : String(done ? cycLen(tour) : segLen(tour));
+    el('tsp-best').textContent = bestLen === null ? '—' : bestLen;
+  }
+
+  function logAttempt(seq, who) {
+    attempts++;
+    const L = cycLen(seq);
+    const tbl = el('tsp-att');
+    tbl.style.display = '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + attempts + '</td><td>' + tourStr(seq) + '</td><td>' + L + '</td><td>' + who + '</td>';
+    tbl.tBodies[0].appendChild(tr);
+    if (bestLen === null || L < bestLen) bestLen = L;
+    Array.from(tbl.tBodies[0].rows).forEach(r => {
+      r.className = (+r.cells[2].textContent === bestLen) ? 'best' : '';
+    });
+    readouts();
+  }
+
+  function complete() {
+    done = true;
+    const L = cycLen(tour);
+    logAttempt(tour, 'you');
+    if (!unlocked) {
+      unlocked = true;
+      ['tsp-nn', 'tsp-greedy', 'tsp-opt'].forEach(id => el(id).classList.remove('locked'));
+    }
+    const st = el('tsp-status');
+    st.className = 'status ok';
+    st.textContent = 'Tour closed: ' + tourStr(tour) + ' = ' + L +
+      '. Clear and try to shave it — or race the heuristics (now unlocked).';
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    if (busy) return;
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const P = nodePos(canvas.clientWidth, canvas.clientHeight);
+    let hit = -1;
+    P.forEach((q, i) => { if (Math.hypot(q.x - px, q.y - py) <= 20) hit = i; });
+    if (hit < 0) return;
+    const st = el('tsp-status');
+    if (done) {
+      st.className = 'status info';
+      st.textContent = 'Tour already closed — Clear (or Undo) to try another one.';
+      return;
+    }
+    if (tour.includes(hit)) {
+      if (tour[tour.length - 1] === hit) {
+        tour.pop();
+        st.className = 'status info';
+        st.textContent = 'Removed city ' + (hit + 1) + '.';
+      } else {
+        st.className = 'status bad';
+        st.textContent = 'City ' + (hit + 1) + ' is already on the tour.';
+      }
+    } else {
+      tour.push(hit);
+      if (tour.length === N) { complete(); readouts(); draw(); return; }
+      st.className = 'status info';
+      st.textContent = tour.length === 1 ? 'Starting at city ' + (hit + 1) + ' — keep tapping.'
+        : tour.length + ' of 8 picked, length so far ' + segLen(tour) + '.';
+    }
+    readouts(); draw();
+  });
+
+  el('tsp-undo').addEventListener('click', () => {
+    if (busy || !tour.length) return;
+    if (done) done = false; else tour.pop();
+    el('tsp-status').className = 'status info';
+    el('tsp-status').textContent = done ? '' : 'Undone — ' + tour.length + ' cities on the tour.';
+    readouts(); draw();
+  });
+  el('tsp-clear').addEventListener('click', () => {
+    if (busy) return;
+    tour = []; done = false; overlay = null;
+    el('tsp-status').className = 'status info';
+    el('tsp-status').textContent = 'Cleared — tap a starting city.';
+    readouts(); draw();
+  });
+
+  function animate(seq, who, msgs, finalMsg) {
+    busy = true;
+    overlay = { seq: [seq[0]], closed: false };
+    let k = 1;
+    const st = el('tsp-status');
+    const tick = () => {
+      if (k < seq.length) {
+        overlay.seq.push(seq[k]);
+        st.className = 'status info';
+        st.textContent = msgs[k - 1];
+        k++;
+        draw();
+        setTimeout(tick, 700);
+      } else if (!overlay.closed) {
+        overlay.closed = true;
+        st.className = 'status ok';
+        st.textContent = finalMsg;
+        logAttempt(seq, who);
+        busy = false;
+        draw();
+      }
+    };
+    tick();
+  }
+
+  el('tsp-nn').addEventListener('click', () => {
+    const st = el('tsp-status');
+    if (el('tsp-nn').classList.contains('locked')) {
+      st.className = 'status info';
+      st.textContent = 'Build one tour of your own first.';
+      return;
+    }
+    if (busy) return;
+    const msgs = [];
+    let tot = 0;
+    for (let i = 1; i < NN_SEQ.length; i++) {
+      const a = NN_SEQ[i - 1], b = NN_SEQ[i];
+      tot += D[a][b];
+      msgs.push('NN: nearest unvisited to city ' + (a + 1) + ' is city ' + (b + 1) + ' (' + D[a][b] + ') — running total ' + tot + '.');
+    }
+    animate(NN_SEQ, 'NN heuristic', msgs,
+      'NN from city 1: ' + tourStr(NN_SEQ) + ', closing edge ' + D[NN_SEQ[7]][0] + ' → total 1583, the NN value on slide 25.');
+  });
+
+  el('tsp-greedy').addEventListener('click', () => {
+    const st = el('tsp-status');
+    if (el('tsp-greedy').classList.contains('locked')) {
+      st.className = 'status info';
+      st.textContent = 'Build one tour of your own first.';
+      return;
+    }
+    if (busy) return;
+    // cheapest-edge decisions (sorted): shown as a growing cycle at the end
+    busy = true;
+    overlay = null;
+    draw();
+    const story = [
+      'Greedy edges: take 3–4 (151), take 4–6 (153)…',
+      'Skip 4–7 (156): city 4 already has two edges. Take 1–8 (165), take 5–7 (166).',
+      'Take 3–7 (172) — joins {3,4,6} with {5,7}. Skip 7–8 (182) and 4–8 (183): degree limits.',
+      'Take 1–6 (194) — joins {1,8} with the big chain. Skip 195…241: degree or subtour.',
+      'Take 2–8 (245), then close the cycle with 2–5 (284).',
+    ];
+    let k = 0;
+    const tick = () => {
+      if (k < story.length) {
+        st.className = 'status info';
+        st.textContent = story[k];
+        k++;
+        setTimeout(tick, 1400);
+      } else {
+        overlay = { seq: GREEDY_SEQ.slice(), closed: true };
+        st.className = 'status ok';
+        st.textContent = 'Greedy (cheapest edge): 151+153+165+166+172+194+245+284 = 1530 — slide 25’s greedy value. As a tour: ' + tourStr(GREEDY_SEQ) + '.';
+        logAttempt(GREEDY_SEQ, 'greedy edges');
+        busy = false;
+        draw();
+      }
+    };
+    tick();
+  });
+
+  el('tsp-opt').addEventListener('click', () => {
+    const st = el('tsp-status');
+    if (el('tsp-opt').classList.contains('locked')) {
+      st.className = 'status info';
+      st.textContent = 'Build one tour of your own first.';
+      return;
+    }
+    optShown = !optShown;
+    el('tsp-opt').textContent = optShown ? 'Hide optimal tour' : 'Reveal optimal tour ★';
+    if (optShown) {
+      st.className = 'status ok';
+      st.textContent = 'Dashed green: ' + tourStr(OPT_SEQ) + ' = 1487 — the optimum CBC certifies on slide 25 (Excel Solver: “???”).';
+      if (!Array.from(el('tsp-att').tBodies[0].rows).some(r => r.cells[3].textContent === 'CBC optimum')) {
+        logAttempt(OPT_SEQ, 'CBC optimum');
+      }
+    } else {
+      st.className = 'status info';
+      st.textContent = 'Optimal tour hidden.';
+    }
+    draw();
+  });
+
+  // distance matrix table (slide 24)
+  (() => {
+    let html = '<thead><tr><th></th>' + Array.from({ length: N }, (_, j) => '<th>' + (j + 1) + '</th>').join('') + '</tr></thead><tbody>';
+    for (let i = 0; i < N; i++) {
+      html += '<tr><th>' + (i + 1) + '</th>' + D[i].map((d, j) => '<td>' + (i === j ? '–' : d) + '</td>').join('') + '</tr>';
+    }
+    el('tsp-mat').innerHTML = html + '</tbody>';
+  })();
+
+  window.tspScore = () => (done && tour.length === N) ? cycLen(tour) : null;
+  readouts();
+  VIZ.register(canvas, draw);
+})();
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('knap', { label: 'pack value', dir: 'max', digits: 0,
+  get: () => window.knapScore() });
+CLASSROOM.register('tsp', { label: 'tour length', dir: 'min', digits: 0,
+  get: () => window.tspScore() });
+</script>
+</body>
+</html>

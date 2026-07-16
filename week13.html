@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 13 — Network Models: Maximum Flow (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<style>
+  /* keep the long page title clear of the absolutely-positioned theme switch */
+  @media (min-width: 701px) {
+    header.site h1 { padding-right: 250px; }
+  }
+  table.iter {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9rem;
+    margin-top: 10px;
+  }
+  table.iter th, table.iter td {
+    border: 1px solid var(--grid);
+    padding: 5px 9px;
+    text-align: center;
+    white-space: nowrap;
+  }
+  table.iter th { color: var(--ink-2); }
+  table.iter td:first-child, table.iter th:first-child { text-align: left; font-weight: 600; }
+  .iter-wrap { overflow-x: auto; }
+  table.assign { border-collapse: collapse; margin-top: 10px; font-size: 0.95rem; }
+  table.assign th, table.assign td { border: 1px solid var(--grid); padding: 6px 10px; text-align: center; }
+  table.assign th { color: var(--ink-2); white-space: nowrap; }
+  table.assign th small { font-weight: 400; color: var(--muted); }
+  table.assign td.name { text-align: left; font-weight: 600; white-space: nowrap; }
+  table.assign td.forbid { color: var(--muted); font-size: 0.85rem; }
+  table.assign button.cell { min-width: 76px; padding: 7px 10px; }
+  table.assign button.cell.on { background: var(--s5); border-color: var(--s5); color: #ffffff; }
+  .quiz { display: grid; gap: 8px; margin: 10px 0 4px; }
+  .quiz button { text-align: left; padding: 9px 12px; }
+  .quiz button.right { border-color: var(--good); color: var(--good); font-weight: 600; }
+  .quiz button.wrong { border-color: var(--critical); color: var(--critical); }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 13: Network Models (Maximum Flow Problem)</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#oilgame">1 · Oil flow game</a>
+    <a href="#ffsteps">2 · Ford–Fulkerson steps</a>
+    <a href="#mincut">3 · Min cut hunt</a>
+    <a href="#staffing">4 · Course staffing</a>
+    <a href="#refinery">5 · Refinery stepper</a>
+    <a href="#boston">6 · Boston race</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : SUNCO OIL FLOW GAME (slides 4-6) ================= -->
+<section class="widget" id="oilgame">
+  <h2>Sunco Oil — how many barrels per hour can reach the sink? <span class="chip">Slides 4–6</span></h2>
+  <p class="howto">
+    Oil is pumped from <b>so</b> to <b>si</b> through pipelines of limited capacity:
+    (so,1)=2, (so,2)=3, (1,2)=3, (1,3)=4, (3,si)=1, (2,si)=2. Each arc label reads
+    <b>flow&nbsp;/&nbsp;capacity</b>. <b>Click nodes to trace a path from so to si</b> — when you
+    reach si, the path automatically carries as much oil as its tightest pipe allows. You may also
+    step <em>backward</em> along an arc that already carries flow (a residual move) to re-route oil.
+    How much can you ship in total?
+  </p>
+  <div class="controls">
+    <span class="readout">path: <b id="oil-path">so</b></span>
+    <span class="readout">total shipped: <b id="oil-total">0</b></span>
+    <span class="readout">your best: <b id="oil-best">—</b></span>
+    <button id="oil-undo">Undo</button>
+    <button id="oil-reset">Start over (empty the pipes)</button>
+    <button id="oil-reveal" class="primary">Reveal the optimal flows ★</button>
+  </div>
+  <canvas class="viz short" id="c-oil"></canvas>
+  <p class="status info" id="oil-status">Click node 1 or 2 to start a path out of so.</p>
+  <div style="overflow-x:auto">
+    <table class="attempts" id="oil-log">
+      <thead><tr><th>#</th><th>path pushed</th><th>barrels pushed</th><th>running total</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="note">
+    Slides 5–6 turn this hunt into an LP: let x<sub>ij</sub> be the barrels per hour on arc (i,j),
+    add an artificial return arc (si,so) of infinite capacity, and maximise x<sub>si,so</sub>
+    subject to 0 ≤ x<sub>ij</sub> ≤ capacity on every arc and flow-in = flow-out at every node.
+    Your clicking obeys exactly those two feasibility rules.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The maximum is <b>Z = 3</b> barrels per hour (slide 6). One optimal solution:
+      x<sub>so,1</sub>=2, x<sub>so,2</sub>=1, x<sub>12</sub>=1, x<sub>13</sub>=1,
+      x<sub>3,si</sub>=1, x<sub>2,si</sub>=2 — so x<sub>si,so</sub>=3. Watch out for the greedy
+      trap: pushing 2 units along so-1-2-si first blocks every forward path, and only the backward
+      hop 2→1 (Ford–Fulkerson's residual arc) frees the last unit.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : FORD-FULKERSON STEPPER (slides 7-12) ================= -->
+<section class="widget" id="ffsteps">
+  <h2>Ford–Fulkerson on Sunco's network — you call the bottleneck <span class="chip">Slides 7–12</span></h2>
+  <p class="howto">
+    The residual network keeps two numbers per pipeline: near the arc's <em>tail</em>, the remaining
+    forward capacity; near its <em>head</em>, the backward (undo) capacity, shown in violet once it
+    is positive. Each iteration the slides announce an augmenting path; <b>your job is to read the
+    residuals along it and click the bottleneck c*</b>. The residual update then replays slides
+    10–11 exactly.
+  </p>
+  <div class="controls">
+    <span class="readout">total flow: <b id="ff-total">0</b></span>
+    <span id="ff-opts" style="display:inline-flex;gap:8px;flex-wrap:wrap"></span>
+    <button id="ff-run" class="locked">Apply remaining iterations</button>
+    <button id="ff-flows">Show the final flows ★</button>
+    <button id="ff-reset">Reset</button>
+  </div>
+  <canvas class="viz short" id="c-ff"></canvas>
+  <p class="status info" id="ff-status"></p>
+  <div class="iter-wrap">
+    <table class="iter" id="ff-table"></table>
+  </div>
+  <div class="note">
+    Slides 8–9: find an augmenting path (source → sink, every arc with positive residual capacity),
+    push its minimum residual capacity c*, decrease forward residuals by c*, increase backward
+    residuals by c*, repeat until no augmenting path exists.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Iteration 1: so-1-2-si, c* = min{2,3,2} = 2 (slide 10). Iteration 2: so-2-1-3-si,
+      c* = min{3,2,4,1} = 1 — its hop 2→1 rides the <em>backward</em> residual of arc (1,2),
+      re-routing one earlier unit through 1→3→si (slide 11). Then no augmenting path remains:
+      <b>maximum flow = 2+1 = 3</b>. Subtracting forward residuals from capacities gives the flows
+      of slide 12: so→1: 2, so→2: 1, 1→2: 1, 1→3: 1, 3→si: 1, 2→si: 2.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : MIN CUT HUNT (slide 13) ================= -->
+<section class="widget" id="mincut">
+  <h2>Cut the pipelines — how cheap can a cut get? <span class="chip">Slide 13</span></h2>
+  <p class="howto">
+    A cut splits the nodes into a source side S (containing so) and a sink side (containing si);
+    its capacity is the total capacity of the arcs going <em>from S to the sink side</em> — arcs
+    pointing back into S do not count (they are drawn dashed). Every cut's capacity is an upper
+    bound on the flow. <b>Click nodes 1, 2, 3 to move them between the sides</b> and log the cuts
+    you find. What is the cheapest cut — and what does it equal?
+  </p>
+  <div class="controls">
+    <span class="readout">S = <b id="cut-set">{so}</b></span>
+    <span class="readout">cut capacity: <b id="cut-cap">5</b></span>
+    <span class="readout">best (min): <b id="cut-best">—</b></span>
+    <button id="cut-log" class="primary">Log this cut</button>
+    <button id="cut-reset">Reset</button>
+  </div>
+  <canvas class="viz short" id="c-cut"></canvas>
+  <p class="status info" id="cut-status">S = {so}: the cut arcs are so→1 and so→2, capacity 2 + 3 = 5.</p>
+  <div style="overflow-x:auto">
+    <table class="attempts" id="cut-tab">
+      <thead><tr><th>#</th><th>source side S</th><th>cut arcs</th><th>capacity</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="note">
+    Slide 13 draws five example cuts on this network and states the punchline of the week:
+    the maximum s–t flow equals the minimum s–t cut capacity.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The slide's five cuts: S={so} → 2+3 = <b>5</b>; S={so,1} → 3+3+4 = <b>10</b>;
+      S={so,1,2} → 4+2 = <b>6</b>; S={so,1,3} → 3+3+1 = <b>7</b>; and S={so,1,2,3} → 1+2 =
+      <b>3</b>, the minimum. Min cut = 3 = max flow found in the widgets above.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 4 : COURSE STAFFING (slides 14-18) ================= -->
+<section class="widget" id="staffing">
+  <h2>Who teaches what? Staffing three courses as a max flow <span class="chip">Slides 14–18</span></h2>
+  <p class="howto">
+    Five instructors — Ali, Mehmet, Erinç, İsmail, Gökalp — must cover IE102 (needs 2 instructors),
+    IE201 (needs 2) and IE301 (needs 1). Ali will not take IE102; İsmail and Gökalp cannot take
+    IE301. As a max-flow network (slides 15–16): Source→instructor arcs have capacity 1 (one course
+    each), instructor→course arcs capacity 1 (missing where forbidden), and the course→Sink arcs
+    carry the requirements 2, 2, 1. <b>Click cells to assign instructors</b> — the grid enforces
+    exactly what the network allows. Can you fill all 5 slots?
+  </p>
+  <div class="controls">
+    <span class="readout">slots filled: <b id="st-count">0 / 5</b></span>
+    <button id="st-restrict">Add slide 17's rule (Mehmet+Gökalp on IE201 ≤ 1)</button>
+    <button id="st-clear">Clear assignments</button>
+  </div>
+  <div style="overflow-x:auto"><table class="assign" id="st-grid"></table></div>
+  <p class="status info" id="st-status">Click a cell to assign an instructor to a course.</p>
+  <p class="howto" style="margin-top:14px">
+    <b>Modelling quiz:</b> slide 17 adds a restriction — Mehmet and Gökalp must not both be
+    assigned to IE201. How do you encode that in the max-flow network?
+  </p>
+  <div class="quiz" id="st-quiz">
+    <button data-k="cap1">a) Lower the IE201 → Sink arc capacity from 2 to 1.</button>
+    <button data-k="del">b) Delete both arcs Mehmet → IE201 and Gökalp → IE201.</button>
+    <button data-k="dummy">c) Send Mehmet → IE201 and Gökalp → IE201 through a new dummy node whose only outgoing arc, Dummy → IE201, has capacity 1.</button>
+    <button data-k="src">d) Put a shared capacity-1 arc in front of Mehmet's and Gökalp's Source arcs.</button>
+  </div>
+  <p class="status info" id="st-qstatus">Pick the modification that bans the pair without banning anything else.</p>
+  <div class="note">
+    Assignment problems become max-flow problems by giving every person and every task a node;
+    side conditions become extra nodes and capacities, not extra mathematics.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Quiz: option <b>c</b> — slide 18's dummy node. At most one unit can cross Dummy → IE201, so at
+      most one of Mehmet and Gökalp teaches IE201, and nothing else changes. Option a would also ban
+      pairs like Ali+Erinç; option b bans <em>both</em>, though one is allowed; option d would let
+      only one of them teach <em>any</em> course. The grid itself: all 5 slots can be filled, with or
+      without the restriction — e.g. Ali→IE301, Mehmet+Erinç→IE201, İsmail+Gökalp→IE102, so the max
+      flow is 5 (computed here; the slides leave running Ford–Fulkerson on it as an exercise).
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 5 : REFINERY STEPPER (slides 19-34) ================= -->
+<section class="widget" id="refinery">
+  <h2>Refineries → terminals: replay the five augmenting paths <span class="chip">Slides 19–34</span></h2>
+  <p class="howto">
+    Three refineries (1, 2, 3) ship gasoline through pumping stations (4, 5, 6) to two terminals
+    (7, 8); a dummy source s and terminal t complete the max-flow network (slide 20). Labels show
+    forward residual capacity near each arc's tail and backward (undo) capacity near its head.
+    The slides pick five augmenting paths in turn — for each one, <b>read the residuals along the
+    highlighted path and click its bottleneck c*</b>. After the last push, label the nodes still
+    reachable from s to expose the minimum cut (slides 33–34).
+  </p>
+  <div class="controls">
+    <span class="readout">total flow: <b id="rf-total">0</b></span>
+    <span id="rf-opts" style="display:inline-flex;gap:8px;flex-wrap:wrap"></span>
+    <button id="rf-run" class="locked">Apply remaining iterations</button>
+    <button id="rf-cut">Label nodes reachable from s ★</button>
+    <button id="rf-flows">Show the final flows ★</button>
+    <button id="rf-reset">Reset</button>
+  </div>
+  <canvas class="viz" id="c-rf"></canvas>
+  <p class="status info" id="rf-status"></p>
+  <div class="iter-wrap">
+    <table class="iter" id="rf-table"></table>
+  </div>
+  <div class="note">
+    The dummy arcs get capacities "high enough" to never bind: s→1: 20, s→2: 80, s→3: 15 (each
+    refinery's total outflow) and 7→t: 60, 8→t: 50 (each terminal's total inflow).
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The five pushes: s-2-6-7-t (c*=50), s-2-5-6-8-t (20), s-1-4-5-8-t (20), s-3-5-8-t (10),
+      s-2-4-7-t (10) — total <b>110</b>, and no augmenting path remains (slide 32). Labelling from
+      s reaches {s,1,2,3,4,5,6}; the arcs jumping to the unlabelled side — 4→7 (10), 6→7 (50),
+      6→8 (20), 5→8 (30) — form the minimum cut: 10+50+20+30 = 110 = max flow (slides 33–34).
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 6 : SEATTLE-BOSTON RACE (slides 35-37) ================= -->
+<section class="widget" id="boston">
+  <h2>Seattle → Boston — how many passengers can you fly? <span class="chip">Slides 35–37</span></h2>
+  <p class="howto">
+    Every arc is a flight with limited seats; the Columbus–Charlotte leg may be flown twice, so its
+    arc carries 2 × 11 = 22 (slide 35). Labels read <b>passengers&nbsp;/&nbsp;seats</b>.
+    <b>Click cities to route groups of passengers from Seattle to Boston</b> — each completed route
+    carries as many passengers as its fullest-booked leg allows, and backward (residual) hops let
+    you re-route earlier groups. Beware: some flights land where no onward flight leaves…
+  </p>
+  <div class="controls">
+    <span class="readout">route: <b id="bs-path">Seattle</b></span>
+    <span class="readout">passengers delivered: <b id="bs-total">0</b></span>
+    <span class="readout">your best: <b id="bs-best">—</b></span>
+    <button id="bs-undo">Undo</button>
+    <button id="bs-reset">Start over</button>
+    <button id="bs-reveal" class="primary">Reveal the optimal flows ★</button>
+  </div>
+  <canvas class="viz" id="c-bs"></canvas>
+  <p class="status info" id="bs-status">Click a city with a flight from Seattle to start the first route.</p>
+  <div style="overflow-x:auto">
+    <table class="attempts" id="bs-log">
+      <thead><tr><th>#</th><th>route pushed</th><th>passengers</th><th>running total</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="note">
+    Slide 36 leaves this as an exercise for Ford–Fulkerson. Nashville is a trap: flights arrive
+    there but none leave, so any passengers sent that way must be re-routed. Filling
+    Charlotte→Boston from Columbus first is the other trap — only a backward hop frees the seats
+    that Albuquerque's passengers need.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The maximum flow is <b>40</b> passengers (slide 37): 17 fly Seattle→Boston directly, 19
+      arrive via Columbus and 4 via Charlotte. Slide 37's flows: Seattle→Chicago 12,
+      Seattle→Denver 7, Seattle→Albuquerque 4, Seattle→Boston 17, Denver→Chicago 7,
+      Chicago→Columbus 19, Columbus→Boston 19, Albuquerque→Charlotte 4, Charlotte→Boston 4.
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 13.
+  Figures follow the examples used in the Week 13 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+
+/* === SHARED NETWORK-DRAWING HELPERS (canvas, theme-token colors only) === */
+
+function vfont(px, bold) {
+  const s = parseFloat(VIZ.cssv('--viz-font-scale')) || 1;
+  return (bold ? '600 ' : '') + Math.round(px * s) + 'px system-ui, sans-serif';
+}
+
+// sampled quadratic bezier from a to b, bowed sideways by `bow` px
+function bezPts(a, b, bow) {
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+  const nx = -dy / L, ny = dx / L;
+  const cx = mx + nx * bow, cy = my + ny * bow;
+  const pts = [];
+  for (let k = 0; k <= 40; k++) {
+    const u = k / 40;
+    pts.push({
+      x: (1 - u) * (1 - u) * a.x + 2 * (1 - u) * u * cx + u * u * b.x,
+      y: (1 - u) * (1 - u) * a.y + 2 * (1 - u) * u * cy + u * u * b.y,
+    });
+  }
+  return pts;
+}
+
+// text with a surface-colored halo so labels stay readable over edges
+function halo(ctx, t, txt, x, y, color, px, bold, align, baseline) {
+  ctx.save();
+  ctx.font = vfont(px || 13, bold);
+  ctx.textAlign = align || 'center';
+  ctx.textBaseline = baseline || 'middle';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = t.surface;
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = color;
+  ctx.fillText(txt, x, y);
+  ctx.restore();
+}
+
+function drawLink(ctx, t, a, b, o = {}) {
+  const pts = bezPts(a, b, o.bow || 0);
+  ctx.save();
+  ctx.strokeStyle = o.color || t.axis;
+  ctx.lineWidth = o.width || 1.6;
+  if (o.dash) ctx.setLineDash(o.dash);
+  ctx.beginPath();
+  pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  if (o.arrow) {
+    const R = (o.nodeR || 16) + 4;
+    const inside = o.trimRect
+      ? p => Math.abs(p.x - b.x) <= o.trimRect.hw + 4 && Math.abs(p.y - b.y) <= o.trimRect.hh + 4
+      : p => Math.hypot(p.x - b.x, p.y - b.y) < R;
+    let tip = pts[pts.length - 1], prev = pts[pts.length - 2];
+    for (let k = pts.length - 1; k > 0; k--) {
+      if (!inside(pts[k])) { tip = pts[k]; prev = pts[k - 1]; break; }
+    }
+    const ang = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+    ctx.beginPath();
+    ctx.moveTo(tip.x, tip.y);
+    ctx.lineTo(tip.x - 10 * Math.cos(ang - 0.42), tip.y - 10 * Math.sin(ang - 0.42));
+    ctx.lineTo(tip.x - 10 * Math.cos(ang + 0.42), tip.y - 10 * Math.sin(ang + 0.42));
+    ctx.closePath();
+    ctx.fillStyle = o.color || t.axis;
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// label anchored at fraction u01 along the (possibly bowed) arc, offset sideways
+function edgeLabel(ctx, t, a, b, bow, u01, off, txt, color, px, bold) {
+  const pts = bezPts(a, b, bow);
+  const m = pts[Math.max(0, Math.min(40, Math.round(u01 * 40)))];
+  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+  const nx = -dy / L, ny = dx / L;
+  halo(ctx, t, txt, m.x + nx * off, m.y + ny * off, color, px, bold);
+}
+
+function drawNodeCircle(ctx, t, n, txt, o = {}) {
+  const r = o.r || 16;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
+  ctx.fillStyle = o.fill || t.surface;
+  ctx.fill();
+  ctx.lineWidth = o.ring ? 3 : 2;
+  ctx.strokeStyle = o.stroke || t.axis;
+  ctx.stroke();
+  ctx.font = vfont(o.size || 14, true);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = o.fill && o.fill !== t.surface ? t.surface : t.ink;
+  ctx.fillText(txt, n.x, n.y + 1);
+  ctx.restore();
+}
+
+function drawNodePill(ctx, t, n, txt, o = {}) {
+  ctx.save();
+  ctx.font = vfont(o.size || 13, true);
+  const hw = ctx.measureText(txt).width / 2 + 10;
+  const hh = o.hh || 13;
+  ctx.beginPath();
+  ctx.roundRect(n.x - hw, n.y - hh, 2 * hw, 2 * hh, hh);
+  ctx.fillStyle = o.fill || t.surface;
+  ctx.fill();
+  ctx.lineWidth = o.ring ? 3 : 2;
+  ctx.strokeStyle = o.stroke || t.axis;
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = o.fill && o.fill !== t.surface ? t.surface : t.ink;
+  ctx.fillText(txt, n.x, n.y + 1);
+  ctx.restore();
+  n.hw = hw;
+  n.hh = hh;
+}
+
+/* === SHARED FLOW-NETWORK MACHINERY === */
+
+const AK = (u, v) => u + '>' + v;   // residual-dictionary key for the directed pair u→v
+
+function makeNet(nodes, arcs, opts = {}) {
+  const net = { nodes, arcs, byKey: {}, padX: opts.padX || 38, padY: opts.padY || 36, R: opts.R || 17, pill: !!opts.pill };
+  arcs.forEach(a => { net.byKey[AK(a.u, a.v)] = a; });
+  return net;
+}
+
+function initRes(net) {
+  const r = {};
+  net.arcs.forEach(a => { r[AK(a.u, a.v)] = a.c; r[AK(a.v, a.u)] = 0; });
+  return r;
+}
+
+// nodes reachable from s through strictly positive residual capacities
+function reachSet(net, res, s) {
+  const adj = {};
+  net.arcs.forEach(a => {
+    (adj[a.u] = adj[a.u] || new Set()).add(a.v);
+    (adj[a.v] = adj[a.v] || new Set()).add(a.u);
+  });
+  const seen = new Set([s]);
+  const q = [s];
+  while (q.length) {
+    const u = q.shift();
+    (adj[u] || new Set()).forEach(v => {
+      if (!seen.has(v) && res[AK(u, v)] > 0) { seen.add(v); q.push(v); }
+    });
+  }
+  return seen;
+}
+
+// which drawn arc does the walking step a→b use, and in which sense?
+function highlightMap(net, nodePath) {
+  const m = {};
+  for (let k = 1; k < nodePath.length; k++) {
+    const a = nodePath[k - 1], b = nodePath[k];
+    if (net.byKey[AK(a, b)]) m[AK(a, b)] = 'fwd';
+    else m[AK(b, a)] = 'back';
+  }
+  return m;
+}
+
+function netLayout(canvas, net) {
+  const { ctx, w, h } = VIZ.setup(canvas);
+  const P = {};
+  Object.keys(net.nodes).forEach(k => {
+    P[k] = {
+      id: k,
+      x: net.padX + net.nodes[k][0] * (w - 2 * net.padX),
+      y: net.padY + net.nodes[k][1] * (h - 2 * net.padY),
+    };
+  });
+  return { ctx, w, h, P };
+}
+
+function hitNet(net, P, px, py) {
+  const ids = Object.keys(P);
+  if (net.pill) {
+    return ids.map(k => P[k]).find(n => Math.abs(px - n.x) <= (n.hw || 40) + 7 && Math.abs(py - n.y) <= (n.hh || 13) + 9);
+  }
+  return ids.map(k => P[k]).find(n => Math.hypot(n.x - px, n.y - py) <= net.R + 9);
+}
+
+/* ============================================================
+   NETWORK DATA — capacities exactly as on the slides
+   ============================================================ */
+
+// Example 1 (slide 4): Sunco Oil
+const EX1 = makeNet(
+  { so: [0.05, 0.36], 1: [0.35, 0.36], 2: [0.65, 0.36], si: [0.95, 0.36], 3: [0.50, 0.86] },
+  [
+    { u: 'so', v: '1', c: 2, bow: 0, ls: 1 },
+    { u: 'so', v: '2', c: 3, bow: -0.30, ls: -1 },
+    { u: '1', v: '2', c: 3, bow: 0, ls: 1 },
+    { u: '1', v: '3', c: 4, bow: 0.07, ls: 1 },
+    { u: '3', v: 'si', c: 1, bow: 0.07, ls: 1 },
+    { u: '2', v: 'si', c: 2, bow: 0, ls: -1 },
+  ],
+  { R: 18 }
+);
+const EX1_OPT = { 'so>1': 2, 'so>2': 1, '1>2': 1, '1>3': 1, '3>si': 1, '2>si': 2 };
+
+// Example 3 (slide 20): refineries → terminals with dummy s and t
+const EX3 = makeNet(
+  {
+    s: [0.02, 0.50], 1: [0.20, 0.04], 2: [0.22, 0.52], 3: [0.20, 0.97],
+    4: [0.44, 0.26], 5: [0.44, 0.78], 6: [0.64, 0.52],
+    7: [0.81, 0.10], 8: [0.81, 0.92], t: [0.98, 0.50],
+  },
+  [
+    { u: 's', v: '1', c: 20, ls: -1 },
+    { u: 's', v: '2', c: 80, ls: -1 },
+    { u: 's', v: '3', c: 15, ls: 1 },
+    { u: '1', v: '4', c: 20, ls: -1 },
+    { u: '2', v: '4', c: 10, ls: -1 },
+    { u: '2', v: '6', c: 50, ls: -1 },
+    { u: '2', v: '5', c: 20, ls: 1 },
+    { u: '3', v: '5', c: 15, ls: 1 },
+    { u: '4', v: '7', c: 10, ls: -1 },
+    { u: '4', v: '6', c: 10, ls: -1 },
+    { u: '4', v: '5', c: 20, ls: 1 },
+    { u: '5', v: '6', c: 30, ls: -1 },
+    { u: '5', v: '8', c: 30, ls: 1 },
+    { u: '6', v: '7', c: 50, ls: -1 },
+    { u: '6', v: '8', c: 20, ls: -1 },
+    { u: '7', v: 't', c: 60, ls: -1 },
+    { u: '8', v: 't', c: 50, ls: 1 },
+  ],
+  { R: 16, padY: 30 }
+);
+
+// Example 4 (slides 35-36): Seattle → Boston flights (Colum-Charl usable twice: 2×11 = 22)
+const EX4 = makeNet(
+  {
+    'Seattle': [0.03, 0.50], 'Chicago': [0.30, 0.06], 'Denver': [0.27, 0.47], 'Albuq.': [0.30, 0.94],
+    'Nash.': [0.60, 0.20], 'Colum.': [0.64, 0.53], 'Charl.': [0.64, 0.88], 'Boston': [0.96, 0.52],
+  },
+  [
+    { u: 'Seattle', v: 'Chicago', c: 12, ls: -1, lu: 0.55 },
+    { u: 'Seattle', v: 'Denver', c: 7, ls: -1 },
+    { u: 'Seattle', v: 'Albuq.', c: 8, ls: 1 },
+    { u: 'Seattle', v: 'Boston', c: 17, bow: 0.30, ls: 1, lu: 0.24 },
+    { u: 'Denver', v: 'Chicago', c: 11, ls: -1 },
+    { u: 'Chicago', v: 'Nash.', c: 5, ls: -1 },
+    { u: 'Chicago', v: 'Colum.', c: 19, ls: -1, lu: 0.62 },
+    { u: 'Albuq.', v: 'Nash.', c: 6, ls: -1, lu: 0.55 },
+    { u: 'Albuq.', v: 'Charl.', c: 4, ls: 1 },
+    { u: 'Colum.', v: 'Charl.', c: 22, ls: 1 },
+    { u: 'Colum.', v: 'Boston', c: 21, ls: -1 },
+    { u: 'Charl.', v: 'Boston', c: 18, ls: 1 },
+  ],
+  { pill: true, padX: 62, padY: 34 }
+);
+const EX4_OPT = {
+  'Seattle>Chicago': 12, 'Seattle>Denver': 7, 'Seattle>Albuq.': 4, 'Seattle>Boston': 17,
+  'Denver>Chicago': 7, 'Chicago>Colum.': 19, 'Albuq.>Charl.': 4, 'Colum.>Boston': 19, 'Charl.>Boston': 4,
+};
+
+/* ============================================================
+   GAME FACTORY — push-flow route builder (widgets 1 and 6)
+   ============================================================ */
+
+function flowGame(cfg) {
+  const canvas = el(cfg.canvasId);
+  VIZ.hint(canvas, '🖱 click nodes to trace a path · click the last node to undo');
+  let res = initRes(cfg.net);
+  let path = [cfg.source];
+  let total = 0, best = null, pushes = 0, revealed = false;
+  let P = {};
+
+  const sep = cfg.sep || '-';
+
+  function drawNode(ctx, t, n) {
+    const onPath = path.includes(n.id);
+    const o = {
+      fill: onPath ? t.s5 : undefined,
+      stroke: onPath ? t.s5 : undefined,
+      ring: n.id === cfg.sink && !onPath,
+      r: cfg.net.R,
+    };
+    if (cfg.net.pill) drawNodePill(ctx, t, n, n.id, o);
+    else drawNodeCircle(ctx, t, n, n.id, o);
+  }
+
+  function draw() {
+    const L = netLayout(canvas, cfg.net);
+    const { ctx, h } = L;
+    P = L.P;
+    const t = VIZ.theme();
+    const hi = highlightMap(cfg.net, path);
+    cfg.net.arcs.forEach(a => {
+      const A = P[a.u], B = P[a.v];
+      const f = a.c - res[AK(a.u, a.v)];
+      const mode = hi[AK(a.u, a.v)];
+      let color = t.axis, width = 1.6, dash;
+      if (f > 0) { color = t.s1; width = 2.6; }
+      if (mode === 'fwd') { color = t.s5; width = 4; }
+      if (mode === 'back') { color = t.s5; width = 4; dash = [7, 5]; }
+      const bow = (a.bow || 0) * h;
+      drawLink(ctx, t, A, B, {
+        bow, arrow: true, nodeR: cfg.net.R, color, width, dash,
+        trimRect: cfg.net.pill ? B : undefined,
+      });
+      edgeLabel(ctx, t, A, B, bow, a.lu !== undefined ? a.lu : 0.5, (a.ls || 1) * 13,
+        f + '/' + a.c, mode ? t.s5 : (f > 0 ? t.s1 : t.ink2), 13, f > 0 || !!mode);
+      if (revealed && cfg.opt[AK(a.u, a.v)]) {
+        drawLink(ctx, t, A, B, {
+          bow, nodeR: cfg.net.R, color: t.s2, width: 2.5, dash: [4, 5],
+          trimRect: cfg.net.pill ? B : undefined,
+        });
+        edgeLabel(ctx, t, A, B, bow, a.lu !== undefined ? a.lu : 0.5, (a.ls || 1) * -14,
+          '★' + cfg.opt[AK(a.u, a.v)], t.s2, 12, true);
+      }
+    });
+    Object.keys(P).forEach(k => drawNode(ctx, t, P[k]));
+    if (cfg.captions) cfg.captions(ctx, t, P);
+    el(cfg.ids.path).textContent = path.join(sep);
+    el(cfg.ids.total).textContent = total;
+    el(cfg.ids.best).textContent = best === null ? '—' : best;
+  }
+
+  function finishCheck(st) {
+    const seen = reachSet(cfg.net, res, cfg.source);
+    if (!seen.has(cfg.sink)) {
+      st.className = 'status ok';
+      st.textContent += ' No augmenting path remains — ' + total + ' is the maximum flow!';
+      return true;
+    }
+    return false;
+  }
+
+  function logPush(pstr, b) {
+    pushes++;
+    const tb = el(cfg.ids.log).querySelector('tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + pushes + '</td><td>' + pstr + '</td><td>' + b + '</td><td><b>' + total + '</b></td>';
+    if (total === cfg.target) tr.classList.add('best');
+    tb.appendChild(tr);
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const n = hitNet(cfg.net, P, px, py);
+    if (!n) return;
+    const st = el(cfg.ids.status);
+    const last = path[path.length - 1];
+    if (n.id === last && path.length > 1) {
+      path.pop();
+      st.className = 'status info';
+      st.textContent = 'Backtracked to ' + path[path.length - 1] + '.';
+      draw();
+      return;
+    }
+    if (path.includes(n.id)) {
+      st.className = 'status bad';
+      st.textContent = '✗ ' + n.id + ' is already on the path — no cycling.';
+      return;
+    }
+    const r = res[AK(last, n.id)];
+    if (!(r > 0)) {
+      const fw = cfg.net.byKey[AK(last, n.id)];
+      st.className = 'status bad';
+      st.textContent = fw
+        ? '✗ Arc (' + last + ',' + n.id + ') is full — no residual capacity left.'
+        : '✗ No usable arc from ' + last + ' to ' + n.id + ' (and nothing to push back).';
+      return;
+    }
+    path.push(n.id);
+    const backward = !cfg.net.byKey[AK(last, n.id)];
+    if (n.id === cfg.sink) {
+      let b = Infinity;
+      for (let k = 1; k < path.length; k++) b = Math.min(b, res[AK(path[k - 1], path[k])]);
+      for (let k = 1; k < path.length; k++) {
+        res[AK(path[k - 1], path[k])] -= b;
+        res[AK(path[k], path[k - 1])] += b;
+      }
+      total += b;
+      if (best === null || total > best) best = total;
+      const pstr = path.join(sep);
+      logPush(pstr, b);
+      path = [cfg.source];
+      st.className = 'status ok';
+      st.textContent = '✓ Pushed ' + b + ' ' + cfg.unit + ' along ' + pstr + ' (its tightest ' +
+        cfg.arcWord + '). Total ' + total + '.';
+      if (!finishCheck(st)) st.textContent += ' Any more augmenting paths?';
+    } else {
+      st.className = 'status info';
+      st.textContent = backward
+        ? 'Residual hop ' + last + ' → ' + n.id + ': you are pushing back flow previously sent on ' +
+          '(' + n.id + ',' + last + ') — the Ford–Fulkerson trick. Keep going to ' + cfg.sink + '.'
+        : last + ' → ' + n.id + ' can still carry ' + r + ' ' + cfg.unit + '. Keep going to ' + cfg.sink + '.';
+    }
+    draw();
+  });
+
+  el(cfg.ids.undo).addEventListener('click', () => {
+    if (path.length > 1) path.pop();
+    const st = el(cfg.ids.status);
+    st.className = 'status info';
+    st.textContent = 'Path so far: ' + path.join(sep) + '.';
+    draw();
+  });
+
+  el(cfg.ids.reset).addEventListener('click', () => {
+    res = initRes(cfg.net);
+    path = [cfg.source];
+    total = 0;
+    pushes = 0;
+    el(cfg.ids.log).querySelector('tbody').innerHTML = '';
+    const st = el(cfg.ids.status);
+    st.className = 'status info';
+    st.textContent = 'Pipes emptied — build your paths again (your best total is kept).';
+    draw();
+  });
+
+  el(cfg.ids.reveal).addEventListener('click', () => {
+    revealed = !revealed;
+    el(cfg.ids.reveal).textContent = revealed ? cfg.revealHide : cfg.revealShow;
+    const st = el(cfg.ids.status);
+    st.className = 'status info';
+    st.textContent = revealed ? cfg.revealMsg : 'Optimal flows hidden again.';
+    draw();
+  });
+
+  VIZ.register(canvas, draw);
+  return { score: () => (total > 0 ? total : null) };
+}
+
+/* ============================================================
+   WIDGET 1 — Sunco Oil game (slides 4-6). Max flow = 3.
+   ============================================================ */
+window.__oilGame = flowGame({
+  canvasId: 'c-oil',
+  net: EX1,
+  source: 'so',
+  sink: 'si',
+  target: 3,
+  unit: 'barrel(s)',
+  arcWord: 'pipe',
+  opt: EX1_OPT,
+  ids: { path: 'oil-path', total: 'oil-total', best: 'oil-best', log: 'oil-log', status: 'oil-status', undo: 'oil-undo', reset: 'oil-reset', reveal: 'oil-reveal' },
+  revealShow: 'Reveal the optimal flows ★',
+  revealHide: 'Hide the optimal flows',
+  revealMsg: 'Green dashes: slide 12’s optimal flows (★flow) — they ship 3 barrels per hour.',
+  captions: (ctx, t, P) => {
+    halo(ctx, t, 'source', P.so.x, P.so.y + 34, t.muted, 12);
+    halo(ctx, t, 'sink', P.si.x, P.si.y + 34, t.muted, 12);
+  },
+});
+
+/* ============================================================
+   STEPPER FACTORY — Ford-Fulkerson iteration player (widgets 2 and 5)
+   ============================================================ */
+
+function ffStepper(cfg) {
+  const canvas = el(cfg.canvasId);
+  let res, it, total, done, mode, curVals;
+
+  function pathStr(p) { return p.join('-'); }
+
+  function residualsAlong(p) {
+    const v = [];
+    for (let k = 1; k < p.length; k++) v.push(res[AK(p[k - 1], p[k])]);
+    return v;
+  }
+
+  function draw() {
+    const L = netLayout(canvas, cfg.net);
+    const { ctx, h } = L;
+    const P = L.P;
+    const t = VIZ.theme();
+    const hi = (!done && it < cfg.iters.length && mode === 'res')
+      ? highlightMap(cfg.net, cfg.iters[it].path) : {};
+    const reach = mode === 'cut' ? cfg.cutReach : null;
+    cfg.net.arcs.forEach(a => {
+      const A = P[a.u], B = P[a.v];
+      const bow = (a.bow || 0) * h;
+      const fwd = res[AK(a.u, a.v)], back = res[AK(a.v, a.u)];
+      const flow = a.c - fwd;
+      let color = t.axis, width = 1.6, dash;
+      if (mode === 'res') {
+        const m = hi[AK(a.u, a.v)];
+        if (m === 'fwd') { color = t.s1; width = 4; }
+        if (m === 'back') { color = t.s5; width = 4; dash = [7, 5]; }
+      } else if (mode === 'flows') {
+        if (flow > 0) { color = t.s2; width = 3.2; }
+      } else if (mode === 'cut') {
+        if (reach.has(a.u) && !reach.has(a.v)) { color = t.bad; width = 4; }
+      }
+      drawLink(ctx, t, A, B, { bow, arrow: true, nodeR: cfg.net.R, color, width, dash });
+      const lu = a.lu !== undefined ? a.lu : 0.30;
+      const off = (a.ls || 1) * 13;
+      if (mode === 'res') {
+        const m = hi[AK(a.u, a.v)];
+        edgeLabel(ctx, t, A, B, bow, lu, off, String(fwd),
+          m ? (m === 'back' ? t.s5 : t.s1) : (fwd > 0 ? t.ink2 : t.muted), 13, fwd > 0 || !!m);
+        edgeLabel(ctx, t, A, B, bow, 0.74, off, String(back), back > 0 ? t.s5 : t.muted, 11, back > 0);
+      } else if (mode === 'flows') {
+        if (flow > 0) edgeLabel(ctx, t, A, B, bow, 0.5, off, String(flow), t.s2, 13, true);
+      } else {
+        const crossing = reach.has(a.u) && !reach.has(a.v);
+        edgeLabel(ctx, t, A, B, bow, 0.5, off, String(a.c), crossing ? t.bad : t.ink2, 13, crossing);
+      }
+    });
+    Object.keys(P).forEach(k => {
+      const inReach = mode === 'cut' && cfg.cutReach.has(k);
+      drawNodeCircle(ctx, t, P[k], k, {
+        r: cfg.net.R,
+        fill: inReach ? t.s2 : undefined,
+        stroke: inReach ? t.s2 : undefined,
+      });
+    });
+    if (cfg.captions) cfg.captions(ctx, t, P);
+    el(cfg.ids.total).textContent = total;
+  }
+
+  function renderTable() {
+    let html = '<thead><tr><th>#</th><th>augmenting path</th><th>bottleneck c*</th><th>total flow</th></tr></thead><tbody>';
+    let run = 0;
+    for (let k = 0; k < it; k++) {
+      const I = cfg.iters[k];
+      run += I.c;
+      html += '<tr><td>' + (k + 1) + '</td><td>' + pathStr(I.path) + (I.tag ? ' <small>' + I.tag + '</small>' : '') +
+        '</td><td>min{' + I.vals.join(',') + '} = ' + I.c + '</td><td><b>' + run + '</b></td></tr>';
+    }
+    if (done) {
+      html += '<tr><td>—</td><td colspan="2">no augmenting path remains — stop</td><td><b>' + total + '</b></td></tr>';
+    }
+    el(cfg.ids.table).innerHTML = html + '</tbody>';
+  }
+
+  function ask() {
+    const st = el(cfg.ids.status);
+    if (it >= cfg.iters.length) return;
+    const I = cfg.iters[it];
+    curVals = residualsAlong(I.path);
+    I.vals = curVals.slice();
+    st.className = 'status info';
+    st.textContent = 'Iteration ' + (it + 1) + ' — the slides pick the augmenting path ' +
+      pathStr(I.path) + (I.note ? ' (' + I.note + ')' : '') +
+      '. Read its residuals off the drawing: what is the bottleneck c*?';
+    const box = el(cfg.ids.opts);
+    box.innerHTML = '';
+    I.options.forEach(v => {
+      const b = document.createElement('button');
+      b.textContent = 'c* = ' + v;
+      b.addEventListener('click', () => answer(v));
+      box.appendChild(b);
+    });
+    draw();
+  }
+
+  function answer(v) {
+    const st = el(cfg.ids.status);
+    const I = cfg.iters[it];
+    const c = Math.min.apply(null, curVals);
+    if (v !== c) {
+      st.className = 'status bad';
+      st.textContent = '✗ ' + v + '? ' +
+        (v === Math.max.apply(null, curVals) ? 'That is the roomiest arc on the path — the tightest one decides. ' : '') +
+        'The residuals along ' + pathStr(I.path) + ' are ' + curVals.join(', ') + '; c* is their minimum.';
+      return;
+    }
+    apply();
+  }
+
+  function apply() {
+    const I = cfg.iters[it];
+    for (let k = 1; k < I.path.length; k++) {
+      res[AK(I.path[k - 1], I.path[k])] -= I.c;
+      res[AK(I.path[k], I.path[k - 1])] += I.c;
+    }
+    total += I.c;
+    it++;
+    el(cfg.ids.run).classList.remove('locked');
+    const st = el(cfg.ids.status);
+    st.className = 'status ok';
+    st.textContent = '✓ c* = min{' + I.vals.join(',') + '} = ' + I.c + ' — push ' + I.c +
+      ' along ' + pathStr(I.path) + '. ' + I.msg;
+    if (it === cfg.iters.length) {
+      done = true;
+      st.textContent += ' ' + cfg.doneMsg;
+      el(cfg.ids.opts).innerHTML = '';
+      renderTable();
+      draw();
+    } else {
+      renderTable();
+      ask();
+    }
+  }
+
+  el(cfg.ids.run).addEventListener('click', () => {
+    const st = el(cfg.ids.status);
+    if (el(cfg.ids.run).classList.contains('locked')) {
+      st.className = 'status info';
+      st.textContent = 'Call the first bottleneck yourself — then I can fast-forward the rest.';
+      return;
+    }
+    while (!done) apply();
+  });
+
+  if (cfg.ids.flows) {
+    el(cfg.ids.flows).addEventListener('click', () => {
+      const st = el(cfg.ids.status);
+      if (!done) {
+        st.className = 'status info';
+        st.textContent = 'Finish the iterations first — flows are read off the FINAL residual network.';
+        return;
+      }
+      mode = mode === 'flows' ? 'res' : 'flows';
+      el(cfg.ids.flows).textContent = mode === 'flows' ? 'Hide the final flows' : 'Show the final flows ★';
+      if (cfg.ids.cut) el(cfg.ids.cut).textContent = 'Label nodes reachable from s ★';
+      st.className = 'status info';
+      st.textContent = mode === 'flows' ? cfg.flowsMsg : 'Back to the residual view.';
+      draw();
+    });
+  }
+
+  if (cfg.ids.cut) {
+    el(cfg.ids.cut).addEventListener('click', () => {
+      const st = el(cfg.ids.status);
+      if (!done) {
+        st.className = 'status info';
+        st.textContent = 'Finish the iterations first — the labelling is done on the final residual network.';
+        return;
+      }
+      mode = mode === 'cut' ? 'res' : 'cut';
+      el(cfg.ids.cut).textContent = mode === 'cut' ? 'Hide the labels' : 'Label nodes reachable from s ★';
+      if (cfg.ids.flows) el(cfg.ids.flows).textContent = 'Show the final flows ★';
+      st.className = 'status info';
+      st.textContent = mode === 'cut' ? cfg.cutMsg : 'Back to the residual view.';
+      draw();
+    });
+  }
+
+  function reset() {
+    res = initRes(cfg.net);
+    it = 0;
+    total = 0;
+    done = false;
+    mode = 'res';
+    el(cfg.ids.run).classList.add('locked');
+    if (cfg.ids.flows) el(cfg.ids.flows).textContent = 'Show the final flows ★';
+    if (cfg.ids.cut) el(cfg.ids.cut).textContent = 'Label nodes reachable from s ★';
+    renderTable();
+    ask();
+  }
+  el(cfg.ids.reset).addEventListener('click', reset);
+
+  reset();
+  VIZ.register(canvas, draw);
+}
+
+/* ============================================================
+   WIDGET 2 — Ford-Fulkerson stepper on Example 1 (slides 7-12)
+   Iterations: so-1-2-si (c*=2), so-2-1-3-si (c*=1). Max flow 3.
+   ============================================================ */
+ffStepper({
+  canvasId: 'c-ff',
+  net: EX1,
+  ids: { total: 'ff-total', opts: 'ff-opts', run: 'ff-run', reset: 'ff-reset', flows: 'ff-flows', status: 'ff-status', table: 'ff-table' },
+  iters: [
+    {
+      path: ['so', '1', '2', 'si'], c: 2, options: [1, 2, 3, 4],
+      msg: 'Forward residuals on the path drop by 2, backward residuals rise by 2 (slide 10). Total flow 2.',
+    },
+    {
+      path: ['so', '2', '1', '3', 'si'], c: 1, options: [1, 2, 3, 4],
+      note: 'careful — the hop 2→1 is a backward residual move on arc (1,2)',
+      tag: '(2→1 backward)',
+      msg: 'One unit of the earlier so→1→2 push now exits via 1→3→si instead (slide 11). Total 2+1 = 3.',
+    },
+  ],
+  doneMsg: 'No augmenting path remains — stop: maximum flow = 3 (slide 11).',
+  flowsMsg: 'Flow = capacity − forward residual on every arc (slide 12): so→1: 2, so→2: 1, 1→2: 1, 1→3: 1, 3→si: 1, 2→si: 2.',
+  captions: (ctx, t, P) => {
+    halo(ctx, t, 'source', P.so.x, P.so.y + 34, t.muted, 12);
+    halo(ctx, t, 'sink', P.si.x, P.si.y + 34, t.muted, 12);
+  },
+});
+
+/* ============================================================
+   WIDGET 3 — min cut hunt on Example 1 (slide 13)
+   Slide cuts: {so}=5, {so,1}=10, {so,1,2}=6, {so,1,3}=7, {so,1,2,3}=3.
+   ============================================================ */
+(() => {
+  const canvas = el('c-cut');
+  VIZ.hint(canvas, '🖱 click nodes 1, 2, 3 to move them between the two sides');
+  let S = new Set(['so']);
+  let best = null, count = 0;
+  let P = {};
+
+  const cutArcs = () => EX1.arcs.filter(a => S.has(a.u) && !S.has(a.v));
+  const cutCap = () => cutArcs().reduce((s, a) => s + a.c, 0);
+  const setStr = () => '{' + ['so', '1', '2', '3', 'si'].filter(k => S.has(k)).join(',') + '}';
+
+  function draw() {
+    const L = netLayout(canvas, EX1);
+    const { ctx, h } = L;
+    P = L.P;
+    const t = VIZ.theme();
+    EX1.arcs.forEach(a => {
+      const A = P[a.u], B = P[a.v];
+      const bow = (a.bow || 0) * h;
+      const crossing = S.has(a.u) && !S.has(a.v);
+      const entering = !S.has(a.u) && S.has(a.v);   // points back into S: not counted
+      drawLink(ctx, t, A, B, {
+        bow, arrow: true, nodeR: EX1.R,
+        color: crossing ? t.bad : t.axis,
+        width: crossing ? 4 : 1.6,
+        dash: entering ? [5, 5] : undefined,
+      });
+      edgeLabel(ctx, t, A, B, bow, 0.5, (a.ls || 1) * 13, String(a.c),
+        crossing ? t.bad : t.ink2, 13, crossing);
+    });
+    Object.keys(P).forEach(k => drawNodeCircle(ctx, t, P[k], k, {
+      r: EX1.R,
+      fill: S.has(k) ? t.s5 : undefined,
+      stroke: S.has(k) ? t.s5 : undefined,
+    }));
+    halo(ctx, t, 'source side S', P.so.x + 6, P.so.y + 34, t.s5, 12, true, 'left');
+    halo(ctx, t, 'sink side', P.si.x - 6, P.si.y + 34, t.muted, 12, false, 'right');
+    el('cut-set').textContent = setStr();
+    el('cut-cap').textContent = cutCap();
+    el('cut-best').textContent = best === null ? '—' : best;
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const n = hitNet(EX1, P, px, py);
+    if (!n) return;
+    const st = el('cut-status');
+    if (n.id === 'so' || n.id === 'si') {
+      st.className = 'status info';
+      st.textContent = 'so must stay on the source side and si on the sink side — move nodes 1, 2, 3.';
+      return;
+    }
+    if (S.has(n.id)) S.delete(n.id); else S.add(n.id);
+    const arcs = cutArcs().map(a => a.u + '→' + a.v + ' (' + a.c + ')');
+    st.className = 'status info';
+    st.textContent = 'S = ' + setStr() + ': cut arcs ' + arcs.join(', ') + ' — capacity ' + cutCap() + '.';
+    draw();
+  });
+
+  el('cut-log').addEventListener('click', () => {
+    count++;
+    const cap = cutCap();
+    if (best === null || cap < best) best = cap;
+    const arcs = cutArcs().map(a => a.u + '→' + a.v).join(', ');
+    const tb = el('cut-tab').querySelector('tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + count + '</td><td>' + setStr() + '</td><td>' + arcs + '</td><td><b>' + cap + '</b></td>';
+    tb.appendChild(tr);
+    tb.querySelectorAll('tr').forEach(r => r.classList.toggle('best', +r.lastChild.textContent.replace(/[^0-9]/g, '') === best));
+    const st = el('cut-status');
+    st.className = cap === 3 ? 'status ok' : 'status info';
+    st.textContent = 'Logged ' + setStr() + ' with capacity ' + cap + '.' +
+      (cap === 3 ? ' ✓ Can any cut be cheaper than this one…?' : ' Keep hunting for a cheaper cut.');
+    draw();
+  });
+
+  el('cut-reset').addEventListener('click', () => {
+    S = new Set(['so']);
+    el('cut-status').className = 'status info';
+    el('cut-status').textContent = 'S = {so}: the cut arcs are so→1 and so→2, capacity 2 + 3 = 5.';
+    draw();
+  });
+
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 4 — course staffing grid + modelling quiz (slides 14-18)
+   ============================================================ */
+(() => {
+  const INSTS = ['Ali', 'Mehmet', 'Erinç', 'İsmail', 'Gökalp'];
+  const COURSES = [{ id: 'IE102', req: 2 }, { id: 'IE201', req: 2 }, { id: 'IE301', req: 1 }];
+  const FORBID = {
+    'Ali|IE102': 'Ali is not willing to teach IE102 — that arc does not exist in the network.',
+    'İsmail|IE301': 'İsmail has a time conflict with IE301 — that arc does not exist in the network.',
+    'Gökalp|IE301': 'Gökalp has a time conflict with IE301 — that arc does not exist in the network.',
+  };
+  const assign = {};   // instructor -> course id
+  let restrict = false;
+
+  const countCourse = c => INSTS.filter(i => assign[i] === c).length;
+  const slots = () => INSTS.filter(i => assign[i]).length;
+
+  function render() {
+    let html = '<thead><tr><th>instructor</th>' + COURSES.map(c =>
+      '<th>' + c.id + ' <small>needs ' + c.req + '</small></th>').join('') + '</tr></thead><tbody>';
+    INSTS.forEach(i => {
+      html += '<tr><td class="name">' + i + '</td>';
+      COURSES.forEach(c => {
+        if (FORBID[i + '|' + c.id]) {
+          html += '<td class="forbid">✗ no arc</td>';
+        } else {
+          const on = assign[i] === c.id;
+          html += '<td><button class="cell' + (on ? ' on' : '') + '" data-i="' + i + '" data-c="' + c.id + '">' +
+            (on ? '✓ teaches' : 'assign') + '</button></td>';
+        }
+      });
+      html += '</tr>';
+    });
+    el('st-grid').innerHTML = html + '</tbody>';
+    el('st-count').textContent = slots() + ' / 5';
+    el('st-grid').querySelectorAll('button.cell').forEach(b =>
+      b.addEventListener('click', () => click(b.dataset.i, b.dataset.c)));
+  }
+
+  function click(i, c) {
+    const st = el('st-status');
+    if (assign[i] === c) {
+      delete assign[i];
+      st.className = 'status info';
+      st.textContent = i + ' unassigned from ' + c + '.';
+      render();
+      return;
+    }
+    if (countCourse(c) >= COURSES.find(x => x.id === c).req) {
+      st.className = 'status bad';
+      st.textContent = '✗ ' + c + ' already has ' + countCourse(c) + ' instructor(s) — its arc into the Sink is saturated.';
+      return;
+    }
+    if (restrict && c === 'IE201' && (i === 'Mehmet' || i === 'Gökalp')) {
+      const other = i === 'Mehmet' ? 'Gökalp' : 'Mehmet';
+      if (assign[other] === 'IE201') {
+        st.className = 'status bad';
+        st.textContent = '✗ Slide 18’s Dummy → IE201 arc has capacity 1 — ' + other + ' already uses it.';
+        return;
+      }
+    }
+    let moved = '';
+    if (assign[i]) moved = ' (moved off ' + assign[i] + ' — the Source→' + i + ' arc has capacity 1)';
+    assign[i] = c;
+    st.className = slots() === 5 ? 'status ok' : 'status info';
+    st.textContent = (slots() === 5
+      ? '✓ All 5 slots covered — every course→Sink arc is saturated, so this assignment is a maximum flow of value 5.'
+      : i + ' → ' + c + moved + '. Slots filled: ' + slots() + ' / 5.');
+    render();
+  }
+
+  el('st-clear').addEventListener('click', () => {
+    INSTS.forEach(i => delete assign[i]);
+    el('st-status').className = 'status info';
+    el('st-status').textContent = 'Cleared — assign again.';
+    render();
+  });
+
+  el('st-restrict').addEventListener('click', () => {
+    restrict = !restrict;
+    el('st-restrict').textContent = restrict
+      ? 'Remove slide 17’s rule'
+      : 'Add slide 17’s rule (Mehmet+Gökalp on IE201 ≤ 1)';
+    const st = el('st-status');
+    if (restrict && assign['Mehmet'] === 'IE201' && assign['Gökalp'] === 'IE201') {
+      delete assign['Gökalp'];
+      st.className = 'status info';
+      st.textContent = 'Rule added: both were on IE201, so Gökalp was bumped — the Dummy → IE201 arc only passes 1 unit.';
+    } else {
+      st.className = 'status info';
+      st.textContent = restrict
+        ? 'Rule added (slides 17–18): Mehmet and Gökalp now share a capacity-1 dummy arc into IE201.'
+        : 'Rule removed — back to the original network of slide 15.';
+    }
+    render();
+  });
+
+  const HINTS = {
+    cap1: '✗ Capacity 1 on IE201 → Sink forbids EVERY pair on IE201 — even Ali + Erinç — and makes the requirement of 2 unreachable. The rule only concerns Mehmet and Gökalp.',
+    del: '✗ Deleting both arcs bans both of them, but ONE of them is still allowed to teach IE201.',
+    src: '✗ A shared capacity-1 arc before the Source arcs would let only one of them teach ANY course — the rule must bite on IE201 only.',
+    dummy: '✓ Exactly slide 18: both route into a dummy node, and Dummy → IE201 with capacity 1 lets at most one unit — one of the two instructors — reach IE201. Nothing else changes.',
+  };
+  el('st-quiz').querySelectorAll('button').forEach(b => {
+    b.addEventListener('click', () => {
+      const ok = b.dataset.k === 'dummy';
+      el('st-quiz').querySelectorAll('button').forEach(x => x.classList.remove('right', 'wrong'));
+      b.classList.add(ok ? 'right' : 'wrong');
+      const st = el('st-qstatus');
+      st.className = ok ? 'status ok' : 'status bad';
+      st.textContent = HINTS[b.dataset.k];
+    });
+  });
+
+  render();
+})();
+
+/* ============================================================
+   WIDGET 5 — refinery Ford-Fulkerson stepper (slides 19-34)
+   Paths: 50 + 20 + 20 + 10 + 10 = 110. Min cut {s,1,...,6} = 110.
+   ============================================================ */
+ffStepper({
+  canvasId: 'c-rf',
+  net: EX3,
+  ids: { total: 'rf-total', opts: 'rf-opts', run: 'rf-run', reset: 'rf-reset', flows: 'rf-flows', cut: 'rf-cut', status: 'rf-status', table: 'rf-table' },
+  iters: [
+    { path: ['s', '2', '6', '7', 't'], c: 50, options: [50, 60, 80], msg: 'Residual update on slide 23. Total flow 50.' },
+    { path: ['s', '2', '5', '6', '8', 't'], c: 20, options: [20, 30, 50], msg: 'Residual update on slide 25. Total 70.' },
+    { path: ['s', '1', '4', '5', '8', 't'], c: 20, options: [10, 20, 30], msg: 'Residual update on slide 27. Total 90.' },
+    { path: ['s', '3', '5', '8', 't'], c: 10, options: [10, 15, 20], msg: 'Residual update on slide 29. Total 100.' },
+    { path: ['s', '2', '4', '7', 't'], c: 10, options: [10, 20, 50], msg: 'Residual update on slide 31. Total 110.' },
+  ],
+  doneMsg: 'No augmenting path from s to t remains — maximum flow = 110 (slide 32). Now label the nodes reachable from s to expose the minimum cut.',
+  flowsMsg: 'Flow = capacity − forward residual (slide 32). Node checks: e.g. station 5 receives 20+20+10 and sends 20+30.',
+  cutReach: new Set(['s', '1', '2', '3', '4', '5', '6']),
+  cutMsg: 'Nodes reachable from s in the final residual network: {s,1,2,3,4,5,6} (slide 33). The arcs that jump to the unlabelled side — 4→7 (10), 6→7 (50), 6→8 (20), 5→8 (30) — form the minimum cut: capacity 110 = max flow (slide 34).',
+  captions: (ctx, t, P) => {
+    halo(ctx, t, 'dummy source', P.s.x + 8, P.s.y + 32, t.muted, 11, false, 'left');
+    halo(ctx, t, 'dummy terminal', P.t.x - 8, P.t.y + 32, t.muted, 11, false, 'right');
+  },
+});
+
+/* ============================================================
+   WIDGET 6 — Seattle → Boston passenger race (slides 35-37)
+   Max flow = 40. Nashville is a dead end; Colum-Charl cap 22.
+   ============================================================ */
+window.__bsGame = flowGame({
+  canvasId: 'c-bs',
+  net: EX4,
+  source: 'Seattle',
+  sink: 'Boston',
+  target: 40,
+  unit: 'passenger(s)',
+  arcWord: 'flight',
+  sep: ' → ',
+  opt: EX4_OPT,
+  ids: { path: 'bs-path', total: 'bs-total', best: 'bs-best', log: 'bs-log', status: 'bs-status', undo: 'bs-undo', reset: 'bs-reset', reveal: 'bs-reveal' },
+  revealShow: 'Reveal the optimal flows ★',
+  revealHide: 'Hide the optimal flows',
+  revealMsg: 'Green dashes: slide 37’s optimal flows (★passengers) — 40 reach Boston; Nashville stays empty.',
+});
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('boston', {
+  label: 'passengers delivered', dir: 'max', digits: 0,
+  get: () => window.__bsGame.score(),
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 8 — Branch and Bound (Part 2) (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<style>
+  /* item cards for the knapsack packer */
+  .items {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px 16px;
+    margin: 12px 0 4px;
+  }
+  .item {
+    border: 1px solid var(--grid);
+    border-radius: 10px;
+    padding: 8px 12px;
+    background: var(--page);
+  }
+  .item .nm { font-weight: 600; font-size: 0.95rem; }
+  .item input[type="range"] { width: 100%; margin: 6px 0 4px; }
+  .item .readout { font-size: 0.88rem; padding: 3px 8px; }
+
+  /* capacity bar */
+  .capbar {
+    flex: 1 1 200px;
+    min-width: 150px;
+    max-width: 340px;
+    height: 14px;
+    border: 1px solid var(--axis);
+    border-radius: 999px;
+    background: var(--page);
+    overflow: hidden;
+  }
+  .capbar .fill { height: 100%; background: var(--s1); transition: width 0.15s; }
+  .capbar .fill.over { background: var(--critical); }
+
+  /* distance / assignment matrices */
+  table.dmat {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.92rem;
+  }
+  table.dmat th, table.dmat td {
+    border: 1px solid var(--grid);
+    padding: 5px 10px;
+    text-align: right;
+    min-width: 44px;
+  }
+  table.dmat th { color: var(--ink-2); }
+  table.dmat td:first-child, table.dmat th:first-child { text-align: left; font-weight: 600; }
+  table.dmat td.mm { color: var(--muted); }
+  table.dmat td.pick { cursor: pointer; }
+  table.dmat td.pick:hover { border-color: var(--axis); }
+  table.dmat td.sel { background: var(--region-fill); font-weight: 700; }
+  table.dmat td.opt { outline: 2px solid var(--s2); outline-offset: -2px; }
+
+  /* in-widget quiz blocks */
+  .qbox {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border: 1px dashed var(--axis);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin: 12px 0 4px;
+  }
+  .qbox .qprompt { font-weight: 600; }
+  .qbox .qbtns { display: flex; flex-wrap: wrap; gap: 8px; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 8: Branch and Bound (Part 2)</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#knap-pack">1 · Pack the knapsack</a>
+    <a href="#knap-bb">2 · Knapsack B&amp;B tree</a>
+    <a href="#tsp-tour">3 · Joe’s round trip</a>
+    <a href="#asg-build">4 · Assignment lower bound</a>
+    <a href="#tsp-bb">5 · TSP branch &amp; bound</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : PACK THE KNAPSACK ================= -->
+<section class="widget" id="knap-pack">
+  <h2>How much value fits in 14? <span class="chip">Slides 3–5</span></h2>
+  <p class="howto">
+    Slide 5’s instance: max z = 8x₁ + 11x₂ + 6x₃ + 4x₄ subject to 5x₁ + 7x₂ + 4x₃ + 3x₄ ≤ 14,
+    every x either 0 or 1. In <b>0–1 mode</b>, hunt the most valuable feasible packing.
+    Then switch to <b>LP-relaxation mode</b>, where fractions are allowed — slide 4 promises this LP
+    can be solved by inspection. How much extra value do fractions buy, and which x comes out broken?
+  </p>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg active" id="kp-mint">0–1 items (the real IP)</button>
+      <button class="seg" id="kp-mlp">LP relaxation — fractions allowed</button>
+    </span>
+  </div>
+  <div class="items">
+    <div class="item"><div class="nm">item 1 · value 8 · weight 5</div>
+      <input type="range" id="kp-s0" min="0" max="1" step="1" value="0">
+      <span class="readout">x₁ = <b id="kp-x0">0</b></span></div>
+    <div class="item"><div class="nm">item 2 · value 11 · weight 7</div>
+      <input type="range" id="kp-s1" min="0" max="1" step="1" value="0">
+      <span class="readout">x₂ = <b id="kp-x1">0</b></span></div>
+    <div class="item"><div class="nm">item 3 · value 6 · weight 4</div>
+      <input type="range" id="kp-s2" min="0" max="1" step="1" value="0">
+      <span class="readout">x₃ = <b id="kp-x2">0</b></span></div>
+    <div class="item"><div class="nm">item 4 · value 4 · weight 3</div>
+      <input type="range" id="kp-s3" min="0" max="1" step="1" value="0">
+      <span class="readout">x₄ = <b id="kp-x3">0</b></span></div>
+  </div>
+  <div class="controls">
+    <span class="readout">weight = <b id="kp-w">0</b> / 14</span>
+    <div class="capbar"><div class="fill" id="kp-bar" style="width:0%"></div></div>
+    <span class="readout">z = <b id="kp-z">0</b></span>
+    <button id="kp-log" class="primary">Log this packing</button>
+    <button id="kp-clear">Empty the sack</button>
+  </div>
+  <div style="overflow-x:auto"><table class="attempts" id="kp-tab" style="display:none">
+    <thead><tr><th>#</th><th>mode</th><th>x = (x₁, x₂, x₃, x₄)</th><th>weight</th><th>z</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <p class="status info" id="kp-status">Sack is empty — weight 0 / 14, z = 0. Slide items in and out.</p>
+  <div class="note">
+    A knapsack problem is an IP with a single constraint (slide 4). With 0–1 variables its LP relaxation
+    needs no simplex: rank items by value per unit weight and pour greedily until capacity runs out.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Ratios: 8/5 = 1.6 &gt; 11/7 ≈ 1.57 &gt; 6/4 = 1.5 &gt; 4/3 ≈ 1.33. Pouring in that order fills
+      items 1 and 2 whole and dies half-way through item 3: LP optimum x = (1, 1, 0.5, 0) with
+      z<sub>LP</sub> = 22 (slide 5) — so we branch on x₃. The best 0–1 packing is items 2, 3, 4 with
+      z = 21; the branch-and-bound tree below proves no packing beats it.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : KNAPSACK B&B TREE ================= -->
+<section class="widget" id="knap-bb">
+  <h2>You call every move of the knapsack tree <span class="chip">Slides 5–11</span></h2>
+  <p class="howto">
+    The same knapsack, run as branch-and-bound exactly as in slides 5–11. Branching on a 0–1 variable
+    just means an x = 0 child and an x = 1 child, and every LP bound is read off by inspection.
+    At each fork <b>the class calls the move</b>: which variable to branch, and — at the very end —
+    whether the one still-open node deserves branching at all. Click any node to re-read its LP solution.
+  </p>
+  <div class="controls">
+    <span class="readout">incumbent (best integer z) = <b id="kb-inc">—</b></span>
+    <span class="readout">root bound = <b>22</b></span>
+    <button id="kb-reset">Restart the tree</button>
+  </div>
+  <div class="qbox" id="kb-q"></div>
+  <canvas class="viz" id="c-kb"></canvas>
+  <p class="status info" id="kb-status">Root LP solved by inspection: x = (1, 1, 0.5, 0), z = 22 — fractional.</p>
+  <div class="note">
+    Every node stores the LP bound of its subtree; a node is fathomed when its LP is integer, infeasible,
+    or bounded below the incumbent.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Optimal: z = 21 at x = (0, 1, 1, 1). Slide 11’s question — must we branch the x₃ = 0 node
+      (bound 21.65)? No: all objective coefficients are integers, so the best integer value under it is at
+      most ⌊21.65⌋ = 21, which cannot beat the incumbent 21. Fathomed by bound, subtree never built.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : JOE'S ROUND TRIP ================= -->
+<section class="widget" id="tsp-tour">
+  <h2>Find Joe’s shortest round trip <span class="chip">Slides 12–13</span></h2>
+  <p class="howto">
+    Slide 13: Joe State lives in Gary (GA) and must visit his agencies in Fort Wayne (FW),
+    Evansville (EV), Terre Haute (TH) and South Bend (SB), then return home — a travelling salesman
+    problem. <b>Click the cities in the order Joe should drive</b>; after the fourth stop the trip closes
+    back to Gary on its own. Distances are the slide’s table (miles); the map layout is schematic.
+    Who in the class finds the shortest loop?
+  </p>
+  <div class="controls">
+    <span class="readout">route length = <b id="tt-len">0</b> mi</span>
+    <span class="readout">your best = <b id="tt-best">—</b></span>
+    <button id="tt-undo">Undo stop</button>
+    <button id="tt-clear">Start over</button>
+    <button id="tt-reveal" class="primary">Reveal optimal tour ★</button>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+    <div style="flex:1 1 520px;min-width:320px">
+      <canvas class="viz" id="c-tt"></canvas>
+    </div>
+    <div style="flex:1 1 260px;min-width:240px">
+      <div style="overflow-x:auto"><table class="dmat" id="tt-dmat"></table></div>
+      <div style="overflow-x:auto"><table class="attempts" id="tt-tab" style="display:none">
+        <thead><tr><th>#</th><th>route</th><th>miles</th></tr></thead><tbody></tbody>
+      </table></div>
+    </div>
+  </div>
+  <p class="status info" id="tt-status">Joe starts in Gary — click his first stop.</p>
+  <div class="note">
+    With 5 cities there are only 4! = 24 orders (12 distinct loops) — brute force is fine here, but the
+    count explodes factorially; that is why the slides bring branch-and-bound.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Optimal loop: GA → SB → FW → TH → EV → GA (or the same loop backwards) with 668 miles —
+      exactly the candidate that subproblem 4 produces on slide 18 and that slide 21 declares optimal.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 4 : ASSIGNMENT LOWER BOUND ================= -->
+<section class="widget" id="asg-build">
+  <h2>Cheaper than any tour: build the assignment <span class="chip">Slides 14–16</span></h2>
+  <p class="howto">
+    Slides 14–15 relax the tour: from each city Joe must <em>leave</em> exactly once and each city must be
+    <em>entered</em> exactly once — with no promise that the arcs form one loop. That is an assignment
+    problem (diagonal forbidden: cᵢᵢ = M). <b>Click one cell in every row and column</b> of the cost
+    matrix and watch the arcs on the map. Can the class build an assignment cheaper than its best tour
+    from the widget above? What goes “wrong” with the cheapest ones?
+  </p>
+  <div class="controls">
+    <span class="readout">arcs picked = <b id="ab-n">0</b> / 5</span>
+    <span class="readout">cost = <b id="ab-cost">0</b></span>
+    <button id="ab-clear">Clear</button>
+    <button id="ab-reveal" class="primary">Reveal Hungarian optimum ★</button>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+    <div style="flex:1 1 320px;min-width:280px;overflow-x:auto"><table class="dmat" id="ab-mat"></table></div>
+    <canvas class="viz short" id="c-ab" style="flex:1 1 340px;min-width:280px"></canvas>
+  </div>
+  <p class="status info" id="ab-status">Pick a successor in every row — one cell per row and per column.</p>
+  <div class="note">
+    Every tour is a legal assignment, but not every assignment is a tour — so the optimal assignment value
+    is a <em>lower bound</em> on the optimal tour. And the subproblems here are not LP relaxations
+    (slide 14) — branch-and-bound only needs <em>some</em> relaxation it can solve fast.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Hungarian optimum (slide 16): x₁₅ = x₅₂ = x₂₁ = 1 and x₃₄ = x₄₃ = 1, cost 495 — two subtours,
+      GA → SB → FW → GA and EV → TH → EV, so 495 ≤ 668 is a bound, not a route. Slide 16 branches to
+      destroy EV ↔ TH: subproblem 2 forbids EV → TH (c₃₄ = M), subproblem 3 forbids TH → EV (c₄₃ = M).
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 5 : TSP BRANCH & BOUND ================= -->
+<section class="widget" id="tsp-bb">
+  <h2>Branch and bound over assignments — kill the subtours <span class="chip">Slides 16–21</span></h2>
+  <p class="howto">
+    Slides 16–21 run B&amp;B where every node is an assignment problem solved by the Hungarian method.
+    Step through the whole search: spot subtours, pick the branching, and decide what may be pruned —
+    the widget stops and asks the class at each judgement call. Click a solved node in the tree to see
+    its assignment on the map.
+  </p>
+  <div class="controls">
+    <span class="readout">incumbent (best tour) = <b id="tb-inc">—</b></span>
+    <button id="tb-next" class="primary">Solve SP1 — Hungarian on the M-diagonal matrix</button>
+    <button id="tb-reset">Restart</button>
+  </div>
+  <div class="qbox" id="tb-q" style="display:none"></div>
+  <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+    <div style="flex:1 1 480px;min-width:320px"><canvas class="viz short" id="c-tb" style="width:100%"></canvas></div>
+    <canvas class="viz short" id="c-tbm" style="flex:1 1 300px;min-width:260px"></canvas>
+  </div>
+  <p class="status info" id="tb-status">SP1 relaxes the tour requirement to a pure assignment — solve it first.</p>
+  <div class="note">
+    Branching rule (slide 16): pick a subtour and create one child per arc of it, each child forbidding
+    one arc (cost set to M) — the subtour survives in no child, yet every genuine tour survives in at
+    least one.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Search ends as on slide 21: SP4’s single-loop solution GA → SB → FW → TH → EV → GA with z = 668 is
+      optimal. SP5 is a 704 tour (eliminated), and SP6 / SP7 — the children of SP3 (bound 652) — cannot
+      produce anything below 668, so both are pruned.
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 8.
+  Figures follow the examples used in the Week 8 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+const pxfont = (s, b) => {
+  const k = parseFloat(VIZ.cssv('--viz-font-scale')) || 1;
+  return (b ? '600 ' : '') + Math.round(s * k) + 'px system-ui, sans-serif';
+};
+
+/* ---------- shared TSP data (slide 13) ----------
+   City indices follow the slides: 1 GA, 2 FW, 3 EV, 4 TH, 5 SB (0-based here). */
+const CITY = ['GA', 'FW', 'EV', 'TH', 'SB'];
+const CITY_FULL = ['Gary', 'Fort Wayne', 'Evansville', 'Terre Haute', 'South Bend'];
+const DIST = [
+  [0, 132, 217, 164, 58],
+  [132, 0, 290, 201, 79],
+  [217, 290, 0, 113, 303],
+  [164, 201, 113, 0, 196],
+  [58, 79, 303, 196, 0],
+];
+/* Schematic map positions (miles-ish, from rough Indiana geography — layout only;
+   all lengths shown anywhere come from the slide table above). */
+const CPOS = [[34, 282], [152, 247], [23, 32], [31, 136], [93, 288]];
+/* label offsets so names never sit on an arc */
+const CLBL = [[-4, -22, 'right'], [16, -6, 'left'], [16, 6, 'left'], [-18, 0, 'right'], [10, -20, 'left']];
+
+function cityMap(canvas, pad) {
+  const { ctx, w, h } = VIZ.setup(canvas);
+  const xs = CPOS.map(p => p[0]), ys = CPOS.map(p => p[1]);
+  const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+  const s = Math.min((w - 2 * pad) / (x1 - x0), (h - 2 * pad) / (y1 - y0));
+  const ox = (w - s * (x1 - x0)) / 2, oy = (h - s * (y1 - y0)) / 2;
+  const P = CPOS.map(([x, y]) => [ox + s * (x - x0), h - oy - s * (y - y0)]);
+  return { ctx, w, h, P };
+}
+
+function arrow(ctx, a, b, color, width, r, curved) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy);
+  if (L < 1) return;
+  const ux = dx / L, uy = dy / L;
+  // bend to the left of the travel direction so opposite arcs never overlap
+  const bend = curved ? Math.min(16, L * 0.12) : 0;
+  const x1 = a[0] + ux * r, y1 = a[1] + uy * r;
+  const x2 = b[0] - ux * r, y2 = b[1] - uy * r;
+  const cx = (x1 + x2) / 2 - uy * bend, cy = (y1 + y2) / 2 + ux * bend;
+  ctx.save();
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = width;
+  ctx.beginPath(); ctx.moveTo(x1, y1); ctx.quadraticCurveTo(cx, cy, x2, y2); ctx.stroke();
+  const tx = x2 - cx, ty = y2 - cy, TL = Math.hypot(tx, ty) || 1;
+  const vx = tx / TL, vy = ty / TL;
+  const s = 4 + 1.6 * width;
+  ctx.beginPath();
+  ctx.moveTo(x2, y2);
+  ctx.lineTo(x2 - vx * s - vy * s * 0.55, y2 - vy * s + vx * s * 0.55);
+  ctx.lineTo(x2 - vx * s + vy * s * 0.55, y2 - vy * s - vx * s * 0.55);
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+
+function drawCityNodes(m, t, r) {
+  m.ctx.save();
+  CITY.forEach((nm, i) => {
+    const [px, py] = m.P[i];
+    m.ctx.beginPath(); m.ctx.arc(px, py, r, 0, 2 * Math.PI);
+    m.ctx.fillStyle = t.surface; m.ctx.fill();
+    m.ctx.lineWidth = 2; m.ctx.strokeStyle = t.axis; m.ctx.stroke();
+    m.ctx.fillStyle = t.ink; m.ctx.font = pxfont(11, true);
+    m.ctx.textAlign = 'center'; m.ctx.textBaseline = 'middle';
+    m.ctx.fillText(nm, px, py);
+    const [dx, dy, al] = CLBL[i];
+    m.ctx.fillStyle = t.ink2; m.ctx.font = pxfont(12);
+    m.ctx.textAlign = al; m.ctx.textBaseline = 'middle';
+    m.ctx.fillText(CITY_FULL[i], px + dx + (al === 'left' ? r : -r), py + dy);
+  });
+  m.ctx.restore();
+}
+
+/* find cycles of a complete successor permutation */
+function permCycles(succ) {
+  const seen = Array(5).fill(false), out = [];
+  for (let s = 0; s < 5; s++) {
+    if (seen[s]) continue;
+    const c = []; let cur = s;
+    while (!seen[cur]) { seen[cur] = true; c.push(cur); cur = succ[cur]; }
+    out.push(c);
+  }
+  return out;
+}
+const cycleStr = c => c.map(i => CITY[i]).join(' → ') + ' → ' + CITY[c[0]];
+
+/* one multiple-choice question inside a widget */
+function askQuiz(box, statusEl, q, onCorrect) {
+  box.style.display = 'flex';
+  box.innerHTML = '<span class="qprompt">' + q.prompt + '</span>';
+  const wrap = document.createElement('span');
+  wrap.className = 'qbtns';
+  q.opts.forEach(o => {
+    const b = document.createElement('button');
+    b.textContent = o.t;
+    b.addEventListener('click', () => {
+      if (o.ok) {
+        statusEl.className = 'status ok';
+        statusEl.textContent = '✓ ' + o.msg;
+        box.style.display = 'none';
+        box.innerHTML = '';
+        onCorrect();
+      } else {
+        statusEl.className = 'status bad';
+        statusEl.textContent = '✗ ' + o.hint;
+      }
+    });
+    wrap.appendChild(b);
+  });
+  box.appendChild(wrap);
+}
+
+function roundBox(ctx, x, y, w, h, r) {
+  if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); }
+  else { ctx.beginPath(); ctx.rect(x, y, w, h); }
+}
+
+/* ============================================================
+   WIDGET 1 — pack the knapsack (slides 3-5)
+   max 8x1+11x2+6x3+4x4, 5x1+7x2+4x3+3x4 <= 14, x in {0,1}.
+   IP optimum 21 at (0,1,1,1); LP relaxation 22 at (1,1,0.5,0).
+   ============================================================ */
+(() => {
+  const ITEMS = [{ v: 8, w: 5 }, { v: 11, w: 7 }, { v: 6, w: 4 }, { v: 4, w: 3 }];
+  const CAP = 14;
+  let mode = 'int'; // 'int' | 'lp'
+  let attempts = 0;
+  let bestInt = null;
+
+  const sliders = [0, 1, 2, 3].map(i => el('kp-s' + i));
+  const xs = () => sliders.map(s => +s.value);
+  const weight = x => x.reduce((a, xi, i) => a + ITEMS[i].w * xi, 0);
+  const value = x => x.reduce((a, xi, i) => a + ITEMS[i].v * xi, 0);
+
+  function refresh() {
+    const x = xs();
+    const w = weight(x), z = value(x);
+    x.forEach((xi, i) => el('kp-x' + i).textContent = mode === 'int' ? String(xi) : fmt(xi, 2));
+    el('kp-w').textContent = mode === 'int' ? String(w) : fmt(w, 2);
+    el('kp-z').textContent = mode === 'int' ? String(z) : fmt(z, 2);
+    const bar = el('kp-bar');
+    bar.style.width = Math.min(100, w / CAP * 100) + '%';
+    bar.classList.toggle('over', w > CAP + 1e-9);
+    const st = el('kp-status');
+    if (w > CAP + 1e-9) {
+      st.className = 'status bad';
+      st.textContent = 'Over capacity: weight ' + (mode === 'int' ? String(w) : fmt(w, 2)) + ' > 14 — this packing is infeasible.';
+    } else if (mode === 'int' && z === 21) {
+      st.className = 'status ok';
+      st.textContent = 'z = 21 with weight ' + w + ' — that is the best 0–1 packing there is (the tree below proves it).';
+    } else if (mode === 'lp' && z > 21.99) {
+      st.className = 'status ok';
+      st.textContent = 'z = 22 — the LP-relaxation optimum of slide 5, with x₃ broken at 0.5.';
+    } else {
+      const num = v => mode === 'int' ? String(v) : fmt(v, 2);
+      st.className = 'status info';
+      st.textContent = 'Feasible: weight ' + num(w) + ' / 14, z = ' + num(z) +
+        (mode === 'int' ? '. Can the class push z higher?' : '. Fractions allowed — push z above the best integer packing.');
+    }
+  }
+
+  function setMode(m) {
+    mode = m;
+    el('kp-mint').classList.toggle('active', m === 'int');
+    el('kp-mlp').classList.toggle('active', m === 'lp');
+    sliders.forEach(s => {
+      s.step = m === 'int' ? '1' : '0.05';
+      if (m === 'int') s.value = String(Math.round(+s.value));
+    });
+    refresh();
+  }
+
+  el('kp-mint').addEventListener('click', () => setMode('int'));
+  el('kp-mlp').addEventListener('click', () => setMode('lp'));
+  sliders.forEach(s => s.addEventListener('input', refresh));
+  el('kp-clear').addEventListener('click', () => { sliders.forEach(s => s.value = '0'); refresh(); });
+
+  el('kp-log').addEventListener('click', () => {
+    const x = xs();
+    const w = weight(x), z = value(x);
+    const feas = w <= CAP + 1e-9;
+    attempts++;
+    if (feas && mode === 'int' && (bestInt === null || z > bestInt)) bestInt = z;
+    const tab = el('kp-tab');
+    tab.style.display = '';
+    const tr = document.createElement('tr');
+    if (!feas) tr.className = 'infeasible';
+    tr.innerHTML = '<td>' + attempts + '</td><td>' + (mode === 'int' ? '0–1' : 'LP') + '</td><td>(' +
+      x.map(v => mode === 'int' ? v : fmt(v, 2)).join(', ') + ')</td><td>' + fmt(w, 2) + '</td><td>' +
+      fmt(z, 2) + (feas ? '' : ' — infeasible') + '</td>';
+    tab.querySelector('tbody').appendChild(tr);
+    // re-mark the best feasible 0-1 row
+    let bi = -1, bz = -1;
+    [...tab.querySelectorAll('tbody tr')].forEach((row, i) => {
+      if (row.className === 'infeasible') return;
+      const cells = row.children;
+      if (cells[1].textContent !== '0–1') return;
+      const zv = parseFloat(cells[4].textContent);
+      if (zv > bz) { bz = zv; bi = i; }
+    });
+    [...tab.querySelectorAll('tbody tr')].forEach((row, i) => {
+      if (row.className !== 'infeasible') row.className = i === bi ? 'best' : '';
+    });
+  });
+
+  // classroom hook: current 0-1 attempt value (null when infeasible or in LP mode)
+  window.KP_SCORE = () => {
+    if (mode !== 'int') return null;
+    const x = xs();
+    return weight(x) <= CAP ? value(x) : null;
+  };
+
+  refresh();
+})();
+
+/* ============================================================
+   WIDGET 2 — knapsack B&B tree stepper (slides 5-11)
+   Node bounds exactly as printed on the slides:
+   22 / 21.65 / 21.85 / 18 / 21.8 / 21 / infeasible.
+   ============================================================ */
+(() => {
+  const canvas = el('c-kb');
+  VIZ.hint(canvas, '🖱 click a node for its LP solution');
+
+  // lv = tree level, fx = horizontal position (fraction of plot width)
+  const NODES = [
+    { id: 0, par: null, lv: 0, fx: 0.50, lbl: 'root LP', kind: 'frac', z: '22', at: 0,
+      desc: 'Root LP by inspection: x = (1, 1, 0.5, 0), z = 22 — x₃ fractional (slide 5).' },
+    { id: 1, par: 0, lv: 1, fx: 0.24, lbl: 'x₃ = 0', kind: 'frac', z: '21.65', at: 1,
+      desc: 'SP1 (x₃ = 0): x = (1, 1, 0, 0.667), z = 21.65 — x₄ fractional (slide 6).' },
+    { id: 2, par: 0, lv: 1, fx: 0.64, lbl: 'x₃ = 1', kind: 'frac', z: '21.85', at: 1,
+      desc: 'SP2 (x₃ = 1): x = (1, 0.714, 1, 0), z = 21.85 — x₂ fractional (slide 6).' },
+    { id: 3, par: 2, lv: 2, fx: 0.44, lbl: 'x₂ = 0', kind: 'int', z: '18', at: 2,
+      desc: 'SP3 (x₃ = 1, x₂ = 0): x = (1, 0, 1, 1), z = 18 — INTEGER, a candidate (slide 8).' },
+    { id: 4, par: 2, lv: 2, fx: 0.84, lbl: 'x₂ = 1', kind: 'frac', z: '21.8', at: 2,
+      desc: 'SP4 (x₃ = 1, x₂ = 1): x = (0.6, 1, 1, 0), z = 21.8 — x₁ fractional (slide 8).' },
+    { id: 5, par: 4, lv: 3, fx: 0.56, lbl: 'x₁ = 0', kind: 'int', z: '21', at: 3,
+      desc: 'SP5 (x₃ = 1, x₂ = 1, x₁ = 0): x = (0, 1, 1, 1), z = 21 — INTEGER, new incumbent (slide 10).' },
+    { id: 6, par: 4, lv: 3, fx: 0.87, lbl: 'x₁ = 1', kind: 'inf', z: null, at: 3,
+      desc: 'SP6 (x₃ = 1, x₂ = 1, x₁ = 1): weights 5 + 7 + 4 = 16 > 14 — INFEASIBLE (slide 10).' },
+  ];
+
+  const QUIZ = [
+    { prompt: 'Slide 5: the root LP gives x = (1, 1, 0.5, 0), z = 22. Which variable do we branch on?',
+      opts: [
+        { t: 'x₁', hint: 'x₁* = 1 — already integer at the LP optimum; fixing it to 0 or 1 would not cut off the fractional point.' },
+        { t: 'x₂', hint: 'x₂* = 1 — already integer at the LP optimum. Branch the variable the LP actually breaks.' },
+        { t: 'x₃', ok: true, msg: 'x₃* = 0.5 — branch x₃. Children: x₃ = 0 gives z = 21.65 (x₄ = 0.667 fractional); x₃ = 1 gives z = 21.85 (x₂ = 0.714 fractional) — slide 6.' },
+        { t: 'x₄', hint: 'x₄* = 0 — already integer at the LP optimum. Branch the fractional one.' },
+      ] },
+    { prompt: 'Both children are fractional. The slides dive into x₃ = 1 (the better bound, 21.85). Branch it on which variable?',
+      opts: [
+        { t: 'x₁', hint: 'At that node’s LP optimum x₁* = 1 — integer already. Which variable came out at 0.714?' },
+        { t: 'x₂', ok: true, msg: 'x₂* = 0.714 — branch x₂ (slide 6). x₂ = 0: x = (1, 0, 1, 1), z = 18 — all integer, first candidate! x₂ = 1: z = 21.8 with x₁* = 0.6 (slide 8).' },
+        { t: 'x₄', hint: 'x₄* = 0 at that node — integer already. Which variable came out at 0.714?' },
+      ] },
+    { prompt: 'The x₂ = 1 node is fractional at x₁* = 0.6 (z = 21.8). Branch on which variable?',
+      opts: [
+        { t: 'x₁', ok: true, msg: 'x₁ = 0: x = (0, 1, 1, 1), z = 21 — INTEGER, beats 18: new incumbent 21. x₁ = 1: weights 5 + 7 + 4 = 16 > 14 — INFEASIBLE (slide 10). Both children fathomed.' },
+        { t: 'x₄', hint: 'x₄* = 0 at that node — integer already. Fix the variable that actually broke: x₁* = 0.6.' },
+      ] },
+    { prompt: 'Slide 11: one node is still open — x₃ = 0 with bound 21.65 (slide 6 even named x₄ to branch on). Branch it, or prune it?',
+      opts: [
+        { t: 'Branch on x₄', hint: 'Look at the bound first: every cⱼ is an integer, so the best integer z under this node is at most ⌊21.65⌋ = 21 — it cannot BEAT the incumbent 21. Branching is wasted work.' },
+        { t: 'Prune it', ok: true, msg: 'Integer objective data ⇒ best below is ⌊21.65⌋ = 21, no better than the incumbent 21. Fathomed without branching — and the search ends: optimal z = 21 at x = (0, 1, 1, 1).' },
+      ] },
+  ];
+
+  let step = 0; // quiz index answered so far; 4 = done
+
+  function incumbent() { return step >= 3 ? '21' : (step >= 2 ? '18' : '—'); }
+
+  function draw() {
+    const p = VIZ.plot(canvas, { x0: 0, x1: 1, y0: 0, y1: 1, padL: 6, padR: 6, padT: 6, padB: 6 });
+    const t = VIZ.theme();
+    const { ctx } = p;
+    const bw = Math.min(170, (p.w - 30) / 3.4);
+    const bh = 78;
+    const top = 14;
+    const sp = (p.h - top - bh - 26) / 3;
+    const pos = n => [n.fx * (p.w - bw - 12) + 6, top + n.lv * sp];
+
+    // edges
+    NODES.forEach(n => {
+      if (n.par === null || n.at > step) return;
+      const [cx, cy] = pos(n);
+      const par = NODES[n.par];
+      const [px, py] = pos(par);
+      arrow(ctx, [px + bw / 2, py + bh], [cx + bw / 2, cy], t.axis, 1.5, 2);
+    });
+
+    // boxes
+    NODES.forEach(n => {
+      if (n.at > step) { n.box = null; return; }
+      const [x, y] = pos(n);
+      n.box = [x, y, bw, bh];
+      const pruned = n.id === 1 && step >= 4;
+      const optimal = n.id === 5 && step >= 4;
+      const col = n.kind === 'inf' || pruned ? t.bad : (n.kind === 'int' ? t.s2 : t.s1);
+      roundBox(ctx, x, y, bw, bh, 8);
+      ctx.fillStyle = t.surface; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = col; ctx.stroke();
+      ctx.fillStyle = t.ink; ctx.font = pxfont(13, true);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(n.lbl, x + bw / 2, y + 15);
+      ctx.font = pxfont(12); ctx.fillStyle = t.ink2;
+      ctx.fillText(n.kind === 'inf' ? 'Infeasible' : (n.kind === 'int' ? 'Integer' : 'Fractional'), x + bw / 2, y + 33);
+      ctx.font = pxfont(13, true); ctx.fillStyle = t.ink;
+      ctx.fillText(n.z === null ? '—' : 'z = ' + n.z, x + bw / 2, y + 50);
+      let tag = '';
+      if (optimal) tag = 'OPTIMAL ★';
+      else if (pruned) tag = 'PRUNED — bound ≤ 21';
+      else if (n.kind === 'int') tag = 'INTEGER — candidate';
+      else if (n.kind === 'inf') tag = 'INFEASIBLE';
+      else if (n.id === 1 && step < 4) tag = 'open';
+      if (tag) {
+        ctx.font = pxfont(11, true);
+        ctx.fillStyle = optimal ? t.s2 : (pruned || n.kind === 'inf' ? t.bad : (n.kind === 'int' ? t.s2 : t.muted));
+        ctx.fillText(tag, x + bw / 2, y + 66);
+      }
+    });
+
+    el('kb-inc').textContent = incumbent();
+  }
+
+  function ask() {
+    if (step < 4) {
+      askQuiz(el('kb-q'), el('kb-status'), QUIZ[step], () => { step++; draw(); ask(); });
+    } else {
+      el('kb-q').style.display = 'none';
+    }
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const hit = NODES.find(n => n.box && px >= n.box[0] && px <= n.box[0] + n.box[2] && py >= n.box[1] && py <= n.box[1] + n.box[3]);
+    if (hit) {
+      const st = el('kb-status');
+      st.className = 'status info';
+      st.textContent = hit.desc;
+    }
+  });
+
+  el('kb-reset').addEventListener('click', () => {
+    step = 0;
+    el('kb-status').className = 'status info';
+    el('kb-status').textContent = 'Root LP solved by inspection: x = (1, 1, 0.5, 0), z = 22 — fractional.';
+    draw(); ask();
+  });
+
+  ask();
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 3 — Joe's round trip (slides 12-13)
+   Distances from the slide table; optimum 668 (SP4 on slide 18).
+   ============================================================ */
+(() => {
+  const canvas = el('c-tt');
+  VIZ.hint(canvas, '🖱 click cities in Joe’s visiting order');
+  const OPT = [0, 4, 1, 3, 2]; // GA SB FW TH EV (back to GA) = 668
+  let seq = [0];
+  let best = null;
+  let revealed = false;
+  let attempts = 0;
+  let lastMap = null;
+
+  const complete = () => seq.length === 5;
+  const routeLen = s => {
+    let L = 0;
+    for (let i = 0; i + 1 < s.length; i++) L += DIST[s[i]][s[i + 1]];
+    if (s.length === 5) L += DIST[s[4]][s[0]];
+    return L;
+  };
+  const routeStr = s => s.map(i => CITY[i]).join(' → ') + (s.length === 5 ? ' → GA' : '');
+
+  function draw() {
+    const m = cityMap(canvas, 56);
+    lastMap = m;
+    const t = VIZ.theme();
+    const { ctx } = m;
+
+    // all pair edges, muted, with mileage labels
+    ctx.save();
+    ctx.strokeStyle = t.axis; ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++) {
+      ctx.beginPath(); ctx.moveTo(m.P[i][0], m.P[i][1]); ctx.lineTo(m.P[j][0], m.P[j][1]); ctx.stroke();
+    }
+    ctx.font = pxfont(11); ctx.fillStyle = t.muted;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    // Centroid so each label can be pushed OUTWARD, away from the crowded middle.
+    const gx = m.P.reduce((a, p) => a + p[0], 0) / 5;
+    const gy = m.P.reduce((a, p) => a + p[1], 0) / 5;
+    // The two longest crossing diagonals (EV-SB 303, FW-EV 290) run straight
+    // through the centre and pile their labels onto TH; both are off the optimal
+    // tour and their mileages are read directly from the matrix below, so we
+    // leave those two edges unlabelled to let the central cluster breathe.
+    const SKIP_LBL = new Set(['2-4', '1-2']);
+    for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++) {
+      if (SKIP_LBL.has(i + '-' + j)) continue;
+      const mx = (m.P[i][0] + m.P[j][0]) / 2, my = (m.P[i][1] + m.P[j][1]) / 2;
+      const dx = m.P[j][0] - m.P[i][0], dy = m.P[j][1] - m.P[i][1];
+      const L = Math.hypot(dx, dy) || 1;
+      let nx = -dy / L, ny = dx / L;                       // unit perpendicular
+      if ((mx - gx) * nx + (my - gy) * ny < 0) { nx = -nx; ny = -ny; } // outward
+      ctx.fillText(String(DIST[i][j]), mx + nx * 13, my + ny * 13);
+    }
+    ctx.restore();
+
+    // optimal tour underlay
+    if (revealed) {
+      ctx.save(); ctx.globalAlpha = 0.5;
+      for (let k = 0; k < 5; k++) {
+        arrow(ctx, m.P[OPT[k]], m.P[OPT[(k + 1) % 5]], t.s2, 7, 15, true);
+      }
+      ctx.restore();
+    }
+
+    // student route
+    for (let i = 0; i + 1 < seq.length; i++) arrow(ctx, m.P[seq[i]], m.P[seq[i + 1]], t.s5, 3, 15, true);
+    if (complete()) arrow(ctx, m.P[seq[4]], m.P[seq[0]], t.s5, 3, 15, true);
+
+    drawCityNodes(m, t, 14);
+
+    // mark visited order
+    ctx.save();
+    ctx.font = pxfont(10, true); ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    seq.forEach((c, k) => {
+      if (k === 0) return;
+      const [px, py] = m.P[c];
+      ctx.beginPath(); ctx.arc(px + 13, py - 13, 8, 0, 2 * Math.PI);
+      ctx.fillStyle = t.s5; ctx.fill();
+      ctx.fillStyle = t.surface;
+      ctx.fillText(String(k), px + 13, py - 13);
+    });
+    ctx.restore();
+
+    if (revealed) {
+      ctx.save();
+      ctx.font = pxfont(13, true); ctx.fillStyle = t.s2; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText('optimal: GA → SB → FW → TH → EV → GA = 668 mi', 10, 8);
+      ctx.restore();
+    }
+
+    const L = routeLen(seq);
+    el('tt-len').textContent = String(L);
+    el('tt-best').textContent = best === null ? '—' : String(best);
+    const st = el('tt-status');
+    if (complete()) {
+      if (L === 668) { st.className = 'status ok'; st.textContent = 'Complete loop: ' + routeStr(seq) + ' = 668 mi — nobody can do better!'; }
+      else { st.className = 'status info'; st.textContent = 'Complete loop: ' + routeStr(seq) + ' = ' + L + ' mi. Try another order — or is this already the best?'; }
+    } else {
+      st.className = 'status info';
+      st.textContent = routeStr(seq) + ' — ' + L + ' mi so far; ' + (5 - seq.length) + ' stop(s) left.';
+    }
+  }
+
+  function logAttempt(L) {
+    attempts++;
+    const tab = el('tt-tab');
+    tab.style.display = '';
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + attempts + '</td><td>' + routeStr(seq) + '</td><td>' + L + '</td>';
+    tab.querySelector('tbody').appendChild(tr);
+    let bi = -1, bv = Infinity;
+    [...tab.querySelectorAll('tbody tr')].forEach((row, i) => {
+      const v = parseFloat(row.children[2].textContent);
+      if (v < bv) { bv = v; bi = i; }
+    });
+    [...tab.querySelectorAll('tbody tr')].forEach((row, i) => row.className = i === bi ? 'best' : '');
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    if (!lastMap) return;
+    const { px, py } = VIZ.pointer(canvas, ev);
+    let hit = -1;
+    lastMap.P.forEach(([x, y], i) => { if (Math.hypot(px - x, py - y) < 24) hit = i; });
+    if (hit < 0) return;
+    const st = el('tt-status');
+    if (complete()) { st.className = 'status info'; st.textContent = 'Loop already closed — Start over (or Undo) to try a new order.'; return; }
+    if (seq.includes(hit)) { st.className = 'status bad'; st.textContent = CITY_FULL[hit] + ' is already on the route.'; return; }
+    seq.push(hit);
+    if (complete()) {
+      const L = routeLen(seq);
+      if (best === null || L < best) best = L;
+      logAttempt(L);
+    }
+    draw();
+  });
+
+  el('tt-undo').addEventListener('click', () => { if (seq.length > 1) { seq.pop(); draw(); } });
+  el('tt-clear').addEventListener('click', () => { seq = [0]; draw(); });
+  el('tt-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('tt-reveal').textContent = revealed ? 'Hide optimal tour' : 'Reveal optimal tour ★';
+    draw();
+  });
+
+  // distance matrix table (slide 13)
+  (() => {
+    let html = '<thead><tr><th></th>' + CITY.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>';
+    for (let i = 0; i < 5; i++) {
+      html += '<tr><td>' + CITY[i] + '</td>' + CITY.map((_, j) =>
+        i === j ? '<td class="mm">0</td>' : '<td>' + DIST[i][j] + '</td>').join('') + '</tr>';
+    }
+    el('tt-dmat').innerHTML = html + '</tbody>';
+  })();
+
+  window.TOUR_SCORE = () => complete() ? routeLen(seq) : null;
+
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 4 — build the assignment relaxation (slides 14-16)
+   Hungarian optimum 495 with subtours GA→SB→FW→GA, EV→TH→EV.
+   ============================================================ */
+(() => {
+  const canvas = el('c-ab');
+  const OPTSUCC = [4, 0, 3, 2, 1]; // x15, x21, x34, x43, x52 (slide 16), cost 495
+  let succ = [-1, -1, -1, -1, -1];
+  let revealed = false;
+
+  const picked = () => succ.filter(v => v >= 0).length;
+  const cost = () => succ.reduce((a, j, i) => a + (j >= 0 ? DIST[i][j] : 0), 0);
+
+  function renderTable() {
+    let html = '<thead><tr><th>from \\ to</th>' + CITY.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>';
+    for (let i = 0; i < 5; i++) {
+      html += '<tr><td>' + CITY[i] + '</td>';
+      for (let j = 0; j < 5; j++) {
+        if (i === j) { html += '<td class="mm">M</td>'; continue; }
+        const cls = ['pick'];
+        if (succ[i] === j) cls.push('sel');
+        if (revealed && OPTSUCC[i] === j) cls.push('opt');
+        html += '<td class="' + cls.join(' ') + '" data-i="' + i + '" data-j="' + j + '">' + DIST[i][j] + '</td>';
+      }
+      html += '</tr>';
+    }
+    el('ab-mat').innerHTML = html + '</tbody>';
+    el('ab-mat').querySelectorAll('td.pick').forEach(td => {
+      td.addEventListener('click', () => {
+        const i = +td.dataset.i, j = +td.dataset.j;
+        if (succ[i] === j) succ[i] = -1;               // unpick
+        else {
+          succ.forEach((v, k) => { if (v === j) succ[k] = -1; }); // column uniqueness
+          succ[i] = j;
+        }
+        update();
+      });
+    });
+  }
+
+  function draw() {
+    const m = cityMap(canvas, 52);
+    const t = VIZ.theme();
+    const { ctx } = m;
+    if (revealed) {
+      ctx.save(); ctx.globalAlpha = 0.5;
+      OPTSUCC.forEach((j, i) => arrow(ctx, m.P[i], m.P[j], t.s2, 6, 14, true));
+      ctx.restore();
+    }
+    succ.forEach((j, i) => { if (j >= 0) arrow(ctx, m.P[i], m.P[j], t.s5, 3, 14, true); });
+    drawCityNodes(m, t, 13);
+    if (revealed) {
+      ctx.save();
+      ctx.font = pxfont(13, true); ctx.fillStyle = t.s2; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText('Hungarian optimum: 495 (two subtours)', 10, 8);
+      ctx.restore();
+    }
+  }
+
+  function update() {
+    renderTable();
+    draw();
+    el('ab-n').textContent = String(picked());
+    el('ab-cost').textContent = String(cost());
+    const st = el('ab-status');
+    if (picked() < 5) {
+      st.className = 'status info';
+      st.textContent = picked() === 0
+        ? 'Pick a successor in every row — one cell per row and per column.'
+        : 'Cost so far ' + cost() + ' — ' + (5 - picked()) + ' row(s) still unassigned.';
+      return;
+    }
+    const cyc = permCycles(succ);
+    const c = cost();
+    if (c === 495) {
+      st.className = 'status ok';
+      st.textContent = 'Cost 495 — the Hungarian optimum of slide 16! But it splits into ' +
+        cyc.map(cycleStr).join('  and  ') + ' — subtours, so Joe cannot drive it.';
+    } else if (cyc.length === 1) {
+      st.className = 'status info';
+      st.textContent = 'A complete assignment of cost ' + c + ' — and it is a single loop, i.e. a real tour. Every tour is an assignment… but the cheapest assignments are usually not tours. Go cheaper!';
+    } else {
+      st.className = 'status info';
+      st.textContent = 'A complete assignment of cost ' + c + ' — but it breaks into ' +
+        cyc.map(cycleStr).join('  and  ') + '. Legal for the assignment problem, illegal for Joe.';
+    }
+  }
+
+  el('ab-clear').addEventListener('click', () => { succ = [-1, -1, -1, -1, -1]; update(); });
+  el('ab-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('ab-reveal').textContent = revealed ? 'Hide Hungarian optimum' : 'Reveal Hungarian optimum ★';
+    update();
+  });
+
+  update();
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 5 — TSP branch & bound over assignments (slides 16-21)
+   SP1 495 → {SP2 652, SP3 652}; SP2 → {SP4 668 tour, SP5 704 tour};
+   SP3 → {SP6, SP7} both unable to beat 668 (slide 21). Optimum: SP4.
+   ============================================================ */
+(() => {
+  const tree = el('c-tb');
+  const map = el('c-tbm');
+  VIZ.hint(tree, '🖱 click a solved node');
+
+  const N = {
+    SP1: { lbl: 'SP1', sub: 'all arcs allowed', par: null, lv: 0, fx: 0.50, succ: [4, 0, 3, 2, 1], z: 495,
+      desc: 'SP1 = 495: GA → SB → FW → GA and EV → TH → EV — two subtours (slide 16).' },
+    SP2: { lbl: 'SP2', sub: '+ x₃₄ = 0', par: 'SP1', lv: 1, fx: 0.28, succ: [3, 4, 0, 2, 1], z: 652,
+      desc: 'SP2 = 652: GA → TH → EV → GA and FW → SB → FW — subtours again (slide 17).' },
+    SP3: { lbl: 'SP3', sub: '+ x₄₃ = 0', par: 'SP1', lv: 1, fx: 0.72, succ: [2, 4, 3, 0, 1], z: 652,
+      desc: 'SP3 = 652: GA → EV → TH → GA and FW → SB → FW — subtours (slide 20).' },
+    SP4: { lbl: 'SP4', sub: '+ x₂₅ = 0', par: 'SP2', lv: 2, fx: 0.10, succ: [4, 3, 0, 2, 1], z: 668,
+      desc: 'SP4 = 668: GA → SB → FW → TH → EV → GA — one single loop: a TOUR (slide 18).' },
+    SP5: { lbl: 'SP5', sub: '+ x₅₂ = 0', par: 'SP2', lv: 2, fx: 0.375, succ: [3, 4, 1, 2, 0], z: 704,
+      desc: 'SP5 = 704: GA → TH → EV → FW → SB → GA — a tour, but 704 ≥ 668 (slide 19).' },
+    SP6: { lbl: 'SP6', sub: '+ x₂₅ = 0', par: 'SP3', lv: 2, fx: 0.635, succ: null, z: null,
+      desc: 'SP6: cannot yield a tour below 668 — pruned (slide 21).' },
+    SP7: { lbl: 'SP7', sub: '+ x₅₂ = 0', par: 'SP3', lv: 2, fx: 0.90, succ: null, z: null,
+      desc: 'SP7: cannot yield a tour below 668 — pruned (slide 21).' },
+  };
+  Object.values(N).forEach(n => { n.state = 'hidden'; n.tag = ''; });
+
+  let sel = null;      // selected node key for the map
+  let incumbent = null;
+  let idx = 0;
+
+  const st = el('tb-status');
+  const btn = el('tb-next');
+  const setStatus = (cls, txt) => { st.className = 'status ' + cls; st.textContent = txt; };
+
+  const Q1 = {
+    prompt: 'SP1’s cheapest assignment costs 495: GA → SB → FW → GA plus EV → TH → EV. Is that a route Joe can drive?',
+    opts: [
+      { t: 'Yes — every city is left once and entered once', hint: 'That is what an assignment guarantees — but Joe needs ONE closed trip. This solution is two separate loops; he never crosses from one to the other.' },
+      { t: 'No — it splits into two subtours', ok: true, msg: 'Two subtours — infeasible for the TSP. But every tour IS a legal assignment, so 495 is a valid LOWER bound: no tour can cost less (slide 16).' },
+    ] };
+  const Q2 = {
+    prompt: 'Branch so the subtour EV ↔ TH cannot survive. How do the slides do it?',
+    opts: [
+      { t: 'One child forbidding both EV→TH and TH→EV', hint: 'Too much at once: a tour that uses exactly ONE of the two arcs would be lost — and the eventual optimum drives TH → EV!' },
+      { t: 'SP2 forbids EV→TH (c₃₄ = M); SP3 forbids TH→EV (c₄₃ = M)', ok: true, msg: 'Slide 16’s branching: the subtour survives in neither child, yet every genuine tour survives in at least one of them.' },
+      { t: 'Reward the pair: set c₃₄ = 0', hint: 'Branching must EXCLUDE the subtour from the children, not make it cheaper — costs of 0 would only entrench it.' },
+    ] };
+  const Q3 = {
+    prompt: 'SP3 solves to 652 — but we already hold a 668 tour from SP4. Prune SP3, or branch it?',
+    opts: [
+      { t: 'Prune it — 652 loses to 668', hint: 'Directions! This is a MIN problem and 652 is a LOWER bound: a tour under SP3 could cost anything down to 652 — possibly BETTER than 668. Prune only when bound ≥ incumbent.' },
+      { t: 'Branch it — a tour under SP3 might still beat 668', ok: true, msg: 'Slide 20: 652 < 668 leaves room. Branch on the FW ↔ SB subtour: SP6 forbids FW→SB (c₂₅ = M), SP7 forbids SB→FW (c₅₂ = M).' },
+    ] };
+
+  const FLOW = [
+    { type: 'btn', label: 'Solve SP1 — Hungarian on the M-diagonal matrix', run() {
+        N.SP1.state = 'solved'; sel = 'SP1';
+        setStatus('info', 'SP1 = 495, but the arcs split into GA → SB → FW → GA and EV → TH → EV. Look at the map — can Joe use this?');
+      } },
+    { type: 'quiz', q: Q1 },
+    { type: 'quiz', q: Q2, after() { N.SP2.state = 'open'; N.SP3.state = 'open'; } },
+    { type: 'btn', label: 'Solve SP2 (the slides pick it arbitrarily)', run() {
+        N.SP2.state = 'solved'; sel = 'SP2';
+        N.SP4.state = 'open'; N.SP5.state = 'open';
+        setStatus('info', 'SP2 = 652 — subtours again: GA → TH → EV → GA and FW ↔ SB. Slide 17 branches on FW ↔ SB: SP4 forbids FW→SB (c₂₅ = M), SP5 forbids SB→FW (c₅₂ = M).');
+      } },
+    { type: 'btn', label: 'Solve SP4 (depth first)', run() {
+        N.SP4.state = 'solved'; N.SP4.tag = 'TOUR — candidate'; sel = 'SP4'; incumbent = 668;
+        setStatus('ok', 'SP4 = 668 and it is one single loop: GA → SB → FW → TH → EV → GA — a candidate solution! From now on any node that cannot beat 668 is eliminated (slide 18).');
+      } },
+    { type: 'btn', label: 'Solve SP5 (depth first continues)', run() {
+        N.SP5.state = 'solved'; N.SP5.tag = 'tour — eliminated'; sel = 'SP5';
+        setStatus('info', 'SP5 = 704 — also a tour, but 704 ≥ 668: eliminated (slide 19). One node left open: SP3.');
+      } },
+    { type: 'btn', label: 'Back up the tree: solve SP3', run() {
+        N.SP3.state = 'solved'; sel = 'SP3';
+        setStatus('info', 'SP3 = 652 with subtours GA → EV → TH → GA and FW ↔ SB (slide 20). Now the class decides…');
+      } },
+    { type: 'quiz', q: Q3, after() { N.SP6.state = 'open'; N.SP7.state = 'open'; } },
+    { type: 'btn', label: 'Solve SP6 and SP7', run() {
+        N.SP6.state = 'pruned'; N.SP7.state = 'pruned';
+        N.SP4.tag = 'OPTIMAL ★';
+        setStatus('ok', 'Slide 21: neither SP6 nor SP7 can produce a tour cheaper than 668 — both pruned. SP4 is optimal: z = 668, GA → SB → FW → TH → EV → GA.');
+      } },
+  ];
+
+  function setup() {
+    const f = FLOW[idx];
+    if (!f) { btn.style.display = 'none'; return; }
+    if (f.type === 'quiz') {
+      btn.style.display = 'none';
+      askQuiz(el('tb-q'), st, f.q, () => {
+        if (f.after) f.after();
+        idx++; drawAll(); setup();
+      });
+    } else {
+      btn.style.display = '';
+      btn.textContent = f.label;
+    }
+  }
+
+  btn.addEventListener('click', () => {
+    const f = FLOW[idx];
+    if (!f || f.type !== 'btn') return;
+    f.run();
+    idx++; drawAll(); setup();
+  });
+
+  el('tb-reset').addEventListener('click', () => {
+    Object.values(N).forEach(n => { n.state = 'hidden'; n.tag = ''; });
+    N.SP1.state = 'open';
+    sel = null; incumbent = null; idx = 0;
+    el('tb-q').style.display = 'none'; el('tb-q').innerHTML = '';
+    setStatus('info', 'SP1 relaxes the tour requirement to a pure assignment — solve it first.');
+    drawAll(); setup();
+  });
+
+  function drawTree() {
+    const p = VIZ.plot(tree, { x0: 0, x1: 1, y0: 0, y1: 1, padL: 6, padR: 6, padT: 6, padB: 6 });
+    const t = VIZ.theme();
+    const { ctx } = p;
+    const bw = Math.min(140, (p.w - 30) / 4.6);
+    const bh = 74;
+    const top = 12;
+    const sp = (p.h - top - bh - 18) / 2;
+    const pos = n => [n.fx * (p.w - bw - 10) + 5, top + n.lv * sp];
+
+    Object.values(N).forEach(n => {
+      if (n.state === 'hidden' || !n.par || N[n.par].state === 'hidden') return;
+      const [cx, cy] = pos(n);
+      const [px, py] = pos(N[n.par]);
+      arrow(ctx, [px + bw / 2, py + bh], [cx + bw / 2, cy], t.axis, 1.5, 2);
+    });
+
+    Object.entries(N).forEach(([key, n]) => {
+      if (n.state === 'hidden') { n.box = null; return; }
+      const [x, y] = pos(n);
+      n.box = [x, y, bw, bh];
+      const isTour = n.succ && permCycles(n.succ).length === 1;
+      const col = n.state === 'pruned' || n.tag.includes('eliminated') ? t.bad
+        : n.state === 'open' ? t.muted
+        : (n.tag === 'OPTIMAL ★' ? t.s2 : (isTour ? t.s2 : t.s1));
+      roundBox(ctx, x, y, bw, bh, 8);
+      ctx.fillStyle = t.surface; ctx.fill();
+      ctx.lineWidth = key === sel ? 3 : 2;
+      ctx.strokeStyle = col;
+      ctx.setLineDash(n.state === 'open' ? [5, 4] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = pxfont(13, true); ctx.fillStyle = t.ink;
+      ctx.fillText(n.lbl, x + bw / 2, y + 14);
+      ctx.font = pxfont(11); ctx.fillStyle = t.ink2;
+      ctx.fillText(n.sub, x + bw / 2, y + 30);
+      ctx.font = pxfont(13, true); ctx.fillStyle = t.ink;
+      ctx.fillText(n.state === 'solved' ? 'z = ' + n.z : (n.state === 'pruned' ? 'cannot beat 668' : '?'), x + bw / 2, y + 47);
+      let tag = n.tag;
+      if (!tag) {
+        if (n.state === 'pruned') tag = 'PRUNED';
+        else if (n.state === 'solved') tag = n.succ && permCycles(n.succ).length > 1 ? 'subtours' : '';
+        else if (n.state === 'open') tag = 'open';
+      }
+      if (tag) {
+        ctx.font = pxfont(10.5, true);
+        ctx.fillStyle = tag.startsWith('OPTIMAL') ? t.s2 : (tag === 'PRUNED' || tag.includes('eliminated') ? t.bad : t.muted);
+        ctx.fillText(tag, x + bw / 2, y + 63);
+      }
+    });
+
+    el('tb-inc').textContent = incumbent === null ? '—' : String(incumbent);
+  }
+
+  function drawMap() {
+    const m = cityMap(map, 48);
+    const t = VIZ.theme();
+    const { ctx } = m;
+    const n = sel ? N[sel] : null;
+    if (n && n.succ) {
+      const cyc = permCycles(n.succ);
+      const cols = cyc.length === 1 ? [t.s2] : [t.s1, t.s5, t.bad];
+      cyc.forEach((c, k) => {
+        c.forEach(i => arrow(ctx, m.P[i], m.P[n.succ[i]], cols[k % cols.length], 3, 13, true));
+      });
+      ctx.save();
+      ctx.font = pxfont(13, true); ctx.fillStyle = t.ink2; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText(n.lbl + ' — z = ' + n.z + (cyc.length === 1 ? ' (a tour)' : ' (' + cyc.length + ' subtours)'), 10, 8);
+      ctx.restore();
+    } else {
+      ctx.save();
+      ctx.font = pxfont(13); ctx.fillStyle = t.muted; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.fillText('no assignment solved yet', 10, 8);
+      ctx.restore();
+    }
+    drawCityNodes(m, t, 12);
+  }
+
+  function drawAll() { drawTree(); drawMap(); }
+
+  tree.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(tree, ev);
+    const hit = Object.entries(N).find(([, n]) =>
+      n.box && px >= n.box[0] && px <= n.box[0] + n.box[2] && py >= n.box[1] && py <= n.box[1] + n.box[3]);
+    if (!hit) return;
+    const [key, n] = hit;
+    if (n.state === 'solved' || n.state === 'pruned') {
+      sel = key;
+      setStatus('info', n.desc);
+      drawAll();
+    }
+  });
+
+  N.SP1.state = 'open';
+  setup();
+  VIZ.register(tree, drawTree);
+  VIZ.register(map, drawMap);
+})();
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('knap-pack', {
+  label: 'packing value z (0–1 mode)', dir: 'max', digits: 0,
+  get: () => window.KP_SCORE ? window.KP_SCORE() : null,
+});
+CLASSROOM.register('tsp-tour', {
+  label: 'tour length (miles)', dir: 'min', digits: 0,
+  get: () => window.TOUR_SCORE ? window.TOUR_SCORE() : null,
+});
+</script>
+</body>
+</html>

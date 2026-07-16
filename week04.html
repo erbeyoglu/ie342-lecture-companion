@@ -1,0 +1,1294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 4 — IP Modeling (Part 3) (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<style>
+  table.dist {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.92rem;
+    margin-top: 10px;
+  }
+  table.dist th, table.dist td {
+    border: 1px solid var(--grid);
+    padding: 4px 10px;
+    text-align: right;
+    min-width: 44px;
+  }
+  table.dist th { color: var(--ink-2); }
+  table.dist td:first-child, table.dist th:first-child { text-align: left; font-weight: 600; }
+  table.mtz {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.88rem;
+    width: 100%;
+  }
+  table.mtz th, table.mtz td {
+    border-bottom: 1px solid var(--grid);
+    padding: 3px 8px;
+    text-align: left;
+  }
+  table.mtz th { color: var(--ink-2); font-weight: 600; }
+  table.mtz tr.used td { font-weight: 700; }
+  table.mtz tr.viol td { color: var(--critical); }
+  .pq button { text-align: left; }
+  .pq { border-top: 1px dashed var(--grid); padding-top: 10px; margin-top: 12px; }
+  .pq:first-of-type { border-top: none; margin-top: 0; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 4: IP Modeling (Part 3)</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#bakery">1 · Bakery big-M logic</a>
+    <a href="#pwl">2 · Cost-curve cheat</a>
+    <a href="#tour">3 · Joe's tour</a>
+    <a href="#subtour">4 · Subtour trap</a>
+    <a href="#domain">5 · Domain hunt</a>
+    <a href="#puzzles">6 · Puzzle quiz</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : BAKERY EITHER-OR / IF-THEN ================= -->
+<section class="widget" id="bakery">
+  <h2>One binary, two bakery rules — either–or and if–then <span class="chip">Slides 3–8</span></h2>
+  <p class="howto">
+    The bakery (Examples 12–13): 8 doughnut varieties, at most 30 dozen in total.
+    Rule 1: varieties 1–3 are worth baking only if together they reach at least 10 dozen — so their sum
+    s = x₁+x₂+x₃ must be 0 <em>or</em> at least 10. Rule 2 (added later): if variety 5 exceeds 3 dozen,
+    variety 7 must reach 5 dozen. Play with each rule and watch a single 0–1 variable do the logic.
+  </p>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg active" id="bk-tabA">Example 12 — either–or</button>
+      <button class="seg" id="bk-tabB">Example 13 — if–then</button>
+    </span>
+  </div>
+  <div class="controls" id="bk-ctlA">
+    <span class="group">
+      <label>binary y:</label>
+      <span class="segwrap">
+        <button class="seg active" id="bk-y0">y = 0</button>
+        <button class="seg" id="bk-y1">y = 1</button>
+      </span>
+    </span>
+    <span class="group">
+      <label for="bk-m">M (the slide uses 30):</label>
+      <input type="range" id="bk-m" min="10" max="60" step="5" value="30">
+      <span class="readout">M = <b id="bk-mval">30</b></span>
+    </span>
+    <span class="readout">s − M·y = <b id="bk-c1">0</b> <b id="bk-c1g" style="color:var(--good)">✓</b> (need ≤ 0)</span>
+    <span class="readout">s − 10y = <b id="bk-c2">0</b> <b id="bk-c2g" style="color:var(--good)">✓</b> (need ≥ 0)</span>
+    <button id="bk-revA">Reveal allowed plans ★</button>
+  </div>
+  <div class="controls" id="bk-ctlB" style="display:none">
+    <button class="primary" id="bk-yes">Bakeable ✓</button>
+    <button class="primary" id="bk-no">Impossible ✗</button>
+    <button id="bk-next">Next point</button>
+    <span class="readout">score: <b id="bk-score">0 / 0</b></span>
+    <span class="readout">streak: <b id="bk-streak">0</b></span>
+    <button id="bk-revB">Reveal the true region ★</button>
+  </div>
+  <canvas class="viz" id="c-bk" style="height:250px"></canvas>
+  <p class="status info" id="bk-status">Drag the s marker. Challenge: find a feasible plan with 0 &lt; s &lt; 10 — any y allowed.</p>
+  <div class="note">
+    Example 12 links s to y via s − 30y ≤ 0 and s − 10y ≥ 0 (slide 5); Example 13 adds
+    x₅ − 3 − 30u ≤ 0 and x₇ − 5u ≥ 0 with a second binary u (slide 8). Profits pᵢ stay symbolic on the
+    slides, so both games are about <em>feasibility logic</em>, not the objective. In the if–then game the
+    other six varieties are held at 0, so the 30-dozen oven cap is not binding on the 8×8 view.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Either–or: y = 0 collapses s to exactly 0, y = 1 opens 10 ≤ s ≤ 30 — together {0} ∪ [10, 30], and
+      1–9 dozen is unreachable under every y. M = 30 is the smallest safe constant because the oven cap
+      already forces s ≤ 30; a smaller M (try 20) wrongly cuts real plans, a bigger one stays valid here
+      but big-M's should always be as tight as possible.
+      If–then: a point (x₅, x₇) is bakeable iff x₅ ≤ 3 <em>or</em> x₇ ≥ 5 — with u = 0 the first
+      constraint forces x₅ ≤ 3, with u = 1 the second forces x₇ ≥ 5. That is exactly the contrapositive
+      of "x₅ &gt; 3 ⇒ x₇ ≥ 5". Note the boundary: x₅ = 3 needs no promise on x₇ ("more than 3" is strict).
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : EUING GAS PIECEWISE COST ================= -->
+<section class="widget" id="pwl">
+  <h2>Can you cheat Euing's purchase-cost curve? <span class="chip">Slides 9–12</span></h2>
+  <p class="howto">
+    Example 14: Euing can buy up to 1500 extra gallons of oil 1 — the first 500 at 25¢/gal, the next 500
+    at 20¢, the last 500 at 15¢. The slides replace the piecewise cost c(t) by
+    z₁c(0) + z₂c(500) + z₃c(1000) + z₄c(1500) with t = Σzᵢbᵢ, Σzᵢ = 1. <b>Pick which two z's may be
+    positive, then slide t</b> — when is the price the model pays the real price?
+  </p>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg active" data-pair="01">z₁ &amp; z₂</button>
+      <button class="seg" data-pair="12">z₂ &amp; z₃</button>
+      <button class="seg" data-pair="23">z₃ &amp; z₄</button>
+      <button class="seg" data-pair="02">z₁ &amp; z₃</button>
+      <button class="seg" data-pair="13">z₂ &amp; z₄</button>
+      <button class="seg" data-pair="03">z₁ &amp; z₄</button>
+    </span>
+    <span class="group">
+      <label for="pw-t">t (gallons purchased):</label>
+      <input type="range" id="pw-t" min="0" max="500" step="25" value="250">
+    </span>
+  </div>
+  <div class="controls">
+    <span class="readout">z = <b id="pw-z">—</b></span>
+    <span class="readout">model pays <b id="pw-est">—</b></span>
+    <span class="readout">true cost <b id="pw-true">—</b></span>
+    <span class="readout">biggest discount found: <b id="pw-best">$0.00</b></span>
+  </div>
+  <canvas class="viz" id="c-pw" style="height:400px"></canvas>
+  <p class="status info" id="pw-status"></p>
+  <div class="note">
+    The breakpoint costs come straight from the stated block prices: c(0) = $0, c(500) = $125,
+    c(1000) = $225, c(1500) = $300. Profit = revenue − cost, so every dollar the model shaves off the
+    cost curve is a fake dollar of profit the optimizer will chase.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Only <em>adjacent</em> pairs stay on the curve — that is what slide 12's constraints
+      z₁ ≤ y₁, z₂ ≤ y₁+y₂, z₃ ≤ y₂+y₃, z₄ ≤ y₃ with y₁+y₂+y₃ = 1 enforce. Because the marginal price
+      falls (25 → 20 → 15¢), c(t) is concave and every non-adjacent chord runs <em>below</em> it: the
+      z₁&nbsp;&amp;&nbsp;z₄ chord gives the biggest cheat, a flat $25 discount for any t between 500 and
+      1000. Without the y's, the LP would always take that deal.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : JOE'S TSP TOUR BUILDER ================= -->
+<section class="widget" id="tour">
+  <h2>Find Joe's shortest tour <span class="chip">Slides 13–15</span></h2>
+  <p class="howto">
+    Example 15: Joe starts in Gary (GA) and must visit his agencies in Fort Wayne (FW), Evansville (EV),
+    Terre Haute (TH) and South Bend (SB) once each, then return home. <b>Click the cities in the order
+    you would visit them</b> — the tour closes back to GA by itself. There are only 12 distinct tours…
+    can the class find the best one by hand?
+  </p>
+  <div class="controls">
+    <button id="tr-undo">Undo leg</button>
+    <button id="tr-reset">Reset</button>
+    <button id="tr-reveal" class="locked">Reveal optimal tour ★</button>
+    <span class="readout">distance so far: <b id="tr-len">0</b> mi</span>
+    <span class="readout">your best: <b id="tr-best">—</b></span>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+    <div style="flex:1 1 480px;min-width:320px">
+      <canvas class="viz" id="c-tr" style="height:420px"></canvas>
+    </div>
+    <div style="flex:1 1 260px;min-width:240px">
+      <div style="overflow-x:auto">
+        <table class="dist" id="tr-dist"></table>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="attempts" id="tr-log">
+          <thead><tr><th>#</th><th>tour</th><th>miles</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <p class="status info" id="tr-status">Joe is in GA. Click the first city to visit.</p>
+  <div class="note">
+    City positions are schematic (roughly where they sit in Indiana); every distance shown is the number
+    from the slide-14 table. The model behind this game: xᵢⱼ = 1 if Joe drives from city i straight to
+    city j, min ΣΣcᵢⱼxᵢⱼ with each city left exactly once and entered exactly once (slide 15).
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The optimum is 668 miles: GA → SB → FW → TH → EV → GA (or the same loop driven backwards).
+      Out of the 12 distinct tours the worst is 1085 miles, so guessing blindly can cost Joe over
+      400 extra miles.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 4 : SUBTOUR TRAP / MTZ ================= -->
+<section class="widget" id="subtour">
+  <h2>The subtour trap — are in/out constraints enough? <span class="chip">Slides 15–16</span></h2>
+  <p class="howto">
+    Slide 15 asks: do "leave every city once, enter every city once" suffice? Compare a genuine tour with
+    the cheapest solution those constraints actually allow. Then try to certify each with the slide-16
+    constraint uᵢ − uⱼ + 5xᵢⱼ ≤ 4 (i, j = 2,…,5, i ≠ j): <b>choose u-values and press Check</b>.
+    Cities are numbered as in the table: 1 = GA, 2 = FW, 3 = EV, 4 = TH, 5 = SB.
+  </p>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg active" id="st-selT">one loop — 789 mi</button>
+      <button class="seg" id="st-selS">two loops — 495 mi</button>
+    </span>
+    <span class="group">
+      <label>u₂ (FW)</label><input type="number" id="st-u2" min="0" max="9" step="1" value="1" style="width:60px;font:inherit">
+      <label>u₃ (EV)</label><input type="number" id="st-u3" min="0" max="9" step="1" value="2" style="width:60px;font:inherit">
+      <label>u₄ (TH)</label><input type="number" id="st-u4" min="0" max="9" step="1" value="3" style="width:60px;font:inherit">
+      <label>u₅ (SB)</label><input type="number" id="st-u5" min="0" max="9" step="1" value="4" style="width:60px;font:inherit">
+    </span>
+    <button class="primary" id="st-check">Check the 12 constraints</button>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start">
+    <div style="flex:1 1 420px;min-width:300px">
+      <canvas class="viz" id="c-st" style="height:380px"></canvas>
+    </div>
+    <div style="flex:1 1 300px;min-width:260px;overflow-x:auto">
+      <table class="mtz" id="st-table"></table>
+    </div>
+  </div>
+  <p class="status info" id="st-status">Both pictures satisfy every slide-15 constraint — yet only one is a real tour. The two-loop “solution” is 294 miles cheaper, so the naive IP would return it!</p>
+  <div class="note">
+    x₁₂ = x₂₅ = x₅₁ = 1 and x₃₄ = x₄₃ = 1 gives GA→FW→SB→GA (269 mi) plus EV⇄TH (226 mi): 495 miles in
+    total, and it is the true optimum of the assignment-constraints-only model. u₁ never appears — the
+    constraints only chain cities 2,…,5.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      For the one-loop solution u = (1, 2, 3, 4) works: every used arc among cities 2–5 asks
+      u<sub>next</sub> ≥ u<sub>prev</sub> + 1, and the loop breaks that chain by passing through GA.
+      The two-loop solution can never be certified: EV⇄TH forces both u₃ − u₄ + 5 ≤ 4 and
+      u₄ − u₃ + 5 ≤ 4; adding them gives 10 ≤ 8. Any loop that avoids city 1 dies the same way — summing
+      the constraint around its k arcs gives 5k ≤ 4k. That is exactly why slide 16's subtour-elimination
+      constraints make the formulation valid.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 5 : RESTRICTED DOMAIN HUNT ================= -->
+<section class="widget" id="domain">
+  <h2>Hunt the optimum when x₁ ∈ {0, 1, 4, 6} <span class="chip">Slides 17–18</span></h2>
+  <p class="howto">
+    Example 16: max z = x₁ + 2x₂ with x₁ + x₂ ≤ 8, −x₁ + x₂ ≤ 2, x₁ − x₂ ≤ 4, x₂ ≥ 0 integer — but x₁
+    may only take the values 0, 1, 4 or 6. That is <em>not</em> a valid variable definition as written;
+    first find the best point by hand: <b>click lattice points</b> on the four allowed columns.
+  </p>
+  <div class="controls">
+    <span class="readout">current z = <b id="dm-z">—</b></span>
+    <span class="readout">your best: <b id="dm-best">—</b></span>
+    <button id="dm-reveal">Reveal optimum ★</button>
+  </div>
+  <canvas class="viz" id="c-dm" style="height:420px"></canvas>
+  <p class="status info" id="dm-status">Click a point with x₁ ∈ {0, 1, 4, 6}.</p>
+  <div class="note">
+    The shaded polygon is the LP region of the three linear constraints; only the dotted columns are
+    legal for x₁. The violet dashed line is the iso-profit line x₁ + 2x₂ = z through your point — push
+    it as high as it goes.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The reformulation on slide 18 makes the domain valid: x₁ = 0y₁ + 1y₂ + 4y₃ + 6y₄ with
+      y₁ + y₂ + y₃ + y₄ = 1, yᵢ ∈ {0,1} — the same select-one-breakpoint trick as the piecewise-linear
+      z's, with the y's now picking a <em>point</em> instead of a segment. Best point per column:
+      z = 4 at (0, 2), z = 7 at (1, 3), z = 12 at (4, 4), z = 10 at (6, 2) — the optimum is
+      (x₁, x₂) = (4, 4) with z = 12. Note x₁ = 6 leaves only the single point (6, 2), squeezed between
+      x₁ − x₂ ≤ 4 and x₁ + x₂ ≤ 8.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 6 : PUZZLE MODELING QUIZ ================= -->
+<section class="widget" id="puzzles">
+  <h2>Can an IP solve Sudoku and Futoshiki? <span class="chip">Slides 19–20</span></h2>
+  <p class="howto">
+    The Week-1 game returns: now that you can model with binaries, could an IP solve these boards?
+    Take x<sub>r,c,k</sub> = 1 if the cell in row r, column c holds digit k. Pick the constraint that
+    models each rule — wrong picks get a hint. (The patterns are generic; the slides pose the question
+    as an open discussion.)
+  </p>
+  <div class="controls">
+    <span class="readout">rules modeled: <b id="pq-done">0 / 4</b></span>
+  </div>
+  <div class="pq">
+    <p><b>Rule 1.</b> Every cell holds exactly one digit.</p>
+    <div class="controls">
+      <button data-q="0" data-o="0">Σ<sub>k</sub> x<sub>r,c,k</sub> = 1 for every cell (r, c)</button>
+      <button data-q="0" data-o="1">Σ<sub>c</sub> x<sub>r,c,k</sub> = 1 for every row r and digit k</button>
+      <button data-q="0" data-o="2">Σ<sub>r</sub>Σ<sub>c</sub>Σ<sub>k</sub> x<sub>r,c,k</sub> = 81</button>
+    </div>
+    <p class="status info" id="pq-s0"></p>
+  </div>
+  <div class="pq">
+    <p><b>Rule 2.</b> Digit k appears exactly once in every column.</p>
+    <div class="controls">
+      <button data-q="1" data-o="0">Σ<sub>k</sub> x<sub>r,c,k</sub> = 1 for every (r, c)</button>
+      <button data-q="1" data-o="1">Σ<sub>r</sub> x<sub>r,c,k</sub> = 1 for every column c and digit k</button>
+      <button data-q="1" data-o="2">Σ<sub>r</sub>Σ<sub>c</sub> x<sub>r,c,k</sub> = 9 for every digit k</button>
+    </div>
+    <p class="status info" id="pq-s1"></p>
+  </div>
+  <div class="pq">
+    <p><b>Rule 3.</b> Futoshiki clue: the cell (r, c) must hold a GREATER digit than its right neighbour (r, c+1).</p>
+    <div class="controls">
+      <button data-q="2" data-o="0">x<sub>r,c,k</sub> ≥ x<sub>r,c+1,k</sub> for every digit k</button>
+      <button data-q="2" data-o="1">Σ<sub>k</sub> k·x<sub>r,c,k</sub> ≥ Σ<sub>k</sub> k·x<sub>r,c+1,k</sub> + 1</button>
+      <button data-q="2" data-o="2">Σ<sub>k</sub> x<sub>r,c,k</sub> ≥ Σ<sub>k</sub> x<sub>r,c+1,k</sub></button>
+    </div>
+    <p class="status info" id="pq-s2"></p>
+  </div>
+  <div class="pq">
+    <p><b>Rule 4.</b> Sudoku asks for <em>any</em> valid completion. What should the objective be?</p>
+    <div class="controls">
+      <button data-q="3" data-o="0">Optimization does not apply — there is nothing to optimize</button>
+      <button data-q="3" data-o="1">Any constant works, e.g. max 0 — it is a pure feasibility problem</button>
+      <button data-q="3" data-o="2">You must invent one, e.g. maximize the sum of all digits placed</button>
+    </div>
+    <p class="status info" id="pq-s3"></p>
+  </div>
+  <p class="status info" id="pq-status"></p>
+  <div class="note">
+    Pre-filled givens are handled by fixing their variable to 1 (e.g. a printed 8 in the corner:
+    x<sub>1,1,8</sub> = 1). Futoshiki is the same skeleton on a 5×5 board with digits 1–5, no box
+    constraints, plus one inequality per clue.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Yes — both puzzles are small IPs. Sudoku: 729 binaries and four "exactly one" families (cell, row,
+      column, 3×3 box) plus fixed givens; any feasible point is a solved board, so the objective is
+      irrelevant. Futoshiki adds clue constraints on cell values Σ<sub>k</sub> k·x. The lesson of the
+      week: binaries model logic — either–or, if–then, restricted domains, and even newspaper puzzles.
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 4.
+  Figures follow the examples used in the Week 4 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+
+/* Joe State's five agencies (slide 14). Canvas positions are schematic
+   (roughly geographic, Indiana); every distance COMES FROM THE SLIDE TABLE. */
+const CITY = [
+  { code: 'GA', name: 'Gary',        x: 1.6, y: 8.9, lbl: { dx: -12, dy: -8, align: 'right' } },
+  { code: 'FW', name: 'Fort Wayne',  x: 7.4, y: 7.6, lbl: { dx: 14, dy: 6 } },
+  { code: 'EV', name: 'Evansville',  x: 3.1, y: 0.9, lbl: { dx: 14, dy: 8 } },
+  { code: 'TH', name: 'Terre Haute', x: 2.0, y: 3.9, lbl: { dx: -14, dy: 6, align: 'right' } },
+  { code: 'SB', name: 'South Bend',  x: 4.3, y: 9.2, lbl: { dx: 8, dy: -10 } },
+];
+const DIST = [
+  [0, 132, 217, 164, 58],
+  [132, 0, 290, 201, 79],
+  [217, 290, 0, 113, 303],
+  [164, 201, 113, 0, 196],
+  [58, 79, 303, 196, 0],
+];
+const MAPVIEW = { x0: 0, x1: 10, y0: 0, y1: 10.4, padL: 14, padR: 14, padT: 10, padB: 14 };
+
+// Base map: nodes + city codes; optionally all edges with distance labels.
+function drawCityBase(p, t, opts = {}) {
+  const { ctx, X, Y } = p;
+  if (opts.allEdges) {
+    ctx.save();
+    ctx.strokeStyle = t.grid;
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      for (let j = i + 1; j < 5; j++) {
+        ctx.beginPath();
+        ctx.moveTo(X(CITY[i].x), Y(CITY[i].y));
+        ctx.lineTo(X(CITY[j].x), Y(CITY[j].y));
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+    for (let i = 0; i < 5; i++) {
+      for (let j = i + 1; j < 5; j++) {
+        const mx = (CITY[i].x + CITY[j].x) / 2;
+        const my = (CITY[i].y + CITY[j].y) / 2;
+        VIZ.label(p, String(DIST[i][j]), mx, my, t.muted, { size: 11, align: 'center', baseline: 'middle' });
+      }
+    }
+  }
+  CITY.forEach((c, i) => {
+    VIZ.dot(p, c.x, c.y, i === 0 ? t.s2 : t.s1, 8, i === 0);
+    VIZ.label(p, c.code, c.x, c.y, t.ink2, Object.assign({ bold: true, size: 14, baseline: 'middle' }, c.lbl));
+  });
+}
+
+// Arrow in world coordinates, trimmed at both node circles.
+function drawArrow(p, a, b, color, width, trim = 13) {
+  const { ctx, X, Y } = p;
+  const x1 = X(CITY[a].x), y1 = Y(CITY[a].y);
+  const x2 = X(CITY[b].x), y2 = Y(CITY[b].y);
+  const dx = x2 - x1, dy = y2 - y1;
+  const L = Math.hypot(dx, dy);
+  const ux = dx / L, uy = dy / L;
+  const sx = x1 + ux * trim, sy = y1 + uy * trim;
+  const ex = x2 - ux * trim, ey = y2 - uy * trim;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(sx, sy);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+  const h = 9;
+  ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - h * ux - h * 0.5 * uy, ey - h * uy + h * 0.5 * ux);
+  ctx.lineTo(ex - h * ux + h * 0.5 * uy, ey - h * uy - h * 0.5 * ux);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/* ============================================================
+   WIDGET 1 — bakery big-M logic (slides 3-8)
+   Tab A: s = x1+x2+x3 on a double number line (y = 0 / y = 1 tracks),
+          constraints s - M·y <= 0 and s - 10y >= 0 (slide 5, M = 30).
+   Tab B: if-then classification game on the (x5, x7) grid,
+          constraints x5 - 3 - 30u <= 0, x7 - 5u >= 0 (slide 8).
+   ============================================================ */
+(() => {
+  const canvas = el('c-bk');
+  VIZ.hint(canvas, '🖱 drag the s marker');
+  const hintSpan = canvas.parentNode.querySelector('.viz-hint span');
+  let tab = 'A';
+
+  // --- tab A state ---
+  let s = 0, yv = 0, M = 30, revA = false, dragging = false, lastPlot = null, touchedA = false;
+
+  // --- tab B state ---
+  const PTS = [[2, 0], [5, 2], [3, 0], [4, 5], [7, 4], [0, 7], [4, 0], [3, 8], [6, 5], [8, 3]];
+  let queue = PTS.slice();
+  for (let i = queue.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [queue[i], queue[j]] = [queue[j], queue[i]];
+  }
+  let qi = 0, target = null, answered = [], voteDone = false, nOk = 0, nTot = 0, streak = 0, revB = false;
+  const bakeable = (a, b) => a <= 3 || b >= 5;
+
+  const status = el('bk-status');
+
+  function drawA() {
+    const p = VIZ.plot(canvas, { x0: -3.4, x1: 32, y0: 0, y1: 10, padL: 24, padR: 16, padT: 8, padB: 10 });
+    const t = VIZ.theme();
+    lastPlot = p;
+    const { ctx, X, Y } = p;
+    const rowY = { 0: 7.4, 1: 3.6 };
+
+    ctx.save();
+    ctx.strokeStyle = t.grid;
+    ctx.lineWidth = 1;
+    for (let g = 0; g <= 30; g += 5) {
+      ctx.beginPath();
+      ctx.moveTo(X(g), Y(1.8));
+      ctx.lineTo(X(g), Y(9.2));
+      ctx.stroke();
+    }
+    ctx.restore();
+    for (let g = 0; g <= 30; g += 5) {
+      VIZ.label(p, String(g), g, 1.7, t.muted, { align: 'center', baseline: 'top', size: 12 });
+    }
+    VIZ.label(p, 's = x₁ + x₂ + x₃ (dozens)', 30.5, 0.9, t.ink2, { align: 'right', baseline: 'top', size: 13 });
+
+    [0, 1].forEach(yy => {
+      const ry = rowY[yy];
+      ctx.save();
+      ctx.strokeStyle = t.axis;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(X(0), Y(ry));
+      ctx.lineTo(X(30), Y(ry));
+      ctx.stroke();
+      ctx.restore();
+      VIZ.label(p, 'y = ' + yy, -0.8, ry, yy === yv ? t.ink : t.muted, { align: 'right', baseline: 'middle', size: 14, bold: yy === yv });
+      if (revA) {
+        if (yy === 0) {
+          VIZ.dot(p, 0, ry, t.s2, 7);
+          VIZ.label(p, 'only s = 0', 0.6, ry, t.s2, { dy: -10, size: 12, bold: true });
+        } else {
+          const hi = Math.min(30, M);
+          ctx.save();
+          ctx.strokeStyle = t.s2;
+          ctx.lineWidth = 7;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(X(10), Y(ry));
+          ctx.lineTo(X(hi), Y(ry));
+          ctx.stroke();
+          if (M < 30) {
+            ctx.strokeStyle = t.bad;
+            ctx.lineWidth = 4;
+            ctx.setLineDash([2, 7]);
+            ctx.beginPath();
+            ctx.moveTo(X(M), Y(ry));
+            ctx.lineTo(X(30), Y(ry));
+            ctx.stroke();
+          }
+          ctx.restore();
+          VIZ.label(p, '10 ≤ s ≤ ' + Math.min(30, M), 10, ry, t.s2, { dy: -10, size: 12, bold: true });
+          if (M < 30) VIZ.label(p, 'wrongly cut by small M!', 30, ry, t.bad, { dy: 18, size: 12, align: 'right', baseline: 'top' });
+        }
+      }
+    });
+
+    const c1 = s - M * yv;
+    const c2 = s - 10 * yv;
+    const feas = c1 <= 0 && c2 >= 0;
+    VIZ.dot(p, s, rowY[yv], feas ? t.s5 : t.bad, 8, true);
+    VIZ.label(p, 's = ' + s, s, rowY[yv], feas ? t.s5 : t.bad, { dy: -14, align: 'center', bold: true });
+
+    el('bk-c1').textContent = String(c1);
+    el('bk-c1').style.color = c1 <= 0 ? 'var(--good)' : 'var(--critical)';
+    el('bk-c1g').textContent = c1 <= 0 ? '✓' : '✗';
+    el('bk-c1g').style.color = c1 <= 0 ? 'var(--good)' : 'var(--critical)';
+    el('bk-c2').textContent = String(c2);
+    el('bk-c2').style.color = c2 >= 0 ? 'var(--good)' : 'var(--critical)';
+    el('bk-c2g').textContent = c2 >= 0 ? '✓' : '✗';
+    el('bk-c2g').style.color = c2 >= 0 ? 'var(--good)' : 'var(--critical)';
+    el('bk-mval').textContent = String(M);
+
+    if (!touchedA) return; // keep the challenge prompt until the class starts playing
+    if (feas) {
+      status.className = 'status ok';
+      status.textContent = '✓ (s = ' + s + ', y = ' + yv + ') satisfies both linking constraints' +
+        (yv === 0 ? ' — with y = 0 the pair collapses s to 0.' : ' — with y = 1 the batch must be 10…' + Math.min(30, M) + ' dozen.');
+    } else {
+      status.className = 'status bad';
+      const why = c1 > 0 ? 's − M·y = ' + c1 + ' > 0: with y = ' + yv + ' the batch cannot exceed ' + (M * yv) + ' dozen.'
+        : 's − 10y = ' + c2 + ' < 0: y = 1 promises at least 10 dozen of varieties 1–3.';
+      status.textContent = '✗ infeasible. ' + why;
+    }
+  }
+
+  function drawB() {
+    const p = VIZ.plot(canvas, { x0: -0.9, x1: 8.9, y0: -0.9, y1: 8.9, padL: 46, padR: 14, padT: 10, padB: 40 });
+    const t = VIZ.theme();
+    lastPlot = p;
+    VIZ.axes(p, t, { xticks: [0, 1, 2, 3, 4, 5, 6, 7, 8], yticks: [0, 1, 2, 3, 4, 5, 6, 7, 8], xlabel: 'x₅ (dozens)', ylabel: 'x₇ (dozens)' });
+    const { ctx } = p;
+    if (revB) {
+      for (let a = 0; a <= 8; a++) {
+        for (let b = 0; b <= 8; b++) {
+          if (bakeable(a, b)) {
+            ctx.save();
+            ctx.globalAlpha = 0.75;
+            VIZ.dot(p, a, b, t.s2, 4);
+            ctx.restore();
+          } else {
+            VIZ.label(p, '×', a, b, t.bad, { align: 'center', baseline: 'middle', size: 13 });
+          }
+        }
+      }
+    }
+    answered.forEach(h => {
+      ctx.save();
+      ctx.strokeStyle = h.correct ? t.good : t.bad;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(p.X(h.a), p.Y(h.b), 9, 0, 2 * Math.PI);
+      ctx.stroke();
+      ctx.restore();
+    });
+    if (target) {
+      VIZ.dot(p, target[0], target[1], t.s5, 7, true);
+      if (!voteDone) VIZ.label(p, '?', target[0], target[1], t.s5, { dx: 12, dy: -8, bold: true, size: 18 });
+    }
+  }
+
+  function draw() { if (tab === 'A') drawA(); else drawB(); }
+
+  function nextPoint() {
+    target = queue[qi % queue.length];
+    qi++;
+    voteDone = false;
+    status.className = 'status info';
+    status.textContent = 'Plan on the table: x₅ = ' + target[0] + ', x₇ = ' + target[1] + ' dozen (all other varieties 0). Class votes: bakeable or impossible?';
+    draw();
+  }
+
+  function vote(saysYes) {
+    if (tab !== 'B' || !target || voteDone) return;
+    const [a, b] = target;
+    const truth = bakeable(a, b);
+    const correct = saysYes === truth;
+    voteDone = true;
+    nTot++;
+    if (correct) { nOk++; streak++; } else { streak = 0; }
+    answered.push({ a, b, correct });
+    el('bk-score').textContent = nOk + ' / ' + nTot;
+    el('bk-streak').textContent = String(streak);
+    let why;
+    if (a <= 3) {
+      why = 'u = 0 works: x₅ − 3 − 0 = ' + (a - 3) + ' ≤ 0 and x₇ = ' + b + ' ≥ 0.' + (a === 3 ? ' Boundary case: exactly 3 dozen is NOT “more than 3”, so no promise on variety 7.' : '');
+    } else if (b >= 5) {
+      why = 'u = 0 fails (x₅ − 3 = ' + (a - 3) + ' > 0), but u = 1 rescues it: x₅ − 3 − 30 ≤ 0 and x₇ − 5 = ' + (b - 5) + ' ≥ 0.';
+    } else {
+      why = 'no u works: u = 0 fails x₅ − 3 − 30u ≤ 0 (LHS ' + (a - 3) + '), u = 1 fails x₇ − 5u ≥ 0 (LHS ' + (b - 5) + ').';
+    }
+    status.className = correct ? 'status ok' : 'status bad';
+    status.textContent = (correct ? '✓ correct — ' : '✗ not quite — ') + 'this plan is ' + (truth ? 'BAKEABLE. ' : 'IMPOSSIBLE. ') + why;
+    draw();
+  }
+
+  function setTab(which) {
+    tab = which;
+    el('bk-tabA').classList.toggle('active', which === 'A');
+    el('bk-tabB').classList.toggle('active', which === 'B');
+    el('bk-ctlA').style.display = which === 'A' ? '' : 'none';
+    el('bk-ctlB').style.display = which === 'B' ? '' : 'none';
+    hintSpan.textContent = which === 'A' ? '🖱 drag the s marker' : '🖱 click a grid point to test it';
+    canvas.style.height = which === 'A' ? '250px' : '400px';
+    if (which === 'B' && !target) { nextPoint(); return; }
+    if (which === 'A') {
+      status.className = 'status info';
+      status.textContent = 'Drag the s marker. Challenge: find a feasible plan with 0 < s < 10 — any y allowed.';
+    }
+    draw();
+  }
+
+  function pointerToS(ev) {
+    const { px } = VIZ.pointer(canvas, ev);
+    s = Math.max(0, Math.min(30, Math.round(lastPlot.invX(px))));
+    touchedA = true;
+    draw();
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    if (tab === 'A') {
+      dragging = true;
+      canvas.setPointerCapture(ev.pointerId);
+      pointerToS(ev);
+    } else {
+      const { px, py } = VIZ.pointer(canvas, ev);
+      const a = Math.round(lastPlot.invX(px));
+      const b = Math.round(lastPlot.invY(py));
+      if (a < 0 || a > 8 || b < 0 || b > 8) return;
+      target = [a, b];
+      voteDone = false;
+      status.className = 'status info';
+      status.textContent = 'Custom plan: x₅ = ' + a + ', x₇ = ' + b + ' dozen. Class votes: bakeable or impossible?';
+      draw();
+    }
+  });
+  canvas.addEventListener('pointermove', ev => { if (tab === 'A' && dragging) pointerToS(ev); });
+  canvas.addEventListener('pointerup', () => { dragging = false; });
+
+  el('bk-tabA').addEventListener('click', () => setTab('A'));
+  el('bk-tabB').addEventListener('click', () => setTab('B'));
+  el('bk-y0').addEventListener('click', () => {
+    yv = 0;
+    touchedA = true;
+    el('bk-y0').classList.add('active');
+    el('bk-y1').classList.remove('active');
+    draw();
+  });
+  el('bk-y1').addEventListener('click', () => {
+    yv = 1;
+    touchedA = true;
+    el('bk-y1').classList.add('active');
+    el('bk-y0').classList.remove('active');
+    draw();
+  });
+  el('bk-m').addEventListener('input', () => { M = +el('bk-m').value; touchedA = true; draw(); });
+  el('bk-revA').addEventListener('click', () => {
+    revA = !revA;
+    el('bk-revA').textContent = revA ? 'Hide allowed plans' : 'Reveal allowed plans ★';
+    draw();
+  });
+  el('bk-yes').addEventListener('click', () => vote(true));
+  el('bk-no').addEventListener('click', () => vote(false));
+  el('bk-next').addEventListener('click', () => { if (tab === 'B') nextPoint(); });
+  el('bk-revB').addEventListener('click', () => {
+    revB = !revB;
+    el('bk-revB').textContent = revB ? 'Hide the true region' : 'Reveal the true region ★';
+    draw();
+  });
+
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 2 — Euing gas piecewise purchase cost (slides 9-12)
+   Block prices 25 / 20 / 15 ¢ per gallon (slide 11) give breakpoint
+   costs c(0,500,1000,1500) = 0, 125, 225, 300 dollars.
+   ============================================================ */
+(() => {
+  const canvas = el('c-pw');
+  const BP = [0, 500, 1000, 1500];
+  const CB = [0, 125, 225, 300];
+  const cost = t => t <= 500 ? 0.25 * t : t <= 1000 ? 125 + 0.20 * (t - 500) : 225 + 0.15 * (t - 1000);
+  let pi = 0, pj = 1, bestCheat = 0;
+  const slider = el('pw-t');
+
+  function current() {
+    const tv = +slider.value;
+    const w = (tv - BP[pi]) / (BP[pj] - BP[pi]);
+    const z = [0, 0, 0, 0];
+    z[pi] = 1 - w;
+    z[pj] = w;
+    const est = z[0] * CB[0] + z[1] * CB[1] + z[2] * CB[2] + z[3] * CB[3];
+    return { tv, z, est, tru: cost(tv) };
+  }
+
+  function draw() {
+    const p = VIZ.plot(canvas, { x0: -80, x1: 1590, y0: -22, y1: 340, padL: 56, padR: 16, padT: 12, padB: 42 });
+    const t = VIZ.theme();
+    VIZ.axes(p, t, { xticks: [0, 500, 1000, 1500], yticks: [0, 125, 225, 300], xlabel: 't (gallons)', ylabel: 'purchase cost ($)' });
+    const { ctx, X, Y } = p;
+
+    // true piecewise cost curve
+    ctx.save();
+    ctx.strokeStyle = t.s1;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(X(0), Y(0));
+    ctx.lineTo(X(500), Y(125));
+    ctx.lineTo(X(1000), Y(225));
+    ctx.lineTo(X(1500), Y(300));
+    ctx.stroke();
+    ctx.restore();
+    VIZ.label(p, '25¢/gal', 210, 108, t.muted, { size: 12, align: 'center' });
+    VIZ.label(p, '20¢/gal', 720, 218, t.muted, { size: 12, align: 'center' });
+    VIZ.label(p, '15¢/gal', 1220, 302, t.muted, { size: 12, align: 'center' });
+    BP.forEach((b, k) => {
+      VIZ.dot(p, b, CB[k], t.s1, 5);
+      VIZ.label(p, 'b' + '₁₂₃₄'[k] + ' = ' + b, b, CB[k], t.ink2, { dx: k === 0 ? 8 : 0, dy: -10, size: 12, align: k === 0 ? 'left' : 'center' });
+    });
+
+    const { tv, est, tru } = current();
+
+    // chord between the two chosen breakpoints
+    ctx.save();
+    ctx.strokeStyle = t.s5;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([7, 5]);
+    ctx.beginPath();
+    ctx.moveTo(X(BP[pi]), Y(CB[pi]));
+    ctx.lineTo(X(BP[pj]), Y(CB[pj]));
+    ctx.stroke();
+    ctx.restore();
+
+    const gap = tru - est;
+    if (gap > 0.01) {
+      ctx.save();
+      ctx.strokeStyle = t.bad;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(X(tv), Y(est));
+      ctx.lineTo(X(tv), Y(tru));
+      ctx.stroke();
+      ctx.restore();
+      VIZ.label(p, '$' + fmt(gap) + ' discount', tv, (est + tru) / 2, t.bad, { dx: 10, baseline: 'middle', bold: true, size: 13 });
+      // hollow marker on the true curve
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(X(tv), Y(tru), 6, 0, 2 * Math.PI);
+      ctx.strokeStyle = t.s1;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+      VIZ.label(p, 'real cost $' + fmt(tru), tv, tru, t.s1, { dx: 10, dy: -8, size: 13 });
+      VIZ.dot(p, tv, est, t.s5, 7, true);
+      VIZ.label(p, 'model pays $' + fmt(est), tv, est, t.s5, { dx: 10, dy: 18, baseline: 'top', size: 13, bold: true });
+    } else {
+      VIZ.dot(p, tv, est, t.s2, 7, true);
+      // keep the label clear of the rising curve: below-right early, above-left late
+      const late = tv > 450;
+      VIZ.label(p, 'on the curve ✓  $' + fmt(est), tv, est, t.s2,
+        late ? { dx: -14, dy: -10, size: 13, bold: true, align: 'right' } : { dx: 14, dy: 22, size: 13, bold: true, baseline: 'top' });
+    }
+  }
+
+  function update() {
+    const { tv, z, est, tru } = current();
+    el('pw-z').textContent = '(' + z.map(v => fmt(v)).join(', ') + ')';
+    el('pw-est').textContent = '$' + fmt(est);
+    el('pw-true').textContent = '$' + fmt(tru);
+    const gap = tru - est;
+    if (gap > bestCheat) bestCheat = gap;
+    el('pw-best').textContent = '$' + fmt(bestCheat);
+    const st = el('pw-status');
+    const adjacent = pj === pi + 1;
+    if (gap > 0.01) {
+      st.className = 'status bad';
+      st.textContent = '✗ t = ' + tv + ' gal really costs $' + fmt(tru) + ', but this z-combination pays only $' + fmt(est) +
+        ' — a $' + fmt(gap) + ' cheat. The LP relaxation would love it; the adjacency constraints must forbid it.';
+    } else if (adjacent) {
+      st.className = 'status ok';
+      st.textContent = '✓ z' + '₁₂₃₄'[pi] + ' and z' + '₁₂₃₄'[pj] + ' are adjacent breakpoints (y' + '₁₂₃'[pi] +
+        ' = 1 on slide 12), so t = ' + tv + ' lands exactly on the curve: $' + fmt(est) + '.';
+    } else {
+      st.className = 'status info';
+      st.textContent = 'At a shared breakpoint the chord touches the curve — slide the t slider to see the gap open.';
+    }
+    draw();
+  }
+
+  document.querySelectorAll('#pwl [data-pair]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('#pwl [data-pair]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      pi = +btn.dataset.pair[0];
+      pj = +btn.dataset.pair[1];
+      slider.min = BP[pi];
+      slider.max = BP[pj];
+      slider.value = (BP[pi] + BP[pj]) / 2;
+      update();
+    });
+  });
+  slider.addEventListener('input', update);
+  VIZ.register(canvas, draw);
+  update();
+})();
+
+/* ============================================================
+   WIDGET 3 — Joe's TSP tour builder (slides 13-15)
+   Distances from the slide-14 table; optimum 668 (verified by full
+   enumeration of the 12 distinct tours).
+   ============================================================ */
+(() => {
+  const canvas = el('c-tr');
+  VIZ.hint(canvas, '🖱 click the cities in visiting order');
+  const OPT = { seq: [0, 4, 1, 3, 2, 0], len: 668 };
+  let route = [0], done = false, revealed = false, lastComplete = null, best = null;
+  const attempts = [];
+  let lastPlot = null;
+
+  // distance table (mirrors slide 14)
+  (() => {
+    const codes = CITY.map(c => c.code);
+    let html = '<thead><tr><th></th>' + codes.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>';
+    for (let i = 0; i < 5; i++) {
+      html += '<tr><td>' + codes[i] + '</td>' + DIST[i].map(v => '<td>' + v + '</td>').join('') + '</tr>';
+    }
+    el('tr-dist').innerHTML = html + '</tbody>';
+  })();
+
+  const routeLen = r => {
+    let s = 0;
+    for (let i = 0; i + 1 < r.length; i++) s += DIST[r[i]][r[i + 1]];
+    return s;
+  };
+
+  function draw() {
+    const p = VIZ.plot(canvas, MAPVIEW);
+    const t = VIZ.theme();
+    lastPlot = p;
+    const { ctx, X, Y } = p;
+    drawCityBase(p, t, { allEdges: true });
+
+    if (revealed) {
+      ctx.save();
+      ctx.strokeStyle = t.s2;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([9, 6]);
+      ctx.beginPath();
+      OPT.seq.forEach((c, k) => {
+        if (k === 0) ctx.moveTo(X(CITY[c].x), Y(CITY[c].y));
+        else ctx.lineTo(X(CITY[c].x), Y(CITY[c].y));
+      });
+      ctx.stroke();
+      ctx.restore();
+      VIZ.label(p, 'optimal: 668 mi', 6.6, 2.2, t.s2, { bold: true, size: 15 });
+    }
+
+    ctx.save();
+    ctx.strokeStyle = t.s5;
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    route.forEach((c, k) => {
+      if (k === 0) ctx.moveTo(X(CITY[c].x), Y(CITY[c].y));
+      else ctx.lineTo(X(CITY[c].x), Y(CITY[c].y));
+    });
+    if (done) ctx.lineTo(X(CITY[0].x), Y(CITY[0].y));
+    ctx.stroke();
+    ctx.restore();
+
+    // visit order badges
+    route.forEach((c, k) => {
+      if (k === 0) return;
+      VIZ.label(p, String(k), CITY[c].x, CITY[c].y, t.s5, { dx: -16, dy: 20, bold: true, size: 15, align: 'right', baseline: 'top' });
+    });
+
+    const len = routeLen(route) + (done ? DIST[route[route.length - 1]][0] : 0);
+    el('tr-len').textContent = String(len);
+    el('tr-best').textContent = best === null ? '—' : best + ' mi';
+  }
+
+  function logAttempt(codes, len) {
+    attempts.push({ codes, len });
+    if (best === null || len < best) best = len;
+    const tb = el('tr-log').querySelector('tbody');
+    tb.innerHTML = attempts.map((a, i) =>
+      '<tr' + (a.len === best ? ' class="best"' : '') + '><td>' + (i + 1) + '</td><td>' + a.codes + '</td><td>' + a.len + '</td></tr>').join('');
+  }
+
+  function clickCity(i) {
+    if (done) {
+      route = [0];
+      done = false;
+      lastComplete = null;
+    }
+    if (route.includes(i)) {
+      el('tr-status').className = 'status bad';
+      el('tr-status').textContent = CITY[i].name + ' is already on the route — every agency is visited exactly once.';
+      draw();
+      return;
+    }
+    route.push(i);
+    if (route.length === 5) {
+      done = true;
+      const len = routeLen(route) + DIST[route[4]][0];
+      lastComplete = len;
+      const codes = route.map(c => CITY[c].code).join('–') + '–GA';
+      logAttempt(codes, len);
+      el('tr-reveal').classList.remove('locked');
+      el('tr-status').className = len === OPT.len ? 'status ok' : 'status info';
+      el('tr-status').textContent = (len === OPT.len ? '★ ' + len + ' miles — that is the optimum! ' : 'Tour closed: ' + len + ' miles. ') +
+        codes + '. Click any city to start a new attempt.';
+    } else {
+      el('tr-status').className = 'status info';
+      el('tr-status').textContent = 'Route so far: ' + route.map(c => CITY[c].code).join(' → ') + ' (' + routeLen(route) + ' mi). ' +
+        (5 - route.length) + ' more, then back to GA.';
+    }
+    draw();
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    let hit = -1, hd = 1e9;
+    CITY.forEach((c, i) => {
+      const d = Math.hypot(lastPlot.X(c.x) - px, lastPlot.Y(c.y) - py);
+      if (d < 24 && d < hd) { hd = d; hit = i; }
+    });
+    if (hit === 0 && route.length === 1) return;
+    if (hit >= 0) clickCity(hit);
+  });
+
+  el('tr-undo').addEventListener('click', () => {
+    if (done) { route = [0]; done = false; lastComplete = null; }
+    else if (route.length > 1) route.pop();
+    el('tr-status').className = 'status info';
+    el('tr-status').textContent = 'Route so far: ' + route.map(c => CITY[c].code).join(' → ');
+    draw();
+  });
+  el('tr-reset').addEventListener('click', () => {
+    route = [0];
+    done = false;
+    lastComplete = null;
+    el('tr-status').className = 'status info';
+    el('tr-status').textContent = 'Joe is in GA. Click the first city to visit.';
+    draw();
+  });
+  el('tr-reveal').addEventListener('click', () => {
+    if (el('tr-reveal').classList.contains('locked')) {
+      el('tr-status').className = 'status info';
+      el('tr-status').textContent = 'Finish at least one full tour before peeking at the optimum!';
+      return;
+    }
+    revealed = !revealed;
+    el('tr-reveal').textContent = revealed ? 'Hide optimal tour' : 'Reveal optimal tour ★';
+    draw();
+  });
+
+  VIZ.register(canvas, draw);
+  window.TOUR_SCORE = () => lastComplete;
+})();
+
+/* ============================================================
+   WIDGET 4 — subtour trap and MTZ certification (slides 15-16)
+   Solution T: GA→FW→EV→TH→SB→GA = 789 mi (a proper tour).
+   Solution S: GA→FW→SB→GA + EV⇄TH = 495 mi — the assignment-only
+   optimum (verified by enumerating all 5-city assignments).
+   MTZ (slide 16, N = 5): ui − uj + 5xij ≤ 4 for i,j = 2..5, i ≠ j.
+   ============================================================ */
+(() => {
+  const canvas = el('c-st');
+  const SOLS = {
+    T: { arcs: [[0, 1], [1, 2], [2, 3], [3, 4], [4, 0]], len: 789, label: 'one loop (789 mi)' },
+    S: { arcs: [[0, 1], [1, 4], [4, 0], [2, 3], [3, 2]], len: 495, label: 'two loops (495 mi)' },
+  };
+  let sel = 'T', checked = false, failS = 0;
+  let violArcs = [];
+
+  const hasArc = (s, i, j) => SOLS[s].arcs.some(a => a[0] === i && a[1] === j);
+
+  function readU() {
+    const u = {};
+    for (let k = 2; k <= 5; k++) {
+      const v = el('st-u' + k).value;
+      if (v === '') return null;
+      u[k] = +v;
+    }
+    return u;
+  }
+
+  function draw() {
+    const p = VIZ.plot(canvas, MAPVIEW);
+    const t = VIZ.theme();
+    drawCityBase(p, t, { allEdges: false });
+    const idx = { 0: 1, 1: 2, 2: 3, 3: 4, 4: 5 }; // slide numbering
+    CITY.forEach((c, i) => {
+      VIZ.label(p, '#' + idx[i], c.x, c.y, t.muted, { dx: -14, dy: 22, size: 12, align: 'right', baseline: 'top' });
+    });
+    SOLS[sel].arcs.forEach(a => {
+      const bad = checked && violArcs.some(v => v[0] === a[0] && v[1] === a[1]);
+      // offset the EV<->TH double arc so both directions are visible
+      const twin = hasArc(sel, a[1], a[0]);
+      if (twin) {
+        const p1 = CITY[a[0]], p2 = CITY[a[1]];
+        const nx = -(p2.y - p1.y), ny = p2.x - p1.x;
+        const L = Math.hypot(nx, ny);
+        const off = 0.14;
+        const sh = { x: nx / L * off, y: ny / L * off };
+        const save0 = { x: p1.x, y: p1.y }, save1 = { x: p2.x, y: p2.y };
+        p1.x += sh.x; p1.y += sh.y; p2.x += sh.x; p2.y += sh.y;
+        drawArrow(p, a[0], a[1], bad ? t.bad : t.s5, 2.5);
+        p1.x = save0.x; p1.y = save0.y; p2.x = save1.x; p2.y = save1.y;
+      } else {
+        drawArrow(p, a[0], a[1], bad ? t.bad : t.s5, 2.5);
+      }
+      const mx = (CITY[a[0]].x + CITY[a[1]].x) / 2;
+      const my = (CITY[a[0]].y + CITY[a[1]].y) / 2;
+      VIZ.label(p, String(DIST[a[0]][a[1]]), mx, my, t.ink2, { size: 12, dx: 8, baseline: 'middle' });
+    });
+    VIZ.label(p, 'total ' + SOLS[sel].len + ' mi', 6.6, 1.2, t.s1, { bold: true, size: 15 });
+  }
+
+  function renderTable(u) {
+    const SUB = { 2: '₂', 3: '₃', 4: '₄', 5: '₅' };
+    const rows = [];
+    for (let i = 2; i <= 5; i++) {
+      for (let j = 2; j <= 5; j++) {
+        if (i === j) continue;
+        const x = hasArc(sel, i - 1, j - 1) ? 1 : 0;
+        let cls = '', lhsTxt = '—', okTxt = '';
+        if (u) {
+          const lhs = u[i] - u[j] + 5 * x;
+          const ok = lhs <= 4;
+          lhsTxt = String(lhs);
+          okTxt = ok ? '✓' : '✗';
+          cls = (x ? 'used' : '') + (ok ? '' : ' viol');
+        } else if (x) {
+          cls = 'used';
+        }
+        rows.push('<tr class="' + cls.trim() + '"><td>u' + SUB[i] + ' − u' + SUB[j] + ' + 5·' + x + ' ≤ 4</td><td>' + lhsTxt + '</td><td>' + okTxt + '</td></tr>');
+      }
+    }
+    el('st-table').innerHTML = '<thead><tr><th>constraint (i, j)</th><th>LHS</th><th></th></tr></thead><tbody>' + rows.join('') + '</tbody>';
+  }
+
+  function check() {
+    const u = readU();
+    const st = el('st-status');
+    if (!u) {
+      st.className = 'status info';
+      st.textContent = 'Give all four u-values first.';
+      return;
+    }
+    violArcs = [];
+    let nViol = 0;
+    for (let i = 2; i <= 5; i++) {
+      for (let j = 2; j <= 5; j++) {
+        if (i === j) continue;
+        const x = hasArc(sel, i - 1, j - 1) ? 1 : 0;
+        if (u[i] - u[j] + 5 * x > 4) {
+          nViol++;
+          if (x) violArcs.push([i - 1, j - 1]);
+        }
+      }
+    }
+    checked = true;
+    renderTable(u);
+    if (nViol === 0) {
+      st.className = 'status ok';
+      st.textContent = '✓ all 12 constraints hold — MTZ certifies this solution. It works precisely because the loop runs through GA (city 1), which has no u.';
+    } else {
+      st.className = 'status bad';
+      if (sel === 'S') failS++;
+      st.textContent = '✗ ' + nViol + ' constraint' + (nViol > 1 ? 's' : '') + ' violated.' +
+        (sel === 'S' && failS >= 2 ? ' Hint: write down the two constraints for the EV⇄TH arcs (i, j = 3, 4) and add them…' : ' Adjust the u-values and try again.');
+    }
+    draw();
+  }
+
+  function select(which) {
+    sel = which;
+    checked = false;
+    violArcs = [];
+    el('st-selT').classList.toggle('active', which === 'T');
+    el('st-selS').classList.toggle('active', which === 'S');
+    const st = el('st-status');
+    st.className = 'status info';
+    st.textContent = which === 'T'
+      ? 'A genuine tour: GA→FW→EV→TH→SB→GA. Find u-values that satisfy all 12 MTZ constraints.'
+      : 'The 495-mile impostor: GA→FW→SB→GA plus EV⇄TH. Can ANY u-values certify it?';
+    renderTable(null);
+    draw();
+  }
+
+  el('st-selT').addEventListener('click', () => select('T'));
+  el('st-selS').addEventListener('click', () => select('S'));
+  el('st-check').addEventListener('click', check);
+  renderTable(null);
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 5 — restricted-domain optimum hunt (slides 17-18)
+   max z = x1 + 2x2 s.t. x1+x2<=8, -x1+x2<=2, x1-x2<=4, x2>=0 int,
+   x1 in {0,1,4,6}. Optimum (4,4), z = 12 (verified by enumeration).
+   ============================================================ */
+(() => {
+  const canvas = el('c-dm');
+  VIZ.hint(canvas, '🖱 click a lattice point');
+  const ALLOWED = [0, 1, 4, 6];
+  const feas = (a, b) => b >= 0 && a + b <= 8 && -a + b <= 2 && a - b <= 4;
+  let cur = null, best = null, revealed = false, lastPlot = null;
+
+  function draw() {
+    const p = VIZ.plot(canvas, { x0: -0.9, x1: 8.9, y0: -0.9, y1: 6.9, padL: 46, padR: 14, padT: 10, padB: 40 });
+    const t = VIZ.theme();
+    lastPlot = p;
+    VIZ.axes(p, t, { xticks: [0, 1, 2, 3, 4, 5, 6, 7, 8], yticks: [0, 1, 2, 3, 4, 5, 6], xlabel: 'x₁', ylabel: 'x₂' });
+    const { ctx, X, Y } = p;
+
+    // LP region of the three linear constraints (with 0 <= x1 <= 6 hull)
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(X(0), Y(0));
+    ctx.lineTo(X(4), Y(0));
+    ctx.lineTo(X(6), Y(2));
+    ctx.lineTo(X(3), Y(5));
+    ctx.lineTo(X(0), Y(2));
+    ctx.closePath();
+    ctx.fillStyle = t.region;
+    ctx.fill();
+    ctx.strokeStyle = t.axis;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+    VIZ.label(p, 'x₁ + x₂ ≤ 8', 5.1, 3.6, t.ink2, { size: 12 });
+    VIZ.label(p, '−x₁ + x₂ ≤ 2', 0.55, 3.3, t.ink2, { size: 12 });
+    VIZ.label(p, 'x₁ − x₂ ≤ 4', 5.1, 0.55, t.ink2, { size: 12 });
+
+    // allowed lattice points on the four legal columns
+    ALLOWED.forEach(a => {
+      for (let b = 0; b <= 8; b++) {
+        if (feas(a, b)) VIZ.dot(p, a, b, t.s1, 3.5);
+      }
+    });
+
+    if (cur) {
+      const z0 = cur[0] + 2 * cur[1];
+      ctx.save();
+      ctx.setLineDash([6, 5]);
+      VIZ.curve(p, x => (z0 - x) / 2, t.s5, 1.5);
+      ctx.restore();
+      VIZ.dot(p, cur[0], cur[1], t.s5, 7, true);
+    }
+    if (revealed) {
+      VIZ.star(p, 4, 4, t.s2, 11);
+      VIZ.label(p, '(4, 4), z = 12', 4.15, 4.15, t.s2, { dx: 10, bold: true });
+    }
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const a = Math.round(lastPlot.invX(px));
+    const b = Math.round(lastPlot.invY(py));
+    if (a < 0 || a > 8 || b < 0 || b > 6) return;
+    cur = [a, b];
+    const st = el('dm-status');
+    if (!ALLOWED.includes(a)) {
+      st.className = 'status bad';
+      st.textContent = '✗ x₁ = ' + a + ' is not an allowed value — the domain is {0, 1, 4, 6}. That is exactly why the definition needs reformulating.';
+      el('dm-z').textContent = '—';
+    } else if (!feas(a, b)) {
+      const why = a + b > 8 ? 'x₁ + x₂ ≤ 8' : (-a + b > 2 ? '−x₁ + x₂ ≤ 2' : 'x₁ − x₂ ≤ 4');
+      st.className = 'status bad';
+      st.textContent = '✗ (' + a + ', ' + b + ') violates ' + why + '.';
+      el('dm-z').textContent = '—';
+    } else {
+      const z = a + 2 * b;
+      if (best === null || z > best) best = z;
+      st.className = z === 12 ? 'status ok' : 'status info';
+      st.textContent = (z === 12 ? '★ z = 12 — can anything beat it? (Spoiler: no.)' : '✓ feasible: z = ' + a + ' + 2·' + b + ' = ' + z + '. Push the violet iso-line higher.');
+      el('dm-z').textContent = String(z);
+      el('dm-best').textContent = String(best);
+    }
+    draw();
+  });
+
+  el('dm-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('dm-reveal').textContent = revealed ? 'Hide optimum' : 'Reveal optimum ★';
+    draw();
+  });
+
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 6 — sudoku / futoshiki modeling quiz (slides 19-20)
+   Pure constraint-pattern quiz; no numeric data involved.
+   ============================================================ */
+(() => {
+  const CORRECT = [0, 1, 1, 1];
+  const HINTS = [
+    {
+      1: 'That sum runs across a ROW for a fixed digit: it says "digit k sits somewhere in row r once" — a different rule. The cell rule fixes (r, c) and sums over k.',
+      2: 'Counting 81 placements in total lets one cell hold two digits while another holds none. "Exactly one" must hold cell by cell.',
+    },
+    {
+      0: 'That is the CELL rule again (sum over digits k). For a column rule, fix the column c and the digit k, and sum over the rows r.',
+      2: 'Nine copies of k in the whole grid could still pile two into one column. Fix c and k, then sum over r.',
+    },
+    {
+      0: 'Comparing indicators digit-by-digit forces the two cells to relate on every k separately — with "exactly one digit per cell" it even forces the same digit. The VALUE of a cell is Σ k·x.',
+      2: 'Both sides equal 1 by the cell rule — this inequality is always true and says nothing about which digit is bigger.',
+    },
+    {
+      0: 'Feasibility IS a special case of optimization: constraints do all the work and any feasible point solves the puzzle. Optimization applies perfectly well.',
+      2: 'You are not forced to invent anything: with the constraints in place every feasible solution is a valid board, so a constant objective is enough.',
+    },
+  ];
+  const OK_MSG = [
+    '✓ Fix the cell (r, c), sum the indicators over the 9 digits, force the sum to 1.',
+    '✓ Fix column c and digit k, sum over rows — one appearance per column. Rows and 3×3 boxes work the same way.',
+    '✓ The value of a cell is Σ k·x, so "strictly greater" is value ≥ value + 1. This is the Futoshiki clue constraint.',
+    '✓ It is a feasibility problem — solve with any constant objective and read the board off the x variables.',
+  ];
+  const solved = [false, false, false, false];
+
+  document.querySelectorAll('#puzzles [data-q]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const q = +btn.dataset.q;
+      const o = +btn.dataset.o;
+      const st = el('pq-s' + q);
+      if (o === CORRECT[q]) {
+        st.className = 'status ok';
+        st.textContent = OK_MSG[q];
+        solved[q] = true;
+      } else {
+        st.className = 'status bad';
+        st.textContent = '✗ ' + HINTS[q][o];
+      }
+      const n = solved.filter(Boolean).length;
+      el('pq-done').textContent = n + ' / 4';
+      const total = el('pq-status');
+      if (n === 4) {
+        total.className = 'status ok';
+        total.textContent = 'All four rules modeled — you have just written a Sudoku/Futoshiki solver on paper. Open the spoiler for the full picture.';
+      }
+    });
+  });
+})();
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('tour', {
+  label: 'tour length (mi)',
+  dir: 'min',
+  digits: 0,
+  get: () => window.TOUR_SCORE(),
+});
+</script>
+</body>
+</html>

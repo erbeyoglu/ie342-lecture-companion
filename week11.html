@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 11 — Network Models: Intro &amp; Shortest Paths (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<style>
+  /* keep the long page title clear of the absolutely-positioned theme switch */
+  @media (min-width: 701px) {
+    header.site h1 { padding-right: 250px; }
+  }
+  table.iter {
+    border-collapse: collapse;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9rem;
+    margin-top: 10px;
+  }
+  table.iter th, table.iter td {
+    border: 1px solid var(--grid);
+    padding: 5px 9px;
+    text-align: center;
+    min-width: 52px;
+    white-space: nowrap;
+  }
+  table.iter th { color: var(--ink-2); }
+  table.iter td:first-child, table.iter th:first-child { text-align: left; font-weight: 600; }
+  table.iter td.perm { color: var(--s2); font-weight: 700; }
+  .iter-wrap { overflow-x: auto; }
+  .chainseq { font-size: 1.08rem; font-weight: 600; letter-spacing: 0.02em; }
+  .hopchain { display: flex; flex-wrap: wrap; gap: 10px 6px; align-items: center; margin: 14px 0 4px; }
+  .hopchain .actor {
+    border: 1px solid var(--axis); border-radius: 999px; padding: 6px 14px;
+    font-weight: 600; background: var(--surface);
+  }
+  .hopchain .actor.unknown { border-style: dashed; color: var(--muted); font-weight: 400; }
+  .hopchain .hop { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
+  .hopchain .hop .movie { color: var(--muted); font-size: 0.78rem; text-align: center; }
+  .hopchain .hop .arrow { color: var(--ink-2); font-size: 1.1rem; line-height: 1; }
+  .costgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px 16px; margin: 10px 0 4px; }
+  .costgrid label { display: flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 0.95rem; white-space: nowrap; }
+  .costgrid input { width: 90px; font: inherit; text-align: center; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 11: Network Models (Introduction, Shortest Path Problems)</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#bacon">1 · Six degrees</a>
+    <a href="#chainpath">2 · Chain, path or cycle?</a>
+    <a href="#carplan">3 · Car trade-in game</a>
+    <a href="#dijkstra1">4 · Dijkstra stepper</a>
+    <a href="#park">5 · Servada Park</a>
+    <a href="#shelves">6 · Library shelves</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : ORACLE OF BACON ================= -->
+<section class="widget" id="bacon">
+  <h2>How far is Adile Naşit from Brad Pitt? <span class="chip">Slides 5–8</span></h2>
+  <p class="howto">
+    The Oracle of Bacon links any two film actors through shared movies — each shared movie is one
+    step (one "degree"). The slides ask: how many steps does it take to connect Adile Naşit to
+    Brad Pitt? <b>Lock in a guess first</b>, then reveal the connection one hop at a time.
+  </p>
+  <div class="controls">
+    <label for="bc-guess">my guess:</label>
+    <input type="range" id="bc-guess" min="1" max="8" step="1" value="4">
+    <span class="readout"><b id="bc-gval">4</b> step(s)</span>
+    <button id="bc-lock" class="primary">Lock my guess</button>
+    <button id="bc-next" class="locked">Reveal next hop</button>
+    <button id="bc-reset">Start over</button>
+  </div>
+  <div class="hopchain" id="bc-chain"></div>
+  <p class="status info" id="bc-status">Slide a guess, lock it, then reveal the chain hop by hop.</p>
+  <div class="note">
+    The Oracle of Bacon (University of Virginia) searches shared-movie data on roughly 350,000
+    people — it is literally solving a shortest path problem where nodes are actors and edges are
+    shared films. Small-world claim from the slides: almost everyone on Earth is connected to
+    everyone else within about 6 steps (rarely 7–8). Same idea in mathematics: the Erdős number —
+    Paul Erdős (at least 1,525 papers) is 0, his co-authors are 1, their co-authors are 2 …
+    The slides leave one question open for the class: what is the instructor's Erdős number?
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      3 steps: Adile Naşit was in <em>Aile Şerefi</em> (1976) with Eriş Akman, who was in
+      <em>Slipstream</em> (1989) with Ben Kingsley, who was in <em>War Machine</em> (2017) with
+      Brad Pitt. And this is not the only 3-step link — unusual connections are not unusual at all.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : CHAIN / PATH / CYCLE ================= -->
+<section class="widget" id="chainpath">
+  <h2>Chain, path, or cycle? <span class="chip">Slide 9</span></h2>
+  <p class="howto">
+    The 4-node directed network from the slide: arcs (1,2), (2,3), (3,4), (4,3) and (4,1). Each round
+    highlights a sequence of arcs — classify it. Direction matters! The first three sequences are the
+    slide's own examples; the last three are extra drills we added on the same figure.
+  </p>
+  <div class="controls">
+    <span class="readout">sequence: <span class="chainseq" id="cp-seq">—</span></span>
+    <span class="readout">score: <b id="cp-score">0 / 0</b></span>
+  </div>
+  <div class="controls">
+    <button id="cp-chain">chain, but not a path</button>
+    <button id="cp-path">path (not a cycle)</button>
+    <button id="cp-cycle">cycle</button>
+    <button id="cp-none">not even a chain</button>
+    <button id="cp-nextq" class="primary">Next sequence →</button>
+  </div>
+  <canvas class="viz short" id="c-cp"></canvas>
+  <p class="status info" id="cp-status"></p>
+  <div class="note">
+    Definitions from the slide: consecutive arcs sharing exactly one vertex form a <b>chain</b>;
+    a chain where each arc's terminal node is the next arc's initial node is a <b>path</b>;
+    a path that returns to its start is a <b>cycle</b>.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Slide 9's answers: (1,2)-(2,3)-(4,3) is a chain but not a path (the last arc runs backwards);
+      (1,2)-(2,3)-(3,4) is a path; (1,2)-(2,3)-(3,4)-(4,1) is a cycle.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : CAR TRADE-IN GAME ================= -->
+<section class="widget" id="carplan">
+  <h2>When should you trade in the car? <span class="chip">Slides 11–14</span></h2>
+  <p class="howto">
+    A new car costs $12,000 at any time; maintenance climbs with age ($2k, $4k, $5k, $9k, $12k for
+    ages 0–4) and the trade-in value falls ($7k, $6k, $2k, $1k, $0 for ages 1–5). Node i = start of
+    year i; arc (i,j) = buy at year i, keep until year j; its cost is maintenance + $12k purchase −
+    trade-in. <b>Click nodes left to right</b> to build a 5-year replacement plan from node 1 to
+    node 6 — the cheapest plan is the shortest path. All costs in $1,000s.
+  </p>
+  <div class="controls">
+    <span class="readout">plan so far: <b id="car-plan">1</b></span>
+    <span class="readout">cost: <b id="car-total">0</b></span>
+    <span class="readout">your best: <b id="car-best">—</b></span>
+    <button id="car-undo">Undo</button>
+    <button id="car-reset">New attempt</button>
+    <button id="car-reveal" class="primary">Reveal optimal plans ★</button>
+  </div>
+  <canvas class="viz" id="c-car"></canvas>
+  <p class="status info" id="car-status"></p>
+  <div style="overflow-x:auto">
+    <table class="attempts" id="car-log">
+      <thead><tr><th>#</th><th>plan (nodes)</th><th>years kept</th><th>cost ($1,000s)</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="note">
+    Arc costs follow slide 13: e.g. c₁₃ = 2+4 (maintenance) + 12 (new car) − 6 (trade-in) = 12.
+    Because the cost only depends on how long you keep the car, every 1-year arc costs 7, every
+    2-year arc 12, then 21, 31, 44.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Slide 14: three plans tie at the minimum of 31 ($31,000): 1-3-5-6, 1-3-4-6 and 1-2-4-6 —
+      i.e. keep the car 2+2+1, 2+1+2 or 1+2+2 years. Keeping one car all five years costs 44.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 4 : DIJKSTRA STEPPER (EXAMPLE 1) ================= -->
+<section class="widget" id="dijkstra1">
+  <h2>Dijkstra, step by step — you call the next node <span class="chip">Slides 15–17</span></h2>
+  <p class="howto">
+    Dijkstra's algorithm on the car network: every node starts with tentative distance M (infinity)
+    except the source at 0. Each round, the unvisited node with the smallest tentative label becomes
+    permanent (★) and its unvisited neighbours are re-labelled. <b>Click the node that becomes
+    permanent next</b> — the table fills exactly like slide 17.
+  </p>
+  <div class="controls">
+    <button id="dj-run" class="locked">Run remaining steps</button>
+    <button id="dj-reset">Reset</button>
+  </div>
+  <canvas class="viz short" id="c-dj"></canvas>
+  <div class="iter-wrap">
+    <table class="iter" id="dj-table"></table>
+  </div>
+  <p class="status info" id="dj-status"></p>
+  <div class="note">
+    Notation from the slide: * marks a permanent (final) label; the number in parentheses is the
+    predecessor node that produced it; Min {old, via-current} shows each re-labelling.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Permanent order 1, 2, 3, 4, 5, 6 with final labels 0, 7, 12, 19, 24, 31. Back-tracing the
+      predecessors 31*(5) → 24*(3) → 12*(1) gives the shortest path 1-3-5-6 with length 31 —
+      the same 31 the class found by hand in the game above.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 5 : SERVADA PARK ================= -->
+<section class="widget" id="park">
+  <h2>Servada Park — which tram route is shortest? <span class="chip">Slides 18–20</span></h2>
+  <p class="howto">
+    O is the park entrance, T is where the cross-country hike begins, letters are ranger stations and
+    edge numbers are road lengths in miles. First <b>build a route by clicking stations</b> from O
+    to T and try to minimise total miles; then switch to the stepper and run Dijkstra exactly as in
+    the slides, calling out each permanent label.
+  </p>
+  <div class="controls">
+    <span class="segwrap">
+      <button class="seg active" id="pk-mroute">① find the route</button>
+      <button class="seg" id="pk-mdijk">② run Dijkstra</button>
+    </span>
+  </div>
+  <div id="pk-route-ui">
+    <div class="controls">
+      <span class="readout">route: <b id="pk-route">O</b></span>
+      <span class="readout">miles: <b id="pk-len">0</b></span>
+      <span class="readout">your best: <b id="pk-best">—</b></span>
+      <button id="pk-undo">Undo</button>
+      <button id="pk-reset">New attempt</button>
+      <button id="pk-reveal" class="primary">Reveal shortest route ★</button>
+    </div>
+  </div>
+  <div id="pk-dijk-ui" style="display:none">
+    <div class="controls">
+      <button id="pk-run" class="locked">Run remaining steps</button>
+      <button id="pk-dreset">Reset algorithm</button>
+    </div>
+  </div>
+  <canvas class="viz" id="c-pk"></canvas>
+  <p class="status info" id="pk-status"></p>
+  <div id="pk-route-log" style="overflow-x:auto">
+    <table class="attempts" id="pk-log">
+      <thead><tr><th>#</th><th>route</th><th>miles</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <div class="iter-wrap" id="pk-table-wrap" style="display:none">
+    <table class="iter" id="pk-table"></table>
+  </div>
+  <div class="note">
+    In the stepper, ties are real Dijkstra ties — either node may go permanent first; the slides pick
+    the order O, A, C, B, E, D, T, so following that order reproduces slides 19–20 line by line.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      T's permanent label is 13 miles. Back-trace: 13 −(5)→ 8 −(4)→ 4 −(2)→ 2 −(2)→ 0, i.e.
+      T–D–B–A–O, so the tram route is O–A–B–D–T. Slide 20 also notes the alternative optimum
+      O–A–B–E–D–T (2+2+3+1+5 = 13).
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 6 : LIBRARY SHELVES ================= -->
+<section class="widget" id="shelves">
+  <h2>Shelving books… as a shortest path? <span class="chip">Slides 21–22</span></h2>
+  <p class="howto">
+    The library must shelve 200 4-inch, 100 8-inch and 80 12-inch books (each ½-inch thick). A shelf
+    costs $2,300 to build, plus $5 per square inch of storage — and every book on a shelf occupies
+    the <em>shelf's</em> height × its own thickness. Node i = "all books up to i inches are already
+    shelved"; arc (i,j) = build one shelf of height j for every book taller than i inches.
+    <b>Step 1:</b> compute the six arc costs and check them. <b>Step 2:</b> click the cheapest
+    0 → 12 route.
+  </p>
+  <div class="costgrid">
+    <label>C₀,₄ = <input type="number" id="sh-i04" step="any"></label>
+    <label>C₀,₈ = <input type="number" id="sh-i08" step="any"></label>
+    <label>C₀,₁₂ = <input type="number" id="sh-i012" step="any"></label>
+    <label>C₄,₈ = <input type="number" id="sh-i48" step="any"></label>
+    <label>C₄,₁₂ = <input type="number" id="sh-i412" step="any"></label>
+    <label>C₈,₁₂ = <input type="number" id="sh-i812" step="any"></label>
+  </div>
+  <div class="controls">
+    <button id="sh-check" class="primary">Check the six costs</button>
+    <button id="sh-show">Show the costs</button>
+    <span class="readout">plan: <b id="sh-plan">0</b></span>
+    <span class="readout">cost: <b id="sh-total">$0</b></span>
+    <button id="sh-undo">Undo</button>
+    <button id="sh-reset">Reset plan</button>
+  </div>
+  <canvas class="viz short" id="c-sh"></canvas>
+  <p class="status info" id="sh-status"></p>
+  <div class="note">
+    Cᵢⱼ = 2300 + (number of books taller than i and at most j inches) × 0.5 × j × 5. Book counts per
+    range: 200 (≤4″), 300 (≤8″), 380 (≤12″), 100 (4–8″), 180 (4–12″), 80 (8–12″).
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Slide 22: C₀,₄=4300, C₀,₈=8300, C₀,₁₂=13700, C₄,₈=4300, C₄,₁₂=7700, C₈,₁₂=4700. The shortest
+      0 → 12 path is 0–4–12 with length $12,000: build a 4-inch shelf for the 200 short books and a
+      12-inch shelf for the other 180.
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 11.
+  Figures follow the examples used in the Week 11 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+
+/* === SHARED NETWORK-DRAWING HELPERS (canvas, theme-token colors only) === */
+
+function vfont(px, bold) {
+  const s = parseFloat(VIZ.cssv('--viz-font-scale')) || 1;
+  return (bold ? '600 ' : '') + Math.round(px * s) + 'px system-ui, sans-serif';
+}
+
+// sampled quadratic bezier from a to b, bowed sideways by `bow` px
+function bezPts(a, b, bow) {
+  const mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+  const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+  const nx = -dy / L, ny = dx / L;
+  const cx = mx + nx * bow, cy = my + ny * bow;
+  const pts = [];
+  for (let k = 0; k <= 40; k++) {
+    const u = k / 40;
+    pts.push({
+      x: (1 - u) * (1 - u) * a.x + 2 * (1 - u) * u * cx + u * u * b.x,
+      y: (1 - u) * (1 - u) * a.y + 2 * (1 - u) * u * cy + u * u * b.y,
+    });
+  }
+  return pts;
+}
+
+// text with a surface-colored halo so labels stay readable over edges
+function halo(ctx, t, txt, x, y, color, px, bold, align, baseline) {
+  ctx.save();
+  ctx.font = vfont(px || 13, bold);
+  ctx.textAlign = align || 'center';
+  ctx.textBaseline = baseline || 'middle';
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = t.surface;
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = color;
+  ctx.fillText(txt, x, y);
+  ctx.restore();
+}
+
+function drawLink(ctx, t, a, b, o = {}) {
+  const pts = bezPts(a, b, o.bow || 0);
+  ctx.save();
+  ctx.strokeStyle = o.color || t.axis;
+  ctx.lineWidth = o.width || 1.6;
+  if (o.dash) ctx.setLineDash(o.dash);
+  ctx.beginPath();
+  pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y));
+  ctx.stroke();
+  ctx.setLineDash([]);
+  if (o.arrow) {
+    const R = (o.nodeR || 16) + 4;
+    let tip = pts[pts.length - 1], prev = pts[pts.length - 2];
+    for (let k = pts.length - 1; k > 0; k--) {
+      if (Math.hypot(pts[k].x - b.x, pts[k].y - b.y) >= R) { tip = pts[k]; prev = pts[k - 1]; break; }
+    }
+    const ang = Math.atan2(tip.y - prev.y, tip.x - prev.x);
+    ctx.beginPath();
+    ctx.moveTo(tip.x, tip.y);
+    ctx.lineTo(tip.x - 10 * Math.cos(ang - 0.42), tip.y - 10 * Math.sin(ang - 0.42));
+    ctx.lineTo(tip.x - 10 * Math.cos(ang + 0.42), tip.y - 10 * Math.sin(ang + 0.42));
+    ctx.closePath();
+    ctx.fillStyle = o.color || t.axis;
+    ctx.fill();
+  }
+  if (o.label !== undefined) {
+    const mid = pts[20];
+    const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1;
+    const nx = -dy / L, ny = dx / L;
+    const off = o.labelOff !== undefined ? o.labelOff : 14;
+    const s = (o.bow || 0) !== 0 ? Math.sign(o.bow) : (o.side || 1);
+    halo(ctx, t, String(o.label), mid.x + nx * off * s, mid.y + ny * off * s,
+      o.labelColor || t.ink2, o.labelSize || 13, o.labelBold);
+  }
+  ctx.restore();
+}
+
+function drawNodeCircle(ctx, t, n, txt, o = {}) {
+  const r = o.r || 16;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
+  ctx.fillStyle = o.fill || t.surface;
+  ctx.fill();
+  ctx.lineWidth = o.ring ? 3 : 2;
+  ctx.strokeStyle = o.stroke || t.axis;
+  ctx.stroke();
+  ctx.font = vfont(o.size || 14, true);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = o.fill && o.fill !== t.surface ? t.surface : t.ink;
+  ctx.fillText(txt, n.x, n.y + 1);
+  ctx.restore();
+}
+
+function hitNode(nodes, px, py, r) {
+  return nodes.find(n => Math.hypot(n.x - px, n.y - py) <= r + 9);
+}
+
+/* === CAR NETWORK (Example 1) — shared by widgets 3 and 4.
+   Arc cost depends only on the span: 1yr=7, 2yr=12, 3yr=21, 4yr=31, 5yr=44
+   (slide 13). Up-bowed arcs from nodes 1-2, down-bowed from 3-4, like slide 14. */
+const CAR_SPAN = [null, 7, 12, 21, 31, 44];
+const CAR_MAINT = [2, 4, 5, 9, 12];         // maintenance by age 0..4 ($1,000s)
+const CAR_TRADE = [null, 7, 6, 2, 1, 0];    // trade-in by age 1..5 ($1,000s)
+const CAR_ARCS = [];
+for (let i = 1; i <= 5; i++) {
+  for (let j = i + 1; j <= 6; j++) {
+    const span = j - i;
+    CAR_ARCS.push({ i, j, c: CAR_SPAN[span], dir: span === 1 ? 'base' : (i <= 2 ? 'up' : 'down') });
+  }
+}
+const carCost = path => path.slice(1).reduce((s, n, k) => s + CAR_SPAN[n - path[k]], 0);
+
+function carLayout(canvas) {
+  const { ctx, w, h } = VIZ.setup(canvas);
+  const padX = Math.max(40, w * 0.055);
+  const y = h * 0.58;
+  const nodes = [];
+  for (let i = 1; i <= 6; i++) nodes.push({ id: i, x: padX + (i - 1) / 5 * (w - 2 * padX), y });
+  return { ctx, w, h, nodes };
+}
+
+// arcStyle(i,j) may return {color,width,dash,labelColor,labelBold} overrides
+function drawCarNet(canvas, t, opts = {}) {
+  const { ctx, h, nodes } = carLayout(canvas);
+  const R = 16;
+  CAR_ARCS.forEach(a => {
+    const span = a.j - a.i;
+    let bow = 0;
+    if (a.dir === 'up') bow = -2 * span * 0.082 * h;
+    if (a.dir === 'down') bow = 2 * (span === 2 ? 0.17 : 0.25) * h;
+    const st = (opts.arcStyle && opts.arcStyle(a.i, a.j)) || {};
+    drawLink(ctx, t, nodes[a.i - 1], nodes[a.j - 1], {
+      bow, arrow: true, nodeR: R, label: a.c, labelOff: a.dir === 'base' ? 15 : 11,
+      color: st.color, width: st.width || 1.6, dash: st.dash,
+      labelColor: st.labelColor, labelBold: st.labelBold,
+    });
+  });
+  nodes.forEach(n => {
+    const o = (opts.nodeStyle && opts.nodeStyle(n.id)) || {};
+    drawNodeCircle(ctx, t, n, String(n.id), { r: R, fill: o.fill, stroke: o.stroke, ring: o.ring });
+  });
+  if (opts.after) opts.after(ctx, nodes);
+  return nodes;
+}
+
+/* ============================================================
+   WIDGET 1 — Oracle of Bacon guess (slides 5-8)
+   Chain from slide 7: Naşit -Aile Şerefi(1976)- Akman
+   -Slipstream(1989)- Kingsley -War Machine(2017)- Pitt = 3 steps.
+   ============================================================ */
+(() => {
+  const HOPS = [
+    { movie: 'Aile Şerefi (1976)', actor: 'Eriş Akman' },
+    { movie: 'Slipstream (1989)', actor: 'Ben Kingsley' },
+    { movie: 'War Machine (2017)', actor: 'Brad Pitt' },
+  ];
+  let locked = false, shown = 0;
+
+  function render() {
+    const box = el('bc-chain');
+    let html = '<span class="actor">Adile Naşit</span>';
+    for (let k = 0; k < shown; k++) {
+      html += '<span class="hop"><span class="movie">' + HOPS[k].movie + '</span><span class="arrow">→</span></span>';
+      html += '<span class="actor">' + HOPS[k].actor + '</span>';
+    }
+    if (shown < HOPS.length) {
+      html += '<span class="hop"><span class="movie">?</span><span class="arrow">→</span></span>';
+      html += '<span class="actor unknown">… Brad Pitt</span>';
+    }
+    box.innerHTML = html;
+  }
+
+  el('bc-guess').addEventListener('input', () => { el('bc-gval').textContent = el('bc-guess').value; });
+
+  el('bc-lock').addEventListener('click', () => {
+    if (locked) return;
+    locked = true;
+    el('bc-guess').disabled = true;
+    el('bc-next').classList.remove('locked');
+    el('bc-status').className = 'status info';
+    el('bc-status').textContent = 'Guess locked: ' + el('bc-guess').value + ' step(s). Now reveal the hops.';
+  });
+
+  el('bc-next').addEventListener('click', () => {
+    const st = el('bc-status');
+    if (!locked) {
+      st.className = 'status bad';
+      st.textContent = 'Lock a guess first — predictions before answers!';
+      return;
+    }
+    if (shown >= HOPS.length) return;
+    shown++;
+    render();
+    if (shown === HOPS.length) {
+      const g = +el('bc-guess').value;
+      st.className = g === 3 ? 'status ok' : 'status info';
+      st.textContent = (g === 3 ? '✓ Spot on — ' : 'You guessed ' + g + '; ') +
+        'the Oracle needs only 3 steps. Two Hollywood-scale hops after one Yeşilçam hop!';
+    } else {
+      st.className = 'status info';
+      st.textContent = 'Hop ' + shown + ' of 3 revealed — who bridges the gap next?';
+    }
+  });
+
+  el('bc-reset').addEventListener('click', () => {
+    locked = false; shown = 0;
+    el('bc-guess').disabled = false;
+    el('bc-next').classList.add('locked');
+    el('bc-status').className = 'status info';
+    el('bc-status').textContent = 'Slide a guess, lock it, then reveal the chain hop by hop.';
+    render();
+  });
+
+  render();
+})();
+
+/* ============================================================
+   WIDGET 2 — chain / path / cycle quiz (slide 9)
+   Figure: nodes 1(TL) 4(TR) 2(BL) 3(BR); arcs (1,2)(2,3)(3,4)(4,3)(4,1).
+   ============================================================ */
+(() => {
+  const canvas = el('c-cp');
+  const ARCS = [
+    { a: 1, b: 2, bow: 0 },
+    { a: 2, b: 3, bow: 0 },
+    { a: 3, b: 4, bow: -10 },
+    { a: 4, b: 3, bow: -30 },
+    { a: 4, b: 1, bow: 0 },
+  ];
+  // first three sequences are slide 9's own; the rest are extra drills on the same figure
+  const SEQS = [
+    [[1, 2], [2, 3], [4, 3]],
+    [[1, 2], [2, 3], [3, 4]],
+    [[1, 2], [2, 3], [3, 4], [4, 1]],
+    [[4, 3], [2, 3]],
+    [[4, 1], [1, 2], [2, 3], [3, 4]],
+    [[1, 2], [3, 4]],
+  ];
+  let q = 0, answered = false, score = 0, asked = 0;
+
+  function analyze(arcs) {
+    let chain = true, gapAt = -1, dirBreak = -1;
+    for (let k = 1; k < arcs.length; k++) {
+      const shared = arcs[k - 1].filter(v => arcs[k].includes(v));
+      if (shared.length === 0) { chain = false; gapAt = k; break; }
+      if (arcs[k - 1][1] !== arcs[k][0] && dirBreak < 0) dirBreak = k;
+    }
+    const path = chain && dirBreak < 0;
+    const cycle = path && arcs[0][0] === arcs[arcs.length - 1][1];
+    const ans = cycle ? 'cycle' : path ? 'path' : chain ? 'chain' : 'none';
+    return { ans, gapAt, dirBreak };
+  }
+
+  const seqText = arcs => arcs.map(a => '(' + a[0] + ',' + a[1] + ')').join('-');
+
+  function layout() {
+    const { ctx, w, h } = VIZ.setup(canvas);
+    const px = Math.max(60, w * 0.2), py = 52;
+    const P = {
+      1: { x: px, y: py }, 4: { x: w - px, y: py },
+      2: { x: px, y: h - py }, 3: { x: w - px, y: h - py },
+    };
+    return { ctx, w, h, P };
+  }
+
+  function draw() {
+    const { ctx, P } = layout();
+    const t = VIZ.theme();
+    const cur = SEQS[q];
+    ARCS.forEach(a => {
+      // which position (if any) does this arc hold in the quizzed sequence?
+      const k = cur.findIndex(s => s[0] === a.a && s[1] === a.b);
+      drawLink(ctx, t, P[a.a], P[a.b], {
+        bow: a.bow, arrow: true, nodeR: 17,
+        color: k >= 0 ? t.s5 : t.axis, width: k >= 0 ? 3.5 : 1.6,
+      });
+      if (k >= 0) {
+        const pts = bezPts(P[a.a], P[a.b], a.bow);
+        const m = pts[13];
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, 10, 0, 2 * Math.PI);
+        ctx.fillStyle = t.s5;
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = t.surface;
+        ctx.stroke();
+        ctx.font = vfont(12, true);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = t.surface;
+        ctx.fillText(String(k + 1), m.x, m.y + 1);
+        ctx.restore();
+      }
+    });
+    [1, 2, 3, 4].forEach(n => drawNodeCircle(ctx, t, P[n], String(n), { r: 17 }));
+  }
+
+  function ask() {
+    answered = false;
+    el('cp-seq').textContent = seqText(SEQS[q]);
+    el('cp-status').className = 'status info';
+    el('cp-status').textContent = 'Sequence ' + (q + 1) + ' of ' + SEQS.length +
+      ' — follow the numbered violet arcs (arrows show direction) and classify.';
+    draw();
+  }
+
+  function judge(clicked) {
+    const st = el('cp-status');
+    if (answered) {
+      st.className = 'status info';
+      st.textContent = 'Already answered — press “Next sequence”.';
+      return;
+    }
+    const cur = SEQS[q];
+    const { ans, gapAt, dirBreak } = analyze(cur);
+    answered = true;
+    asked++;
+    if (clicked === ans) {
+      score++;
+      st.className = 'status ok';
+      const why = {
+        chain: 'consecutive arcs share a vertex, but arc ' + seqText([cur[dirBreak]]) + ' runs against the walking direction — chain, not path.',
+        path: 'every arc ends where the next one starts, and it does not return to its start.',
+        cycle: 'a path that starts and ends at node ' + cur[0][0] + ' — a cycle.',
+        none: 'arcs ' + seqText([cur[gapAt - 1]]) + ' and ' + seqText([cur[gapAt]]) + ' share no vertex at all.',
+      };
+      st.textContent = '✓ Correct: ' + why[ans];
+    } else {
+      st.className = 'status bad';
+      let hint = '';
+      if (ans === 'chain') hint = dirBreak >= 0
+        ? 'Check arc ' + seqText([cur[dirBreak]]) + ': it starts at ' + cur[dirBreak][0] + ', but the previous arc ends at ' + cur[dirBreak - 1][1] + ' — direction breaks, so it cannot be a path; yet each pair of consecutive arcs still shares a vertex.'
+        : 'Consecutive arcs share a vertex — that alone makes a chain.';
+      else if (ans === 'path') hint = 'Follow the arrows: each arc’s terminal node is the next arc’s initial node, and it ends at ' + cur[cur.length - 1][1] + ' ≠ ' + cur[0][0] + ', so it is a path but not a cycle.';
+      else if (ans === 'cycle') hint = 'The walk respects every arrow AND returns to node ' + cur[0][0] + ' — that upgrade makes it a cycle.';
+      else hint = 'Look between arcs ' + seqText([cur[gapAt - 1]]) + ' and ' + seqText([cur[gapAt]]) + ': no shared vertex, so it is not even a chain.';
+      st.textContent = '✗ Not quite. ' + hint;
+    }
+    el('cp-score').textContent = score + ' / ' + asked;
+  }
+
+  el('cp-chain').addEventListener('click', () => judge('chain'));
+  el('cp-path').addEventListener('click', () => judge('path'));
+  el('cp-cycle').addEventListener('click', () => judge('cycle'));
+  el('cp-none').addEventListener('click', () => judge('none'));
+  el('cp-nextq').addEventListener('click', () => { q = (q + 1) % SEQS.length; ask(); });
+
+  ask();
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 3 — car trade-in route game (slides 11-14)
+   Shortest 1→6 path costs 31; ties: 1-3-5-6, 1-3-4-6, 1-2-4-6.
+   ============================================================ */
+(() => {
+  const canvas = el('c-car');
+  VIZ.hint(canvas, '🖱 click the next node of your plan · click the last node to undo');
+  const OPT_ARCS = [[1, 3], [3, 5], [5, 6], [3, 4], [4, 6], [1, 2], [2, 4]]; // union of the three optimal plans
+  let path = [1], best = null, revealed = false, attempts = 0, nodes = [];
+
+  const complete = () => path[path.length - 1] === 6;
+  const inPath = (i, j) => path.some((n, k) => k > 0 && path[k - 1] === i && n === j);
+
+  function breakdown(i, j) {
+    const span = j - i;
+    const maint = CAR_MAINT.slice(0, span);
+    return 'c' + i + ',' + j + ' = ' + maint.join('+') + ' (maintenance) + 12 (new car) − ' +
+      CAR_TRADE[span] + ' (trade-in) = ' + CAR_SPAN[span];
+  }
+
+  function draw() {
+    const t = VIZ.theme();
+    nodes = drawCarNet(canvas, t, {
+      arcStyle: (i, j) => {
+        if (inPath(i, j)) return { color: t.s5, width: 4, labelColor: t.s5, labelBold: true };
+        if (revealed && OPT_ARCS.some(a => a[0] === i && a[1] === j))
+          return { color: t.s2, width: 3, dash: [7, 5], labelColor: t.s2, labelBold: true };
+        return {};
+      },
+      nodeStyle: id => path.includes(id) ? { fill: t.s5, stroke: t.s5 } : {},
+      after: (ctx, ns) => {
+        // left/right aligned so the captions never clip at the canvas edges
+        halo(ctx, t, 'start — buy a car', ns[0].x - 16, ns[0].y + 32, t.muted, 12, false, 'left');
+        halo(ctx, t, 'end of year 5 — sell', ns[5].x + 16, ns[5].y + 32, t.muted, 12, false, 'right');
+      },
+    });
+    el('car-plan').textContent = path.join('-');
+    el('car-total').textContent = carCost(path);
+    el('car-best').textContent = best === null ? '—' : best;
+  }
+
+  function log() {
+    attempts++;
+    const total = carCost(path);
+    if (best === null || total < best) best = total;
+    const spans = path.slice(1).map((n, k) => n - path[k]).join('+');
+    const tb = el('car-log').querySelector('tbody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + attempts + '</td><td>' + path.join('-') + '</td><td>' + spans + '</td><td><b>' + total + '</b></td>';
+    tb.appendChild(tr);
+    tb.querySelectorAll('tr').forEach(r => r.classList.toggle('best', +r.lastChild.textContent === best));
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const n = hitNode(nodes, px, py, 16);
+    if (!n) return;
+    const st = el('car-status');
+    const last = path[path.length - 1];
+    if (n.id === last && path.length > 1) {
+      path.pop();
+      st.className = 'status info';
+      st.textContent = 'Undid the last arc. Plan so far: ' + path.join('-') + '.';
+      draw();
+      return;
+    }
+    if (complete()) {
+      st.className = 'status info';
+      st.textContent = 'Plan finished — press “New attempt” to try another.';
+      return;
+    }
+    if (n.id <= last) {
+      st.className = 'status bad';
+      st.textContent = 'Time only moves forward: pick a node to the right of ' + last + '.';
+      return;
+    }
+    path.push(n.id);
+    if (complete()) {
+      const total = carCost(path);
+      log();
+      st.className = total === 31 ? 'status ok' : 'status info';
+      st.textContent = (total === 31 ? '✓ 31 — can anyone do better…? ' : '') +
+        'Plan ' + path.join('-') + ' costs $' + total + ',000 over the five years. Logged below.';
+    } else {
+      st.className = 'status info';
+      st.textContent = 'Arc ' + last + '→' + n.id + ': ' + breakdown(last, n.id) + '. Keep going to node 6.';
+    }
+    draw();
+  });
+
+  el('car-undo').addEventListener('click', () => {
+    if (path.length > 1) path.pop();
+    el('car-status').className = 'status info';
+    el('car-status').textContent = 'Plan so far: ' + path.join('-') + '.';
+    draw();
+  });
+  el('car-reset').addEventListener('click', () => {
+    path = [1];
+    el('car-status').className = 'status info';
+    el('car-status').textContent = 'New attempt — click the year you would first replace the car.';
+    draw();
+  });
+  el('car-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('car-reveal').textContent = revealed ? 'Hide optimal plans' : 'Reveal optimal plans ★';
+    el('car-status').className = 'status info';
+    el('car-status').textContent = revealed
+      ? 'Green dashed arcs: slide 14’s three tied optima 1-3-5-6, 1-3-4-6 and 1-2-4-6 — all cost 31.'
+      : 'Optimal plans hidden again.';
+    draw();
+  });
+
+  el('car-status').textContent = 'Click node 2, 3, 4, 5 or 6: the first arc decides how long you keep the first car.';
+  window.__carScore = () => complete() ? carCost(path) : null;
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 4 — Dijkstra stepper, Example 1 (slides 15-17)
+   Table rows reproduce slide 17 exactly; class clicks the next
+   permanent node (order 1,2,3,4,5,6). Shortest path 1-3-5-6 = 31.
+   ============================================================ */
+(() => {
+  const canvas = el('c-dj');
+  VIZ.hint(canvas, '🖱 click the node that becomes permanent next');
+  const ROWS = [
+    ['start', '0', 'M', 'M', 'M', 'M', 'M'],
+    ['node 1 ★', '0* (1)', '7', '12', '21', '31', '44'],
+    ['node 2 ★', '0*', '7* (1)', 'Min {12,14}', 'Min {21,19}', 'Min {31,28}', 'Min {44,38}'],
+    ['node 3 ★', '0*', '7*', '12* (1)', 'Min {19,19}', 'Min {28,24}', 'Min {38,33}'],
+    ['node 4 ★', '0*', '7*', '12*', '19* (2)', 'Min {24,26}', 'Min {33,31}'],
+    ['node 5 ★', '0*', '7*', '12*', '19*', '24* (3)', 'Min {31,31}'],
+    ['node 6 ★', '0*', '7*', '12*', '19*', '24*', '31* (5)'],
+  ];
+  const TENT = [
+    [0, Infinity, Infinity, Infinity, Infinity, Infinity],
+    [0, 7, 12, 21, 31, 44],
+    [0, 7, 12, 19, 28, 38],
+    [0, 7, 12, 19, 24, 33],
+    [0, 7, 12, 19, 24, 31],
+    [0, 7, 12, 19, 24, 31],
+    [0, 7, 12, 19, 24, 31],
+  ];
+  const EXP = [1, 2, 3, 4, 5, 6];
+  const MSG = [
+    '✓ Node 1 (the source, label 0) is permanent first. Its neighbours pick up 7, 12, 21, 31, 44.',
+    '✓ Node 2 permanent at 7* — going via 2 offers 7+7, 7+12, 7+21, 7+31; each Min keeps the smaller.',
+    '✓ Node 3 permanent at 12* — via 3: 12+7 ties node 4 at 19, 12+12 improves node 5 to 24, 12+21 improves node 6 to 33.',
+    '✓ Node 4 permanent at 19* — via 4: 19+7 = 26 does NOT beat 24; 19+12 = 31 improves node 6.',
+    '✓ Node 5 permanent at 24* — via 5: 24+7 = 31 ties node 6’s label. The slide records predecessor (5).',
+    '✓ Node 6 permanent at 31* — destination reached, algorithm stops. Back-trace: 31*(5) → 24*(3) → 12*(1) → 1.',
+  ];
+  let revealed, done, nodes = [];
+
+  const permSet = () => EXP.slice(0, revealed - 1);
+
+  function renderTable() {
+    let html = '<thead><tr><th>permanent</th>' + [1, 2, 3, 4, 5, 6].map(n => '<th>node ' + n + '</th>').join('') + '</tr></thead><tbody>';
+    for (let r = 0; r < revealed; r++) {
+      html += '<tr><td>' + ROWS[r][0] + '</td>' + ROWS[r].slice(1).map((c, j) =>
+        '<td class="' + (c.includes('*') ? 'perm' : '') + '">' + c + '</td>').join('') + '</tr>';
+    }
+    el('dj-table').innerHTML = html + '</tbody>';
+  }
+
+  function draw() {
+    const t = VIZ.theme();
+    const perm = permSet();
+    const lab = TENT[revealed - 1];
+    nodes = drawCarNet(canvas, t, {
+      arcStyle: (i, j) => done && ((i === 1 && j === 3) || (i === 3 && j === 5) || (i === 5 && j === 6))
+        ? { color: t.s2, width: 4, labelColor: t.s2, labelBold: true } : {},
+      nodeStyle: id => perm.includes(id) ? { fill: t.s2, stroke: t.s2 } : {},
+      after: (ctx, ns) => {
+        ns.forEach((n, k) => {
+          const v = lab[k];
+          const txt = perm.includes(n.id) ? v + '*' : (v === Infinity ? 'M' : String(v));
+          halo(ctx, t, txt, n.x, n.y + 31, perm.includes(n.id) ? t.s2 : t.ink2, 14, true);
+        });
+        if (done) halo(ctx, t, 'shortest path 1-3-5-6 = 31', ns[2].x + (ns[3].x - ns[2].x) / 2, ns[0].y + 56, t.s2, 14, true);
+      },
+    });
+  }
+
+  function advance(id) {
+    const st = el('dj-status');
+    const exp = EXP[revealed - 1];
+    if (id !== exp) {
+      const lab = TENT[revealed - 1];
+      st.className = 'status bad';
+      st.textContent = permSet().includes(id)
+        ? '✗ Node ' + id + ' is already permanent — its label is final.'
+        : '✗ Node ' + id + '’s tentative label is ' + (lab[id - 1] === Infinity ? 'M' : lab[id - 1]) +
+          ', but node ' + exp + ' holds the smallest (' + lab[exp - 1] + '). Smallest label goes permanent.';
+      return false;
+    }
+    st.className = 'status ok';
+    st.textContent = MSG[revealed - 1];
+    revealed++;
+    el('dj-run').classList.remove('locked');
+    if (revealed === ROWS.length) {
+      done = true;
+      st.textContent += ' Shortest path: 1-3-5-6 with length 31 (slide 17).';
+    }
+    renderTable();
+    draw();
+    return true;
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    if (done) return;
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const n = hitNode(nodes, px, py, 16);
+    if (n) advance(n.id);
+  });
+
+  el('dj-run').addEventListener('click', () => {
+    const st = el('dj-status');
+    if (el('dj-run').classList.contains('locked')) {
+      st.className = 'status info';
+      st.textContent = 'Take the first step yourself: click the node that becomes permanent first.';
+      return;
+    }
+    while (!done) advance(EXP[revealed - 1]);
+  });
+
+  function reset() {
+    revealed = 1;
+    done = false;
+    el('dj-run').classList.add('locked');
+    el('dj-status').className = 'status info';
+    el('dj-status').textContent = 'Every node starts at M (infinity), the source at 0. Which node becomes permanent first?';
+    renderTable();
+    draw();
+  }
+  el('dj-reset').addEventListener('click', reset);
+
+  reset();
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 5 — Servada Park (slides 18-20)
+   Undirected road network; shortest O→T = 13 miles via O-A-B-D-T
+   (alternative O-A-B-E-D-T). Dijkstra labels: O0 A2 B4 C4 D8 E7 T13.
+   ============================================================ */
+(() => {
+  const canvas = el('c-pk');
+  VIZ.hint(canvas, '🖱 click the next station · click the last one to undo');
+  const PN = ['O', 'A', 'B', 'C', 'D', 'E', 'T'];
+  const POS = {
+    O: [0.05, 0.55], A: [0.24, 0.08], B: [0.46, 0.55], C: [0.34, 0.92],
+    D: [0.70, 0.36], E: [0.66, 0.82], T: [0.95, 0.10],
+  };
+  const LOFF = { O: [0, -28], A: [0, -28], B: [30, -20], C: [0, 32], D: [-4, -28], E: [0, 32], T: [0, 32] };
+  const EDGES = [
+    ['O', 'A', 2], ['O', 'B', 5], ['O', 'C', 4], ['A', 'B', 2], ['A', 'D', 7],
+    ['B', 'C', 1], ['B', 'D', 4], ['B', 'E', 3], ['C', 'E', 4], ['D', 'E', 1],
+    ['D', 'T', 5], ['E', 'T', 7],
+  ];
+  const adj = {};
+  EDGES.forEach(([a, b, w]) => { (adj[a] = adj[a] || {})[b] = w; (adj[b] = adj[b] || {})[a] = w; });
+  const OPT1 = ['O', 'A', 'B', 'D', 'T'], OPT2 = ['O', 'A', 'B', 'E', 'D', 'T'];
+
+  let mode = 'route';
+  // route game state
+  let route = ['O'], bestLen = null, attempts = 0, revealed = false;
+  // dijkstra state
+  let dlab, perm, drows, ddone;
+  let nodes = [];
+
+  const routeLen = r => r.slice(1).reduce((s, n, k) => s + adj[r[k]][n], 0);
+  const atT = () => route[route.length - 1] === 'T';
+  const onRoute = (a, b) => route.some((n, k) => k > 0 && ((route[k - 1] === a && n === b) || (route[k - 1] === b && n === a)));
+  const onOpt = (r, a, b) => r.some((n, k) => k > 0 && ((r[k - 1] === a && n === b) || (r[k - 1] === b && n === a)));
+
+  function layout() {
+    const { ctx, w, h } = VIZ.setup(canvas);
+    const padX = Math.max(34, w * 0.05), padY = 46;
+    nodes = PN.map(id => ({
+      id,
+      x: padX + POS[id][0] * (w - 2 * padX),
+      y: padY + POS[id][1] * (h - 2 * padY),
+    }));
+    return { ctx, w, h };
+  }
+
+  function draw() {
+    const { ctx } = layout();
+    const t = VIZ.theme();
+    const N = {};
+    nodes.forEach(n => N[n.id] = n);
+    const showOpt = (mode === 'route' && revealed) || (mode === 'dijk' && ddone);
+    EDGES.forEach(([a, b, w]) => {
+      let color, width = 1.6, dash;
+      if (mode === 'route' && onRoute(a, b)) { color = t.s5; width = 4; }
+      else if (showOpt && onOpt(OPT1, a, b)) { color = t.s2; width = 4; }
+      else if (showOpt && onOpt(OPT2, a, b)) { color = t.s2; width = 3; dash = [7, 5]; }
+      drawLink(ctx, t, N[a], N[b], { color, width, dash, label: w, labelOff: 13, labelColor: color && color !== t.axis ? color : t.ink2, labelBold: !!color });
+    });
+    nodes.forEach(n => {
+      let fill, stroke, ring;
+      if (mode === 'route') {
+        if (route.includes(n.id)) { fill = t.s5; stroke = t.s5; }
+        if (n.id === 'T' && !atT()) ring = true;
+      } else if (perm.includes(n.id)) { fill = t.s2; stroke = t.s2; }
+      drawNodeCircle(ctx, t, n, n.id, { r: 16, fill, stroke, ring });
+    });
+    if (mode === 'dijk') {
+      nodes.forEach(n => {
+        const v = dlab[n.id];
+        const txt = perm.includes(n.id) ? v + '*' : (v === Infinity ? '∞' : String(v));
+        halo(ctx, t, txt, n.x + LOFF[n.id][0], n.y + LOFF[n.id][1], perm.includes(n.id) ? t.s2 : t.ink2, 14, true);
+      });
+    } else {
+      halo(ctx, t, 'entrance', N.O.x - 16, N.O.y - 28, t.muted, 12, false, 'left');
+      halo(ctx, t, 'hike start', N.T.x + 16, N.T.y + 30, t.muted, 12, false, 'right');
+    }
+    if (mode === 'route') {
+      el('pk-route').textContent = route.join('–');
+      el('pk-len').textContent = routeLen(route);
+      el('pk-best').textContent = bestLen === null ? '—' : bestLen;
+    }
+  }
+
+  /* ---- route game ---- */
+  function clickRoute(id) {
+    const st = el('pk-status');
+    const last = route[route.length - 1];
+    if (id === last && route.length > 1) {
+      route.pop();
+      st.className = 'status info';
+      st.textContent = 'Backtracked to ' + route[route.length - 1] + '.';
+      draw();
+      return;
+    }
+    if (atT()) {
+      st.className = 'status info';
+      st.textContent = 'Route finished — press “New attempt” to try another.';
+      return;
+    }
+    if (!(id in adj[last])) {
+      st.className = 'status bad';
+      st.textContent = '✗ No road between ' + last + ' and ' + id + '.';
+      return;
+    }
+    if (route.includes(id)) {
+      st.className = 'status bad';
+      st.textContent = '✗ ' + id + ' is already on the route — no point driving the tram in circles.';
+      return;
+    }
+    route.push(id);
+    if (atT()) {
+      const len = routeLen(route);
+      attempts++;
+      if (bestLen === null || len < bestLen) bestLen = len;
+      const tb = el('pk-log').querySelector('tbody');
+      const tr = document.createElement('tr');
+      tr.innerHTML = '<td>' + attempts + '</td><td>' + route.join('–') + '</td><td><b>' + len + '</b></td>';
+      tb.appendChild(tr);
+      tb.querySelectorAll('tr').forEach(r => r.classList.toggle('best', +r.lastChild.textContent === bestLen));
+      st.className = len === 13 ? 'status ok' : 'status info';
+      st.textContent = (len === 13 ? '✓ 13 miles — is there anything shorter? ' : '') +
+        'Route ' + route.join('–') + ' = ' + len + ' miles. Logged below.';
+    } else {
+      st.className = 'status info';
+      st.textContent = last + ' → ' + id + ' adds ' + adj[last][id] + ' miles; total ' + routeLen(route) + '. Reach T.';
+    }
+    draw();
+  }
+
+  /* ---- dijkstra stepper ---- */
+  function dReset() {
+    dlab = {};
+    PN.forEach(n => dlab[n] = Infinity);
+    dlab.O = 0;
+    perm = [];
+    drows = [];
+    ddone = false;
+    el('pk-run').classList.add('locked');
+    renderDTable();
+    if (mode === 'dijk') {
+      el('pk-status').className = 'status info';
+      el('pk-status').textContent = 'All labels start at ∞ except O = 0. Click the node that becomes permanent first.';
+      draw();
+    }
+  }
+
+  function renderDTable() {
+    let html = '<thead><tr><th>permanent</th>' + PN.map(n => '<th>' + n + '</th>').join('') + '</tr></thead><tbody>';
+    drows.forEach(r => {
+      html += '<tr><td>' + r[0] + ' ★</td>' + r.slice(1).map(c =>
+        '<td class="' + (String(c).includes('*') ? 'perm' : '') + '">' + c + '</td>').join('') + '</tr>';
+    });
+    el('pk-table').innerHTML = html + '</tbody>';
+  }
+
+  function dSnapshot(u) {
+    drows.push([u].concat(PN.map(n =>
+      perm.includes(n) ? dlab[n] + '*' : (dlab[n] === Infinity ? '–' : String(dlab[n])))));
+  }
+
+  function dAdvance(id) {
+    const st = el('pk-status');
+    const unv = PN.filter(n => !perm.includes(n));
+    const minv = Math.min.apply(null, unv.map(n => dlab[n]));
+    if (perm.includes(id)) {
+      st.className = 'status bad';
+      st.textContent = '✗ ' + id + ' is already permanent.';
+      return;
+    }
+    if (dlab[id] !== minv) {
+      st.className = 'status bad';
+      st.textContent = '✗ ' + id + '’s tentative label is ' + (dlab[id] === Infinity ? '∞' : dlab[id]) +
+        ' — the smallest is ' + minv + ' (' + unv.filter(n => dlab[n] === minv).join(', ') + ').';
+      return;
+    }
+    perm.push(id);
+    el('pk-run').classList.remove('locked');
+    const parts = [];
+    if (id !== 'T') {
+      Object.keys(adj[id]).forEach(v => {
+        if (perm.includes(v)) return;
+        const old = dlab[v];
+        const nd = Math.min(old, dlab[id] + adj[id][v]);
+        parts.push('for ' + v + ': min {' + dlab[id] + '+' + adj[id][v] + ', ' + (old === Infinity ? '∞' : old) + '} = ' + nd);
+        dlab[v] = nd;
+      });
+    }
+    dSnapshot(id);
+    renderDTable();
+    if (id === 'T') {
+      ddone = true;
+      st.className = 'status ok';
+      st.textContent = '✓ T permanent at 13* — back-trace 13 −(5)→ 8 −(4)→ 4 −(2)→ 2 −(2)→ 0: route O–A–B–D–T = 13 miles; O–A–B–E–D–T also gives 13 (slide 20).';
+    } else {
+      st.className = 'status ok';
+      st.textContent = '✓ ' + id + ' permanent at ' + dlab[id] + '*. ' + (parts.length ? parts.join(' · ') + '.' : 'No unvisited neighbours to update.') + ' Next smallest label?';
+    }
+    draw();
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const n = hitNode(nodes, px, py, 16);
+    if (!n) return;
+    if (mode === 'route') clickRoute(n.id);
+    else if (!ddone) dAdvance(n.id);
+  });
+
+  /* ---- mode switching & controls ---- */
+  function setMode(m) {
+    mode = m;
+    el('pk-mroute').classList.toggle('active', m === 'route');
+    el('pk-mdijk').classList.toggle('active', m === 'dijk');
+    el('pk-route-ui').style.display = m === 'route' ? '' : 'none';
+    el('pk-route-log').style.display = m === 'route' ? '' : 'none';
+    el('pk-dijk-ui').style.display = m === 'dijk' ? '' : 'none';
+    el('pk-table-wrap').style.display = m === 'dijk' ? '' : 'none';
+    el('pk-status').className = 'status info';
+    el('pk-status').textContent = m === 'route'
+      ? 'Click stations connected by a road, starting from O, until you reach T.'
+      : (ddone ? 'Algorithm finished — reset to run it again.' : 'All labels start at ∞ except O = 0. Click the node that becomes permanent first.');
+    draw();
+  }
+  el('pk-mroute').addEventListener('click', () => setMode('route'));
+  el('pk-mdijk').addEventListener('click', () => setMode('dijk'));
+
+  el('pk-undo').addEventListener('click', () => {
+    if (route.length > 1) route.pop();
+    el('pk-status').className = 'status info';
+    el('pk-status').textContent = 'Route so far: ' + route.join('–') + '.';
+    draw();
+  });
+  el('pk-reset').addEventListener('click', () => {
+    route = ['O'];
+    el('pk-status').className = 'status info';
+    el('pk-status').textContent = 'New attempt — start clicking from O.';
+    draw();
+  });
+  el('pk-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('pk-reveal').textContent = revealed ? 'Hide shortest route' : 'Reveal shortest route ★';
+    el('pk-status').className = 'status info';
+    el('pk-status').textContent = revealed
+      ? 'Solid green: O–A–B–D–T = 13 miles. Dashed green: the alternative optimum O–A–B–E–D–T, also 13.'
+      : 'Shortest route hidden again.';
+    draw();
+  });
+  el('pk-run').addEventListener('click', () => {
+    if (el('pk-run').classList.contains('locked')) {
+      el('pk-status').className = 'status info';
+      el('pk-status').textContent = 'Take the first step yourself: click the node that becomes permanent first.';
+      return;
+    }
+    while (!ddone) {
+      const unv = PN.filter(n => !perm.includes(n));
+      const minv = Math.min.apply(null, unv.map(n => dlab[n]));
+      // follow the slides' tie-break order (O, A, C, B, E, D, T)
+      const SLIDE_ORDER = ['O', 'A', 'C', 'B', 'E', 'D', 'T'];
+      dAdvance(SLIDE_ORDER.find(n => unv.includes(n) && dlab[n] === minv));
+    }
+  });
+  el('pk-dreset').addEventListener('click', dReset);
+
+  el('pk-status').textContent = 'Click stations connected by a road, starting from O, until you reach T.';
+  window.__parkScore = () => atT() ? routeLen(route) : null;
+  dReset();
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 6 — library shelves (slides 21-22)
+   Costs: C04=4300 C08=8300 C0,12=13700 C48=4300 C4,12=7700 C8,12=4700.
+   Shortest 0→12 path: 0-4-12 = $12,000.
+   ============================================================ */
+(() => {
+  const canvas = el('c-sh');
+  VIZ.hint(canvas, '🖱 after checking the costs, click the shelving plan node by node');
+  const NIDS = [0, 4, 8, 12];
+  const COST = { '0,4': 4300, '0,8': 8300, '0,12': 13700, '4,8': 4300, '4,12': 7700, '8,12': 4700 };
+  const NBOOKS = { '0,4': 200, '0,8': 300, '0,12': 380, '4,8': 100, '4,12': 180, '8,12': 80 };
+  const INPUTS = { '0,4': 'sh-i04', '0,8': 'sh-i08', '0,12': 'sh-i012', '4,8': 'sh-i48', '4,12': 'sh-i412', '8,12': 'sh-i812' };
+  const SUB = { '0,4': 'C₀,₄', '0,8': 'C₀,₈', '0,12': 'C₀,₁₂', '4,8': 'C₄,₈', '4,12': 'C₄,₁₂', '8,12': 'C₈,₁₂' };
+  let costsKnown = false, path = [0], nodes = [];
+
+  const key = (i, j) => i + ',' + j;
+  const done = () => path[path.length - 1] === 12;
+  const planCost = () => path.slice(1).reduce((s, n, k) => s + COST[key(path[k], n)], 0);
+  const inPath = (i, j) => path.some((n, k) => k > 0 && path[k - 1] === i && n === j);
+
+  function draw() {
+    const { ctx, w, h } = VIZ.setup(canvas);
+    const t = VIZ.theme();
+    const padX = Math.max(44, w * 0.07);
+    const y = h * 0.55;
+    nodes = NIDS.map((id, k) => ({ id, x: padX + k / 3 * (w - 2 * padX), y }));
+    const N = {};
+    nodes.forEach(n => N[n.id] = n);
+    const arcs = [
+      [0, 4, 0], [4, 8, 0], [8, 12, 0],
+      [0, 8, -0.40 * h], [4, 12, -0.40 * h], [0, 12, 0.50 * h],
+    ];
+    arcs.forEach(([i, j, bow]) => {
+      const chosen = inPath(i, j);
+      drawLink(ctx, t, N[i], N[j], {
+        bow, arrow: true, nodeR: 18,
+        color: chosen ? t.s5 : t.axis, width: chosen ? 4 : 1.6,
+        label: costsKnown ? COST[key(i, j)] : '?',
+        labelOff: bow === 0 ? 16 : 12,
+        labelColor: chosen ? t.s5 : t.ink2, labelBold: chosen,
+      });
+    });
+    nodes.forEach(n => drawNodeCircle(ctx, t, n, String(n.id), {
+      r: 18, fill: path.includes(n.id) ? t.s5 : undefined, stroke: path.includes(n.id) ? t.s5 : undefined,
+    }));
+    halo(ctx, t, 'nothing shelved', N[0].x - 18, N[0].y + 36, t.muted, 12, false, 'left');
+    halo(ctx, t, 'all books shelved', N[12].x + 18, N[12].y + 36, t.muted, 12, false, 'right');
+    el('sh-plan').textContent = path.join('–');
+    el('sh-total').textContent = '$' + planCost().toLocaleString('en-US');
+  }
+
+  function check() {
+    const st = el('sh-status');
+    const hints = [];
+    let allOk = true, anyFilled = false;
+    Object.keys(COST).forEach(k => {
+      const v = el(INPUTS[k]).value;
+      if (v === '') { allOk = false; return; }
+      anyFilled = true;
+      const got = +v, want = COST[k];
+      if (Math.abs(got - want) < 0.5) return;
+      allOk = false;
+      if (Math.abs(got - (want - 2300)) < 0.5) hints.push(SUB[k] + ': add the $2,300 cost of building the shelf itself.');
+      else if (k === '0,8' && Math.abs(got - 4300) < 0.5) hints.push('C₀,₈: an 8-inch shelf for range 0–8 stores the 4-inch books TOO — 300 books, not 100.');
+      else if (k === '4,12' && Math.abs(got - 4700) < 0.5) hints.push('C₄,₁₂: the 8-inch books also land on this shelf — 180 books, not 80.');
+      else if (k === '0,12' && Math.abs(got - 8700) < 0.5) hints.push('C₀,₁₂: every book occupies the SHELF’s 12-inch height, not its own height.');
+      else hints.push(SUB[k] + ' is off: 2300 + ' + NBOOKS[k] + ' books × 0.5 × ' + k.split(',')[1] + ' × 5.');
+    });
+    if (!anyFilled) {
+      st.className = 'status info';
+      st.textContent = 'Fill in the six arc costs first — Cᵢⱼ = 2300 + (#books in the range) × 0.5 × j × 5.';
+      return;
+    }
+    if (allOk) {
+      costsKnown = true;
+      st.className = 'status ok';
+      st.textContent = '✓ All six costs correct — now click the cheapest 0 → 12 route on the network.';
+      draw();
+    } else {
+      st.className = 'status bad';
+      st.textContent = '✗ Not yet. ' + (hints.length ? hints.slice(0, 2).join(' ') : 'Fill in every box.');
+    }
+  }
+
+  function show() {
+    Object.keys(COST).forEach(k => el(INPUTS[k]).value = COST[k]);
+    costsKnown = true;
+    el('sh-status').className = 'status info';
+    el('sh-status').textContent = 'Costs revealed (slide 22). Now click the cheapest 0 → 12 route.';
+    draw();
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const n = hitNode(nodes, px, py, 18);
+    if (!n) return;
+    const st = el('sh-status');
+    if (!costsKnown) {
+      st.className = 'status info';
+      st.textContent = 'Compute (or reveal) the six arc costs first — then pick the route.';
+      return;
+    }
+    const last = path[path.length - 1];
+    if (n.id === last && path.length > 1) { path.pop(); draw(); return; }
+    if (done()) {
+      st.className = 'status info';
+      st.textContent = 'Plan finished — press “Reset plan” to try another.';
+      return;
+    }
+    if (n.id <= last) {
+      st.className = 'status bad';
+      st.textContent = 'Shelf ranges only grow: pick a node to the right of ' + last + '.';
+      return;
+    }
+    path.push(n.id);
+    if (done()) {
+      const c = planCost();
+      const shelves = path.slice(1).map((j, k) => j + '″ shelf for the ' + NBOOKS[key(path[k], j)] + ' books over ' + path[k] + '″');
+      st.className = c === 12000 ? 'status ok' : 'status info';
+      st.textContent = (c === 12000 ? '✓ $12,000 — the cheapest plan (slide 22): ' : 'That plan costs $' + c.toLocaleString('en-US') + ' — a cheaper one exists. Plan: ') +
+        shelves.join(' + ') + '.';
+    } else {
+      st.className = 'status info';
+      st.textContent = 'Shelf added: height ' + n.id + '″ for books over ' + last + '″ ($' + COST[key(last, n.id)].toLocaleString('en-US') + '). Continue to node 12.';
+    }
+    draw();
+  });
+
+  el('sh-check').addEventListener('click', check);
+  el('sh-show').addEventListener('click', show);
+  el('sh-undo').addEventListener('click', () => { if (path.length > 1) path.pop(); draw(); });
+  el('sh-reset').addEventListener('click', () => {
+    path = [0];
+    el('sh-status').className = 'status info';
+    el('sh-status').textContent = costsKnown ? 'New plan — click from node 0.' : 'Compute the six arc costs first.';
+    draw();
+  });
+
+  el('sh-status').textContent = 'Step 1: compute the six arc costs above, then check them.';
+  VIZ.register(canvas, draw);
+})();
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('carplan', {
+  label: '5-year net cost ($1,000s)', dir: 'min', digits: 0,
+  get: () => window.__carScore(),
+});
+CLASSROOM.register('park', {
+  label: 'route length (miles)', dir: 'min', digits: 0,
+  get: () => window.__parkScore(),
+});
+</script>
+</body>
+</html>

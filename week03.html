@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IE342 · Week 3 — IP Modeling (Part 2) (Interactive)</title>
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+<style>
+  /* investment / product / location cards */
+  .pick-cards { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0 4px; }
+  .pick-card {
+    flex: 1 1 170px; min-width: 150px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--page); padding: 10px 12px; cursor: pointer;
+    text-align: left; font: inherit; color: var(--ink);
+  }
+  .pick-card:hover { border-color: var(--axis); }
+  .pick-card.on { border: 2px solid var(--s1); padding: 9px 11px; }
+  .pick-card .t { display: block; font-weight: 700; }
+  .pick-card .d { display: block; color: var(--ink-2); font-size: 0.88rem; margin-top: 2px; }
+  .pick-card .st { display: block; font-size: 0.8rem; font-weight: 700; color: var(--muted); margin-top: 4px; }
+  .pick-card.on .st { color: var(--s1); }
+  /* resource bars */
+  .bars { display: flex; flex-wrap: wrap; gap: 10px 26px; margin: 10px 0 2px; }
+  .bar-group { flex: 1 1 260px; min-width: 220px; }
+  .bar-group .cap { font-size: 0.88rem; color: var(--ink-2); margin-bottom: 3px; }
+  .bar { height: 12px; border-radius: 999px; background: var(--grid); overflow: hidden; }
+  .bar > div { height: 100%; border-radius: 999px; background: var(--s1); width: 0%; }
+  .bar > div.over { background: var(--critical); }
+  /* fixed-charge product rows */
+  .prod-rows { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 4px; }
+  .prod-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--page); padding: 8px 12px;
+  }
+  .prod-row .nm { font-weight: 700; min-width: 74px; }
+  .prod-row .info { color: var(--ink-2); font-size: 0.85rem; flex: 1 1 200px; }
+  .prod-row .qty { font-variant-numeric: tabular-nums; min-width: 84px; }
+  button.rent { min-width: 128px; }
+  button.rent.on { background: var(--s1); border-color: var(--s1); color: #ffffff; }
+  /* constraint quiz rows */
+  .con-rows { display: flex; flex-direction: column; gap: 6px; margin: 12px 0 4px; max-width: 560px; }
+  .con-row {
+    font: inherit; font-variant-numeric: tabular-nums; text-align: left;
+    border: 1px solid var(--border); border-radius: 8px;
+    background: var(--page); color: var(--ink);
+    padding: 6px 12px; cursor: pointer;
+  }
+  .con-row:hover { border-color: var(--axis); }
+  .con-row.struck { text-decoration: line-through; color: var(--critical); border-color: var(--critical); }
+  .con-row .who { color: var(--muted); font-size: 0.8rem; text-decoration: none; }
+  /* course assignment grid */
+  .course-grid { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 4px; }
+  .course-line { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .course-line .cn { font-weight: 700; min-width: 82px; }
+  button.fac { padding: 5px 12px; font-size: 0.9rem; border-radius: 999px; }
+  button.fac.sel { background: var(--s5); border-color: var(--s5); color: #ffffff; }
+  /* powerco cost table */
+  .tbl-wrap { overflow-x: auto; }
+  table.costs {
+    border-collapse: collapse; font-variant-numeric: tabular-nums;
+    font-size: 0.95rem; margin-top: 10px; min-width: 520px;
+  }
+  table.costs th, table.costs td {
+    border: 1px solid var(--grid); padding: 6px 12px; text-align: right;
+  }
+  table.costs th { color: var(--ink-2); }
+  table.costs td:first-child, table.costs th:first-child { text-align: left; }
+  table.costs td.pick { background: var(--region-fill); font-weight: 700; }
+  table.costs tr.closed td { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>IE342 Mathematical Modelling and Exact Methods — Week 3: IP Modeling (Part 2)</h1>
+  <div class="sub"><a href="index.html" style="color:inherit">← all weeks</a> · interactive companion, used alongside the slides</div>
+  <div class="theme-switch" id="theme-switch"></div>
+  <nav class="widgets">
+    <a href="#invest">1 · Investment knapsack</a>
+    <a href="#fixedcharge">2 · Fixed-charge factory</a>
+    <a href="#firemap">3 · Fire-station cover</a>
+    <a href="#redundant">4 · Redundancy quiz</a>
+    <a href="#duty">5 · Course assignment</a>
+    <a href="#powerco">6 · Plant location</a>
+  </nav>
+</header>
+
+<main>
+
+<!-- ================= WIDGET 1 : INVESTMENT KNAPSACK ================= -->
+<section class="widget" id="invest">
+  <h2>Which investments fit $24,000? <span class="chip">Slide 4</span></h2>
+  <p class="howto">
+    The investor on slide 4 has $24,000 and four opportunities (costs $9k, $7k, $7k, $3k;
+    present values $13k, $11k, $10k, $5k). <b>Click cards to build a portfolio</b> — every
+    investment is all-or-nothing, that is what makes the x&#8321;…x&#8324; binary. Hunt the largest
+    total present value that still fits the budget.
+  </p>
+  <div class="pick-cards" id="iv-cards"></div>
+  <div class="controls">
+    <span class="readout">budget used: <b id="iv-cost">$0</b> / $24,000</span>
+    <span class="readout">total present value: <b id="iv-val">$0</b></span>
+    <span class="readout">your best (feasible): <b id="iv-best">—</b></span>
+  </div>
+  <p class="status info" id="iv-status">Pick some investments.</p>
+  <div class="note">
+    A quick trap to try on the class first: ranking by “bang per buck” ($5k/$3k = 1.67 is the
+    juiciest ratio) and filling greedily gives portfolio {1, 2, 4} — is that the best this budget can do?
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The optimum is {1, 2, 3}: cost $23,000 ≤ $24,000, present value <b>$34,000</b>.
+      Greedy-by-ratio reaches only $29,000 because taking cheap investment 4 blocks investment 3.
+      The LP relaxation (fractional x allowed) scores $36,142.86 with x&#8323; = 5/7 — rounding that
+      down also gives just $29,000. Integrality genuinely matters, which is why slide 4 sends this
+      model to a solver. (Optimal values computed from the slide's data; the slide itself only states the model.)
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 2 : FIXED-CHARGE FACTORY ================= -->
+<section class="widget" id="fixedcharge">
+  <h2>Rent the machine or not? <span class="chip">Slides 6–8</span></h2>
+  <p class="howto">
+    WearThis (slide 7) sells shirts, shorts and pants. Producing anything of a product first
+    requires renting its machine for the week (fixed cost 200 / 150 / 100), then each unit earns
+    the sales price minus variable cost and consumes labor and cloth. The week offers
+    <b>150 h of labor</b> and <b>160 m² of cloth</b>. <b>Toggle the rentals, drag the quantities</b>,
+    keep the plan feasible, and maximize the weekly profit. Log your attempts and beat the room.
+  </p>
+  <div class="prod-rows">
+    <div class="prod-row">
+      <span class="nm">Shirts</span>
+      <button class="rent" id="fc-y0">rent machine ($200)</button>
+      <input type="range" id="fc-x0" min="0" max="40" step="1" value="0">
+      <span class="qty">x&#8321; = <b id="fc-q0">0</b></span>
+      <span class="info">margin $6/unit · 3 h labor · 4 m² cloth</span>
+    </div>
+    <div class="prod-row">
+      <span class="nm">Shorts</span>
+      <button class="rent" id="fc-y1">rent machine ($150)</button>
+      <input type="range" id="fc-x1" min="0" max="53" step="1" value="0">
+      <span class="qty">x&#8322; = <b id="fc-q1">0</b></span>
+      <span class="info">margin $4/unit · 2 h labor · 3 m² cloth</span>
+    </div>
+    <div class="prod-row">
+      <span class="nm">Pants</span>
+      <button class="rent" id="fc-y2">rent machine ($100)</button>
+      <input type="range" id="fc-x2" min="0" max="25" step="1" value="0">
+      <span class="qty">x&#8323; = <b id="fc-q2">0</b></span>
+      <span class="info">margin $7/unit · 6 h labor · 4 m² cloth</span>
+    </div>
+  </div>
+  <div class="bars">
+    <div class="bar-group">
+      <div class="cap">labor: <b id="fc-lab">0</b> / 150 h</div>
+      <div class="bar"><div id="fc-labbar"></div></div>
+    </div>
+    <div class="bar-group">
+      <div class="cap">cloth: <b id="fc-clo">0</b> / 160 m²</div>
+      <div class="bar"><div id="fc-clobar"></div></div>
+    </div>
+  </div>
+  <div class="controls">
+    <span class="readout">rent paid: <b id="fc-rent">$0</b></span>
+    <span class="readout">weekly profit: <b id="fc-profit">$0</b></span>
+    <button class="primary" id="fc-log">Log attempt</button>
+    <button id="fc-clear">Clear log</button>
+  </div>
+  <p class="status info" id="fc-status">Rent something and start producing.</p>
+  <div style="overflow-x:auto"><table class="attempts" id="fc-table" style="display:none">
+    <thead><tr><th>#</th><th>plan (x&#8321;, x&#8322;, x&#8323;)</th><th>rented</th><th>labor</th><th>cloth</th><th>profit</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <div class="note">
+    The y-variables exist exactly for this rule: x<sub>i</sub> can be positive only when y<sub>i</sub> = 1, written
+    x<sub>i</sub> ≤ M·y<sub>i</sub> on slide 8. Here M = 53 already works — no product can exceed 53 units on
+    these resources — and any larger M leaves the model unchanged.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Best week: rent <b>only the pants machine</b> and make 25 pants (labor 150/150, cloth 100/160):
+      profit 7·25 − 100 = <b>$75</b>. Shirts-only peaks at $40, shorts-only at $62, and every
+      multi-rental plan pays more in fixed cost than the extra margin brings in — e.g. shirts+pants
+      tops out at 250 − 300 = −$50. (Optimum computed by enumeration from the slide's data;
+      the slides pose the model without solving it.)
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 3 : FIRE-STATION SET COVERING ================= -->
+<section class="widget" id="firemap">
+  <h2>Cover the city with fire stations <span class="chip">Slides 13–16</span></h2>
+  <p class="howto">
+    The city map from slide 13: eleven neighborhoods, and a station handles its own neighborhood
+    plus every neighborhood sharing a border with it. <b>Click neighborhoods to open (or close)
+    stations</b> — covered areas fill in. Protect all 11 with as few stations as you can.
+  </p>
+  <div class="controls">
+    <span class="readout">stations: <b id="fm-count">0</b></span>
+    <span class="readout">covered: <b id="fm-cov">0</b> / 11</span>
+    <span class="readout">your best full cover: <b id="fm-best">—</b></span>
+    <button class="primary" id="fm-reveal">Reveal an optimal placement ★</button>
+    <button id="fm-clear">Clear stations</button>
+  </div>
+  <canvas class="viz" id="c-fm"></canvas>
+  <p class="status info" id="fm-status">Open your first station.</p>
+  <div class="note">
+    This is the set covering pattern of slide 12: rows = neighborhoods that must be protected,
+    columns = places a station could go. The map is redrawn schematically; adjacencies follow the
+    slide's constraint list exactly.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      The minimum is <b>3 stations</b> — no pair covers everything (checked by enumeration on the
+      slide's adjacency data). One optimum is {1, 6, 9}; in fact 30 different triples are optimal,
+      which is typical of covering problems and part of why they are solved as IPs rather than by
+      inspection. Slide 16's twist: put cost c<sub>i</sub> on each x<sub>i</sub> and the same constraints minimize
+      total budget instead of station count.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 4 : REDUNDANT CONSTRAINT QUIZ ================= -->
+<section class="widget" id="redundant">
+  <h2>Which constraints are redundant? <span class="chip">Slides 14–16</span></h2>
+  <p class="howto">
+    Slide 14 writes one covering constraint per neighborhood and then asks the class:
+    which of these eleven are redundant? <b>Click rows to strike the ones you would delete</b>,
+    then check. A constraint is safe to delete only if some other row forces it automatically.
+  </p>
+  <div class="con-rows" id="rd-rows"></div>
+  <div class="controls">
+    <button class="primary" id="rd-check">Check my strikes</button>
+    <button id="rd-show">Show answer</button>
+    <span class="readout">struck: <b id="rd-n">0</b></span>
+  </div>
+  <p class="status info" id="rd-status"></p>
+  <div class="note">
+    The rule of thumb: if row A's variable set contains row B's entirely, then satisfying B
+    (≥ 1) automatically satisfies A — so A can go.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Strike rows <b>3, 6, 9 and 10</b>, exactly as slide 15 does: row 3 contains row 1 (and row 2),
+      row 6 contains row 7, and rows 9 and 10 both contain row 11. Slide 16 keeps the remaining
+      seven constraints. Deleting redundant rows never changes the feasible set — it just makes the
+      model smaller.
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 5 : COURSE ASSIGNMENT ================= -->
+<section class="widget" id="duty">
+  <h2>Who teaches what? <span class="chip">Slides 22–24</span></h2>
+  <p class="howto">
+    Eight IE courses, five faculty members, and each course must be taught by <b>exactly one</b>
+    willing instructor (slide 23 lists who volunteers for what, with preference factors).
+    A person may take several courses. <b>Pick one instructor per course</b> and maximize the
+    total preference — then submit to the class leaderboard.
+  </p>
+  <div class="course-grid" id="dy-grid"></div>
+  <div class="controls">
+    <span class="readout">assigned: <b id="dy-done">0</b> / 8</span>
+    <span class="readout">total preference: <b id="dy-total">—</b></span>
+    <span class="readout" id="dy-loads">loads: —</span>
+  </div>
+  <p class="status info" id="dy-status">Every course needs exactly one instructor.</p>
+  <div class="note">
+    This is a set partitioning model (slide 17): equality constraints, one per course. Courses 3
+    and 4 have a single volunteer, so x&#8321;&#8323; = 1 and x&#8323;&#8324; = 1 are forced before any optimization.
+    Slide 24's note: pairs that are not allowed get p<sub>ij</sub> = −M so they never enter.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Maximum total preference = <b>43</b>: Örsan → courses 1, 3, 7 (5+6+10), Ihsan → 2 (5),
+      Elvin → 4 (6), course 5 → Burcu or Elvin (2 either way — two optima!), Enis → 6 (5),
+      Burcu → 8 (4). Because no constraint couples two courses here, picking the best volunteer
+      per course is already optimal — that is slide 24's discussion point about set partitioning
+      versus assignment. (Value computed from the slide's preference data.)
+    </details>
+  </div>
+</section>
+
+<!-- ================= WIDGET 6 : PLANT LOCATION ================= -->
+<section class="widget" id="powerco">
+  <h2>Where should Powerco build? <span class="chip">Slides 26–27</span></h2>
+  <p class="howto">
+    The facility-location version of Powerco (slide 26): three candidate plant sites with
+    construction costs $20M / $35M / $15M, four cities with demands 45, 20, 30, 30 million kWh,
+    and per-unit shipping costs in the table. A built plant has unlimited supply, so every city
+    simply buys from its cheapest <em>open</em> plant — <b>toggle which locations to build</b> and
+    watch the total cost.
+  </p>
+  <div class="pick-cards" id="pw-cards"></div>
+  <div class="tbl-wrap"><table class="costs" id="pw-table"></table></div>
+  <div class="controls">
+    <span class="readout">construction: <b id="pw-fix">$0</b></span>
+    <span class="readout">transport: <b id="pw-tr">—</b></span>
+    <span class="readout">total: <b id="pw-total">—</b></span>
+  </div>
+  <p class="status info" id="pw-status">Build at least one plant.</p>
+  <div class="note">
+    On slide 27 this becomes the fixed-charge trick again: supply constraints x<sub>i1</sub>+…+x<sub>i4</sub> ≤ M·y<sub>i</sub>
+    switch a site's capacity on only when its construction cost is paid. Highlighted cells show
+    each city's cheapest open supplier.
+    <details class="spoiler"><summary>spoiler — open after the class has answered</summary>
+      Build <b>only Location 3</b>: transport 14·45 + 9·20 + 16·30 + 5·30 = $1,440 and total
+      cost <b>$15,001,440</b>. Location 1 ships cheapest ($1,050) but its $20M price tag loses to
+      Location 3's $15M — with fixed costs four orders of magnitude above shipping, the model
+      buys ONE cheap plant and eats the worse routes. Every one of the 7 build-combinations is
+      worse (best two-plant total: $35,000,930). (Optimum computed from the slide's data; the
+      slide asks only for the formulation.)
+    </details>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  IE342 Mathematical Modelling and Exact Methods · interactive lecture companion · Week 3.
+  Figures follow the examples used in the Week 3 slides.
+  <div class="credit">Built for IE342 — Mathematical Modelling and Exact Methods at Özyeğin University, Department of Industrial Engineering, by Gökalp Erbeyoğlu (PhD).</div>
+</footer>
+
+<script src="assets/viz.js"></script>
+<script>
+const el = id => document.getElementById(id);
+const fmt = (v, d = 2) => Number(v).toFixed(d);
+const money = v => '$' + Math.round(v).toLocaleString('en-US');
+
+/* ============================================================
+   WIDGET 1 — investment knapsack (slide 4)
+   max 13x1+11x2+10x3+5x4 s.t. 9x1+7x2+7x3+3x4 <= 24, x binary.
+   Optimum {1,2,3} = 34 (cost 23). Greedy-by-ratio {1,2,4} = 29.
+   ============================================================ */
+(() => {
+  const COST = [9, 7, 7, 3];
+  const VAL = [13, 11, 10, 5];
+  const BUDGET = 24;
+  const on = [false, false, false, false];
+  let best = null;
+
+  const host = el('iv-cards');
+  COST.forEach((c, i) => {
+    const b = document.createElement('button');
+    b.className = 'pick-card';
+    b.innerHTML = '<span class="t">Investment ' + (i + 1) + '</span>' +
+      '<span class="d">costs $' + c + ',000 &middot; present value $' + VAL[i] + ',000</span>' +
+      '<span class="st">SKIPPED</span>';
+    b.addEventListener('click', () => { on[i] = !on[i]; update(); });
+    host.appendChild(b);
+  });
+
+  function update() {
+    let cost = 0, val = 0;
+    host.querySelectorAll('.pick-card').forEach((b, i) => {
+      b.classList.toggle('on', on[i]);
+      b.querySelector('.st').textContent = on[i] ? 'IN THE PORTFOLIO' : 'SKIPPED';
+      if (on[i]) { cost += COST[i]; val += VAL[i]; }
+    });
+    el('iv-cost').textContent = money(cost * 1000);
+    el('iv-val').textContent = money(val * 1000);
+    const st = el('iv-status');
+    if (cost > BUDGET) {
+      st.className = 'status bad';
+      st.textContent = '✗ Over budget by $' + (cost - BUDGET) + ',000 — this portfolio is infeasible.';
+    } else {
+      if (best === null || val > best) best = val;
+      el('iv-best').textContent = money(best * 1000);
+      st.className = val > 0 ? 'status ok' : 'status info';
+      st.textContent = val > 0
+        ? '✓ Feasible — $' + (BUDGET - cost) + ',000 of the budget is left idle. Can another swap use it better?'
+        : 'Pick some investments.';
+    }
+  }
+  update();
+})();
+
+/* ============================================================
+   WIDGET 2 — WearThis fixed charge (slides 6-8)
+   max 6x1+4x2+7x3 -200y1-150y2-100y3
+   s.t. 3x1+2x2+6x3 <= 150 (labor), 4x1+3x2+4x3 <= 160 (cloth),
+        xi <= M yi.  Best: y=(0,0,1), x=(0,0,25), profit 75.
+   ============================================================ */
+(() => {
+  const MARGIN = [6, 4, 7], RENT = [200, 150, 100];
+  const LAB = [3, 2, 6], CLO = [4, 3, 4];
+  const NAME = ['shirts', 'shorts', 'pants'];
+  const y = [false, false, false];
+  let attempts = [], bestIdx = -1;
+
+  const state = () => [0, 1, 2].map(i => +el('fc-x' + i).value);
+
+  function evalPlan() {
+    const x = state();
+    const lab = LAB.reduce((s, a, i) => s + a * x[i], 0);
+    const clo = CLO.reduce((s, a, i) => s + a * x[i], 0);
+    const rent = RENT.reduce((s, a, i) => s + (y[i] ? a : 0), 0);
+    const gross = MARGIN.reduce((s, a, i) => s + a * x[i], 0);
+    const broken = [];
+    if (lab > 150) broken.push('labor exceeds 150 h');
+    if (clo > 160) broken.push('cloth exceeds 160 m²');
+    x.forEach((v, i) => { if (v > 0 && !y[i]) broken.push(NAME[i] + ' produced without renting (x ≤ M·y is violated)'); });
+    return { x, lab, clo, rent, gross, profit: gross - rent, broken };
+  }
+
+  function update() {
+    const r = evalPlan();
+    [0, 1, 2].forEach(i => {
+      el('fc-q' + i).textContent = r.x[i];
+      const b = el('fc-y' + i);
+      b.classList.toggle('on', y[i]);
+      b.textContent = (y[i] ? 'renting ✓ ($' : 'rent machine ($') + RENT[i] + ')';
+    });
+    el('fc-lab').textContent = r.lab;
+    el('fc-clo').textContent = r.clo;
+    const lb = el('fc-labbar'), cb = el('fc-clobar');
+    lb.style.width = Math.min(100, r.lab / 150 * 100) + '%';
+    cb.style.width = Math.min(100, r.clo / 160 * 100) + '%';
+    lb.classList.toggle('over', r.lab > 150);
+    cb.classList.toggle('over', r.clo > 160);
+    el('fc-rent').textContent = money(r.rent);
+    el('fc-profit').textContent = money(r.profit);
+    const st = el('fc-status');
+    if (r.broken.length) {
+      st.className = 'status bad';
+      st.textContent = '✗ Infeasible: ' + r.broken.join('; ') + '.';
+    } else if (r.rent === 0 && r.gross === 0) {
+      st.className = 'status info';
+      st.textContent = 'Rent something and start producing. (Doing nothing is feasible — profit $0.)';
+    } else {
+      st.className = 'status ok';
+      st.textContent = '✓ Feasible plan — weekly profit ' + money(r.profit) + '. Log it, then try to beat it.';
+    }
+    return r;
+  }
+
+  window.FC_SCORE = () => { const r = evalPlan(); return r.broken.length ? null : r.profit; };
+
+  function log() {
+    const r = evalPlan();
+    r.yy = y.slice();
+    attempts.push(r);
+    if (!r.broken.length && (bestIdx < 0 || r.profit > attempts[bestIdx].profit)) bestIdx = attempts.length - 1;
+    const tb = el('fc-table');
+    tb.style.display = '';
+    tb.querySelector('tbody').innerHTML = attempts.map((a, q) =>
+      '<tr class="' + (a.broken.length ? 'infeasible' : (q === bestIdx ? 'best' : '')) + '">' +
+      '<td>' + (q + 1) + '</td><td>(' + a.x.join(', ') + ')</td>' +
+      '<td>' + (NAME.filter((_, i2) => a.yy[i2]).join('+') || '—') + '</td>' +
+      '<td>' + a.lab + '</td><td>' + a.clo + '</td>' +
+      '<td>' + (a.broken.length ? 'infeasible' : money(a.profit)) + '</td></tr>').join('');
+  }
+
+  [0, 1, 2].forEach(i => {
+    el('fc-y' + i).addEventListener('click', () => { y[i] = !y[i]; update(); });
+    el('fc-x' + i).addEventListener('input', update);
+  });
+  el('fc-log').addEventListener('click', log);
+  el('fc-clear').addEventListener('click', () => {
+    attempts = []; bestIdx = -1;
+    el('fc-table').style.display = 'none';
+    el('fc-table').querySelector('tbody').innerHTML = '';
+  });
+  update();
+})();
+
+/* ============================================================
+   WIDGET 3 — fire-station set covering on the slide-13 map
+   cover[i] = {i} ∪ neighbors(i), copied from the slide-14 rows.
+   Min cover = 3 (e.g. {1,6,9}); verified by enumeration.
+   ============================================================ */
+(() => {
+  const canvas = el('c-fm');
+  VIZ.hint(canvas, '🖱 click a neighborhood to open / close a station');
+
+  // vertices of the schematic map (world coords, traced from slide 13)
+  const P = {
+    a: [1.75, 43.75], b: [9.25, 58.25], c: [19.9, 59.6], d: [23.9, 59.6],
+    e: [51.6, 61.9], f: [54.0, 57.35], g: [94.0, 60.6], h: [80.75, 45.0],
+    i: [97.75, 36.75], j: [54.25, 37.75], k: [48.25, 47.0], l: [26.5, 51.1],
+    m: [33.0, 52.0], t: [36.0, 43.6], u: [33.35, 37.85], x5: [32.25, 30.5],
+    w: [27.25, 31.75], v: [16.5, 27.0], c46: [28.25, 41.5], h34: [14.75, 42.5],
+    d12: [15.9, 30.4], n12: [12.75, 32.75], w12: [11.6, 34.15], n: [38.25, 37.65],
+    p5: [43.0, 22.0], q9: [44.5, 23.4], o: [46.75, 21.75], s: [29.5, 2.5],
+    z2: [20.0, 9.75], b2: [4.25, 19.5], b11: [65.0, 11.0],
+  };
+  const POLY = {
+    1: ['a', 'b', 'c', 'h34', 'd12', 'n12', 'w12'],
+    2: ['n12', 'd12', 'v', 'z2', 'b2'],
+    3: ['h34', 'c46', 'u', 'x5', 'w', 'v', 'd12'],
+    4: ['c', 'd', 'l', 'c46', 'h34'],
+    5: ['v', 'w', 'x5', 'u', 't', 'n', 'p5', 's', 'z2'],
+    6: ['l', 'm', 't', 'u', 'c46'],
+    7: ['d', 'e', 'f', 'm', 'l'],
+    8: ['m', 'f', 'k', 'n', 't'],
+    9: ['n', 'k', 'j', 'o', 'q9', 'p5'],
+    10: ['f', 'g', 'h', 'j', 'k'],
+    11: ['o', 'j', 'h', 'i', 'b11'],
+  };
+  const LABEL = {
+    1: [8.75, 50], 2: [11.25, 21.25], 3: [19.5, 35], 4: [22, 48.25],
+    5: [28, 21.5], 6: [31.2, 44.8], 7: [31.5, 56.75], 8: [40, 49.5],
+    9: [43.75, 33.5], 10: [63, 48.25], 11: [67, 30],
+  };
+  // covering sets, one per slide-14 constraint row: cover[i] = who can protect i
+  const COVER = {
+    1: [1, 2, 3, 4], 2: [1, 2, 3, 5], 3: [1, 2, 3, 4, 5, 6], 4: [1, 3, 4, 6, 7],
+    5: [2, 3, 5, 6, 8, 9], 6: [3, 4, 5, 6, 7, 8], 7: [4, 6, 7, 8],
+    8: [5, 6, 7, 8, 9, 10], 9: [5, 8, 9, 10, 11], 10: [8, 9, 10, 11], 11: [9, 10, 11],
+  };
+  const OPT = [1, 6, 9]; // one of the 30 optimal triples (enumerated)
+  let stations = new Set(), revealed = false, lastPlot = null, bestFull = null;
+
+  const coveredSet = () => {
+    const c = new Set();
+    for (let i = 1; i <= 11; i++) if (COVER[i].some(jj => stations.has(jj))) c.add(i);
+    return c;
+  };
+
+  function fitView() {
+    const w = Math.max(60, canvas.clientWidth - 16);
+    const h = Math.max(60, canvas.clientHeight - 16);
+    const asp = w / h, W = 101, H = 66, cx = 49.5, cy = 32;
+    let hw = W / 2, hh = H / 2;
+    if (asp > W / H) hw = hh * asp; else hh = hw / asp;
+    return { x0: cx - hw, x1: cx + hw, y0: cy - hh, y1: cy + hh, padL: 8, padR: 8, padT: 8, padB: 8 };
+  }
+
+  function draw() {
+    const p = VIZ.plot(canvas, fitView());
+    const t = VIZ.theme();
+    lastPlot = p;
+    const { ctx, X, Y } = p;
+    const cov = coveredSet();
+    for (let i = 1; i <= 11; i++) {
+      ctx.beginPath();
+      POLY[i].forEach((vt, q) => {
+        const [x, yy] = P[vt];
+        q === 0 ? ctx.moveTo(X(x), Y(yy)) : ctx.lineTo(X(x), Y(yy));
+      });
+      ctx.closePath();
+      if (cov.has(i)) { ctx.fillStyle = t.region; ctx.fill(); }
+      ctx.strokeStyle = t.axis;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    for (let i = 1; i <= 11; i++) {
+      const [lx, ly] = LABEL[i];
+      VIZ.label(p, String(i), lx, ly, cov.has(i) ? t.ink : t.ink2,
+        { align: 'center', baseline: 'middle', bold: true, size: 15 });
+      if (stations.has(i)) {
+        VIZ.star(p, lx, ly + 4.2, t.s5, 9);
+      }
+      if (revealed && OPT.includes(i)) {
+        VIZ.star(p, lx, ly - 4.2, t.s2, 9);
+      }
+    }
+    if (revealed) {
+      VIZ.label(p, '★ = one optimal placement (3 stations)', p.view.x0 + 2, p.view.y0 + 2, t.s2, { size: 13, bold: true });
+    }
+    el('fm-count').textContent = stations.size;
+    el('fm-cov').textContent = cov.size;
+    const st = el('fm-status');
+    if (cov.size === 11) {
+      if (bestFull === null || stations.size < bestFull) bestFull = stations.size;
+      el('fm-best').textContent = bestFull + ' station' + (bestFull > 1 ? 's' : '');
+      st.className = 'status ok';
+      st.textContent = '✓ Full coverage with ' + stations.size + ' station' + (stations.size > 1 ? 's' : '') +
+        '. Could a different arrangement need fewer?';
+    } else if (stations.size === 0) {
+      st.className = 'status info';
+      st.textContent = 'Open your first station.';
+    } else {
+      st.className = 'status bad';
+      const missing = [];
+      for (let i2 = 1; i2 <= 11; i2++) if (!cov.has(i2)) missing.push(i2);
+      st.textContent = 'Uncovered neighborhoods: ' + missing.join(', ') + '.';
+    }
+  }
+
+  function pip(x, y, poly) { // ray casting in world coords
+    let inside = false;
+    for (let q = 0, r = poly.length - 1; q < poly.length; r = q++) {
+      const [xi, yi] = P[poly[q]], [xj, yj] = P[poly[r]];
+      if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+  }
+
+  canvas.addEventListener('pointerdown', ev => {
+    if (!lastPlot) return;
+    const { px, py } = VIZ.pointer(canvas, ev);
+    const x = lastPlot.invX(px), y = lastPlot.invY(py);
+    for (let i = 1; i <= 11; i++) {
+      if (pip(x, y, POLY[i])) {
+        stations.has(i) ? stations.delete(i) : stations.add(i);
+        draw();
+        return;
+      }
+    }
+  });
+  el('fm-reveal').addEventListener('click', () => {
+    revealed = !revealed;
+    el('fm-reveal').textContent = revealed ? 'Hide the optimal placement' : 'Reveal an optimal placement ★';
+    draw();
+  });
+  el('fm-clear').addEventListener('click', () => { stations.clear(); draw(); });
+  VIZ.register(canvas, draw);
+})();
+
+/* ============================================================
+   WIDGET 4 — redundant-constraint quiz (slides 14-16)
+   Redundant rows = those whose cover set strictly contains
+   another row's set: {3, 6, 9, 10}, as struck on slide 15.
+   ============================================================ */
+(() => {
+  const COVER = {
+    1: [1, 2, 3, 4], 2: [1, 2, 3, 5], 3: [1, 2, 3, 4, 5, 6], 4: [1, 3, 4, 6, 7],
+    5: [2, 3, 5, 6, 8, 9], 6: [3, 4, 5, 6, 7, 8], 7: [4, 6, 7, 8],
+    8: [5, 6, 7, 8, 9, 10], 9: [5, 8, 9, 10, 11], 10: [8, 9, 10, 11], 11: [9, 10, 11],
+  };
+  const SUB = '₀₁₂₃₄₅₆₇₈₉';
+  const sub = q => String(q).split('').map(ch => SUB[+ch]).join('');
+  const rowText = i => COVER[i].map(q => 'x' + sub(q)).join(' + ') + ' ≥ 1';
+  // dominates: r implied by q  ⇔  set(q) ⊂ set(r)
+  const contains = (big, small) => small.every(q => COVER[big].includes(q)) && COVER[big].length > small.length;
+  const redundant = [];
+  const why = {};
+  for (let i = 1; i <= 11; i++) {
+    for (let q = 1; q <= 11; q++) {
+      if (q !== i && contains(i, COVER[q])) { redundant.push(i); why[i] = q; break; }
+    }
+  }
+
+  const struck = new Set();
+  const host = el('rd-rows');
+  for (let i = 1; i <= 11; i++) {
+    const b = document.createElement('button');
+    b.className = 'con-row';
+    b.innerHTML = rowText(i) + ' <span class="who">(neighborhood ' + i + ')</span>';
+    b.addEventListener('click', () => {
+      struck.has(i) ? struck.delete(i) : struck.add(i);
+      b.classList.toggle('struck', struck.has(i));
+      el('rd-n').textContent = struck.size;
+      el('rd-status').className = 'status info';
+      el('rd-status').textContent = '';
+    });
+    host.appendChild(b);
+  }
+
+  el('rd-check').addEventListener('click', () => {
+    const st = el('rd-status');
+    const wrong = [...struck].filter(i => !redundant.includes(i));
+    const missed = redundant.filter(i => !struck.has(i));
+    if (!wrong.length && !missed.length) {
+      st.className = 'status ok';
+      st.textContent = '✓ Exactly right — rows 3, 6, 9 and 10 go, seven constraints remain (slide 16).';
+      return;
+    }
+    st.className = 'status bad';
+    const hints = [];
+    if (wrong.length) {
+      hints.push('Row ' + wrong.join(', row ') + ' must STAY: no other row’s variable set sits inside ' +
+        (wrong.length > 1 ? 'them' : 'it') + ', so deleting ' + (wrong.length > 1 ? 'them' : 'it') +
+        ' could leave that neighborhood unprotected.');
+    }
+    if (missed.length) {
+      const m = missed[0];
+      hints.push('Still hiding: compare row ' + m + ' with row ' + why[m] + ' — every variable of row ' +
+        why[m] + ' also appears in row ' + m + ', so row ' + why[m] + ' ≥ 1 already forces row ' + m + ' ≥ 1.');
+    }
+    st.textContent = '✗ Not yet. ' + hints.join(' ');
+  });
+
+  el('rd-show').addEventListener('click', () => {
+    struck.clear();
+    redundant.forEach(i => struck.add(i));
+    host.querySelectorAll('.con-row').forEach((b, idx) => b.classList.toggle('struck', struck.has(idx + 1)));
+    el('rd-n').textContent = struck.size;
+    const st = el('rd-status');
+    st.className = 'status info';
+    st.textContent = 'Rows 3, 6, 9, 10 struck — each strictly contains another row (3⊃1, 6⊃7, 9⊃11, 10⊃11).';
+  });
+})();
+
+/* ============================================================
+   WIDGET 5 — course assignment set partitioning (slides 22-24)
+   Preferences from slide 23; each course = exactly one instructor.
+   Max total preference = 43 (course 5 ties at 2-2).
+   ============================================================ */
+(() => {
+  const FAC = ['Örsan', 'Burcu', 'Elvin', 'Ihsan', 'Enis'];
+  // PREF[f][c] (1-based courses): from slide 23
+  const OFFERS = {   // course -> [ [facIndex, pref], ... ]
+    1: [[0, 5], [4, 4]],
+    2: [[1, 1], [3, 5]],
+    3: [[0, 6]],
+    4: [[2, 6]],
+    5: [[1, 2], [2, 2]],
+    6: [[3, 1], [4, 5]],
+    7: [[0, 10], [1, 4], [4, 3]],
+    8: [[0, 3], [1, 4]],
+  };
+  const chosen = {}; // course -> facIndex
+
+  const host = el('dy-grid');
+  for (let c = 1; c <= 8; c++) {
+    const line = document.createElement('div');
+    line.className = 'course-line';
+    line.innerHTML = '<span class="cn">Course ' + c + '</span>';
+    OFFERS[c].forEach(([f, pref]) => {
+      const b = document.createElement('button');
+      b.className = 'fac';
+      b.textContent = FAC[f] + ' · ' + pref;
+      b.addEventListener('click', () => {
+        chosen[c] = (chosen[c] === f) ? undefined : f;
+        update();
+      });
+      b.dataset.f = f;
+      line.appendChild(b);
+    });
+    host.appendChild(line);
+  }
+
+  function currentTotal() {
+    let done = 0, total = 0;
+    for (let c = 1; c <= 8; c++) {
+      if (chosen[c] === undefined) continue;
+      done++;
+      total += OFFERS[c].find(([f]) => f === chosen[c])[1];
+    }
+    return { done, total };
+  }
+
+  function update() {
+    host.querySelectorAll('.course-line').forEach((line, idx) => {
+      const c = idx + 1;
+      line.querySelectorAll('button.fac').forEach(b => b.classList.toggle('sel', +b.dataset.f === chosen[c]));
+    });
+    const { done, total } = currentTotal();
+    el('dy-done').textContent = done;
+    el('dy-total').textContent = done === 8 ? total : '— (' + done + '/8 assigned)';
+    const loads = FAC.map((nm, f) => {
+      const k = Object.values(chosen).filter(x => x === f).length;
+      return k ? nm + ' ' + k : null;
+    }).filter(Boolean);
+    el('dy-loads').textContent = 'loads: ' + (loads.length ? loads.join(' · ') : '—');
+    const st = el('dy-status');
+    if (done < 8) {
+      st.className = 'status info';
+      st.textContent = 'Every course needs exactly one instructor — ' + (8 - done) + ' to go.';
+    } else {
+      st.className = 'status ok';
+      st.textContent = '✓ Feasible partition — total preference ' + total + '. Submit it, then look for improving swaps.';
+    }
+  }
+
+  window.DY_SCORE = () => {
+    const { done, total } = currentTotal();
+    return done === 8 ? total : null;
+  };
+  update();
+})();
+
+/* ============================================================
+   WIDGET 6 — Powerco plant location (slides 26-27)
+   Unit costs + demands from slide 26; unlimited supply once built,
+   so each city buys from the cheapest open plant.
+   Best: location 3 only, total 15,001,440.
+   ============================================================ */
+(() => {
+  const TC = [[8, 6, 10, 9], [9, 12, 13, 7], [14, 9, 16, 5]];
+  const FIX = [20000000, 35000000, 15000000];
+  const DEM = [45, 20, 30, 30];
+  const open = [false, false, false];
+
+  const host = el('pw-cards');
+  FIX.forEach((fc, i) => {
+    const b = document.createElement('button');
+    b.className = 'pick-card';
+    b.innerHTML = '<span class="t">Location ' + (i + 1) + '</span>' +
+      '<span class="d">construction ' + money(fc) + '</span>' +
+      '<span class="st">NOT BUILT</span>';
+    b.addEventListener('click', () => { open[i] = !open[i]; update(); });
+    host.appendChild(b);
+  });
+
+  function update() {
+    host.querySelectorAll('.pick-card').forEach((b, i) => {
+      b.classList.toggle('on', open[i]);
+      b.querySelector('.st').textContent = open[i] ? 'BUILT ✓' : 'NOT BUILT';
+    });
+    const any = open.some(Boolean);
+    // cheapest open supplier per city
+    const pick = DEM.map((_, j) => {
+      let bi = -1;
+      for (let i = 0; i < 3; i++) if (open[i] && (bi < 0 || TC[i][j] < TC[bi][j])) bi = i;
+      return bi;
+    });
+    let html = '<thead><tr><th>from \\ to</th><th>City 1</th><th>City 2</th><th>City 3</th><th>City 4</th><th>built?</th></tr></thead><tbody>';
+    for (let i = 0; i < 3; i++) {
+      html += '<tr class="' + (open[i] ? '' : 'closed') + '"><td>Location ' + (i + 1) + '</td>' +
+        TC[i].map((c, j) => '<td class="' + (pick[j] === i ? 'pick' : '') + '">$' + c + '</td>').join('') +
+        '<td>' + (open[i] ? 'yes' : 'no') + '</td></tr>';
+    }
+    html += '<tr><td>demand (M kWh)</td>' + DEM.map(d => '<td>' + d + '</td>').join('') + '<td></td></tr></tbody>';
+    el('pw-table').innerHTML = html;
+
+    const fix = FIX.reduce((s, v, i) => s + (open[i] ? v : 0), 0);
+    el('pw-fix').textContent = money(fix);
+    const st = el('pw-status');
+    if (!any) {
+      el('pw-tr').textContent = '—';
+      el('pw-total').textContent = '—';
+      st.className = 'status bad';
+      st.textContent = '✗ No plant is built — the four demand constraints cannot be met.';
+      return;
+    }
+    const tr = DEM.reduce((s, d, j) => s + d * TC[pick[j]][j], 0);
+    el('pw-tr').textContent = money(tr);
+    el('pw-total').textContent = money(fix + tr);
+    st.className = 'status ok';
+    st.textContent = '✓ Demand met — total cost ' + money(fix + tr) +
+      ' (construction ' + money(fix) + ' + transport ' + money(tr) + '). Fewer plants? Different site?';
+  }
+  update();
+})();
+</script>
+<script src="assets/classroom-config.js"></script>
+<script src="assets/qrcode.js"></script>
+<script src="assets/classroom.js"></script>
+<script>
+CLASSROOM.register('fixedcharge', {
+  label: 'weekly profit ($)', dir: 'max', digits: 0,
+  get: () => window.FC_SCORE(),
+});
+CLASSROOM.register('duty', {
+  label: 'total preference', dir: 'max', digits: 0,
+  get: () => window.DY_SCORE(),
+});
+</script>
+</body>
+</html>
